@@ -1,0 +1,112 @@
+export const manifest = {
+  screens: {
+    scr_mu6dwz: { name: "Inicio", route: "/", position: { "x": 160, "y": 220 } },
+    scr_ngfs6m: { name: "Hormobiota", route: "/hormobiota", position: { "x": 14160, "y": 220 } },
+    scr_s992lq: { name: "Nosotros", route: "/nosotros", position: { "x": 1560, "y": 220 } },
+    scr_we7h18: { name: "Eventos", route: "/eventos", position: { "x": 2960, "y": 220 } },
+    scr_kq6h70: { name: "Comunidad", route: "/comunidad", position: { "x": 4360, "y": 220 } },
+    scr_kddcnj: { name: "Aliados", route: "/aliados", position: { "x": 5760, "y": 220 } },
+    scr_4t0a26: { name: "Contenido", route: "/contenido", position: { "x": 7160, "y": 220 } },
+    scr_sgnns4: { name: "Agenda digital", route: "/digital", position: { "x": 8560, "y": 220 } },
+    scr_315zxd: { name: "Tienda", route: "/tienda", position: { "x": 9960, "y": 220 } },
+    scr_plyezn: { name: "Contacto", route: "/contacto", position: { "x": 11360, "y": 220 } },
+    scr_ztmt2a: { name: "Legal", route: "/legal", position: { "x": 12760, "y": 220 } },
+    scr_rva71v: { name: "Hormobiota 2 · Inicio", route: "/eventos/hormobiota/hormobiota-2-2027", position: { "x": 160, "y": 2200 } },
+    scr_uppjf1: { name: "Hormobiota 2 · Agenda", route: "/eventos/hormobiota/hormobiota-2-2027/agenda", position: { "x": 1560, "y": 2200 } },
+    scr_j4ljsj: { name: "Hormobiota 2 · Speakers", route: "/eventos/hormobiota/hormobiota-2-2027/speakers", position: { "x": 2960, "y": 2200 } },
+    scr_x3ljws: { name: "Hormobiota 2 · Tickets", route: "/eventos/hormobiota/hormobiota-2-2027/tickets", position: { "x": 4360, "y": 2200 } },
+    scr_vky9n2: { name: "Hormobiota 2 · Patrocinadores", route: "/eventos/hormobiota/hormobiota-2-2027/patrocinadores", position: { "x": 5760, "y": 2200 } },
+    scr_4g6wsj: { name: "Hormobiota 2 · Stands", route: "/eventos/hormobiota/hormobiota-2-2027/stands", position: { "x": 7160, "y": 2200 } },
+    scr_a5jhr5: { name: "Hormobiota 2 · Ubicación", route: "/eventos/hormobiota/hormobiota-2-2027/ubicacion", position: { "x": 8560, "y": 2200 } },
+    scr_y3w0rm: { name: "Hormobiota 2 · FAQ", route: "/eventos/hormobiota/hormobiota-2-2027/faq", position: { "x": 9960, "y": 2200 } },
+    scr_3tzxog: { name: "Hormobiota 2 · Inscripción", route: "/eventos/hormobiota/hormobiota-2-2027/inscripcion", position: { "x": 11360, "y": 2200 } },
+    scr_gi04q2: { name: "Hormobiota 2026 · Histórico", route: "/eventos/hormobiota/hormobiota-2026", position: { "x": 160, "y": 4180 } },
+    scr_gq9fs6: { name: "Acceso", route: "/login", position: { "x": 160, "y": 6160 } },
+    scr_ipevwa: { name: "Dashboard · Resumen", route: "/admin", position: { "x": 160, "y": 8140 } },
+    scr_x0pxw2: { name: "Dashboard · Agenda", route: "/admin/agenda", position: { "x": 1560, "y": 8140 } },
+    scr_4jgeni: { name: "Dashboard · Speakers", route: "/admin/speakers", position: { "x": 2960, "y": 8140 } },
+    scr_gv3c1n: { name: "Dashboard · Tickets", route: "/admin/tickets", position: { "x": 4360, "y": 8140 } },
+    scr_7ysx5u: { name: "Dashboard · Registros", route: "/admin/registros", position: { "x": 5760, "y": 8140 } },
+    scr_k6y170: { name: "Dashboard · Check-in", route: "/admin/checkin", position: { "x": 7160, "y": 8140 } },
+    scr_kqxod1: { name: "Dashboard · Formación en vivo", route: "/admin/formacion-en-vivo", position: { "x": 8560, "y": 8140 } },
+    scr_sjg81j: { name: "Dashboard · Tienda digital", route: "/admin/tienda", position: { "x": 9960, "y": 8140 } },
+    scr_ephjib: { name: "Dashboard · Empresas", route: "/admin/empresas", position: { "x": 11360, "y": 8140 } },
+    scr_bmj46o: { name: "Dashboard · Patrocinio", route: "/admin/patrocinio", position: { "x": 12760, "y": 8140 } },
+    scr_mrtn4i: { name: "Dashboard · Banner", route: "/admin/banner", position: { "x": 14160, "y": 8140 } },
+    scr_v4ub8n: { name: "Dashboard · Stands", route: "/admin/stands", position: { "x": 15560, "y": 8140 } },
+    scr_fyrfr2: { name: "Dashboard · Pagos", route: "/admin/pagos", position: { "x": 16960, "y": 8140 } },
+    scr_ewxeyi: { name: "Dashboard · Documentos", route: "/admin/documentos", position: { "x": 18360, "y": 8140 } },
+    scr_zbbcgg: { name: "Dashboard · Configuración", route: "/admin/configuracion", position: { "x": 19760, "y": 8140 } },
+    scr_ggtucr: { name: "Portal · Inicio", route: "/portal", position: { "x": 160, "y": 10120 } },
+    scr_b0s6yo: { name: "Portal · Participación", route: "/portal/participacion", position: { "x": 1560, "y": 10120 } },
+    scr_hcffun: { name: "Portal · Requerimientos", route: "/portal/requerimientos", position: { "x": 2960, "y": 10120 } },
+    scr_fe3jer: { name: "Portal · Documentos", route: "/portal/documentos", position: { "x": 4360, "y": 10120 } },
+    scr_5c3hk6: { name: "Portal · Pagos", route: "/portal/pagos", position: { "x": 5760, "y": 10120 } },
+    scr_o7kz9u: { name: "Portal · Perfil", route: "/portal/perfil", position: { "x": 7160, "y": 10120 } }
+  },
+  sections: {
+    sec_cgecis: { name: "Main Site Navigation", x: 0, y: 0, width: 15520, height: 1180 },
+    sec_67iro5: { name: "Hormobiota 2 Event", x: 0, y: 1980, width: 12720, height: 1180 },
+    sec_8d63gd: { name: "Historical Events", x: 0, y: 3960, width: 1520, height: 1180 },
+    sec_ok43c4: { name: "Authentication", x: 0, y: 5940, width: 1520, height: 1180 },
+    sec_u9v4p5: { name: "Admin Dashboard", x: 0, y: 7920, width: 21120, height: 1180 },
+    sec_hp71kn: { name: "User Portal", x: 0, y: 9900, width: 8520, height: 1180 }
+  },
+  layers: [
+  { kind: "section", id: "sec_cgecis", children: [
+    { kind: "screen", id: "scr_mu6dwz" },
+    { kind: "screen", id: "scr_s992lq" },
+    { kind: "screen", id: "scr_we7h18" },
+    { kind: "screen", id: "scr_kq6h70" },
+    { kind: "screen", id: "scr_kddcnj" },
+    { kind: "screen", id: "scr_4t0a26" },
+    { kind: "screen", id: "scr_sgnns4" },
+    { kind: "screen", id: "scr_315zxd" },
+    { kind: "screen", id: "scr_plyezn" },
+    { kind: "screen", id: "scr_ztmt2a" },
+    { kind: "screen", id: "scr_ngfs6m" }]
+  },
+  { kind: "section", id: "sec_67iro5", children: [
+    { kind: "screen", id: "scr_rva71v" },
+    { kind: "screen", id: "scr_uppjf1" },
+    { kind: "screen", id: "scr_j4ljsj" },
+    { kind: "screen", id: "scr_x3ljws" },
+    { kind: "screen", id: "scr_vky9n2" },
+    { kind: "screen", id: "scr_4g6wsj" },
+    { kind: "screen", id: "scr_a5jhr5" },
+    { kind: "screen", id: "scr_y3w0rm" },
+    { kind: "screen", id: "scr_3tzxog" }]
+  },
+  { kind: "section", id: "sec_8d63gd", children: [
+    { kind: "screen", id: "scr_gi04q2" }]
+  },
+  { kind: "section", id: "sec_ok43c4", children: [
+    { kind: "screen", id: "scr_gq9fs6" }]
+  },
+  { kind: "section", id: "sec_u9v4p5", children: [
+    { kind: "screen", id: "scr_ipevwa" },
+    { kind: "screen", id: "scr_x0pxw2" },
+    { kind: "screen", id: "scr_4jgeni" },
+    { kind: "screen", id: "scr_gv3c1n" },
+    { kind: "screen", id: "scr_7ysx5u" },
+    { kind: "screen", id: "scr_k6y170" },
+    { kind: "screen", id: "scr_kqxod1" },
+    { kind: "screen", id: "scr_sjg81j" },
+    { kind: "screen", id: "scr_ephjib" },
+    { kind: "screen", id: "scr_bmj46o" },
+    { kind: "screen", id: "scr_mrtn4i" },
+    { kind: "screen", id: "scr_v4ub8n" },
+    { kind: "screen", id: "scr_fyrfr2" },
+    { kind: "screen", id: "scr_ewxeyi" },
+    { kind: "screen", id: "scr_zbbcgg" }]
+  },
+  { kind: "section", id: "sec_hp71kn", children: [
+    { kind: "screen", id: "scr_ggtucr" },
+    { kind: "screen", id: "scr_b0s6yo" },
+    { kind: "screen", id: "scr_hcffun" },
+    { kind: "screen", id: "scr_fe3jer" },
+    { kind: "screen", id: "scr_5c3hk6" },
+    { kind: "screen", id: "scr_o7kz9u" }]
+  }]
+
+};

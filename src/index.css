@@ -1,0 +1,378 @@
+/* @import url() FONT IMPORTS MUST ALWAYS BE AT THE VERY TOP OF THIS FILE, ABOVE THE TAILWIND IMPORTS — DO NOT DELETE THIS COMMENT */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* CRITICAL: THE FOLLOWING TAILWIND IMPORTS MUST NEVER BE DELETED OR REORDERED — DO NOT DELETE THIS COMMENT */
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* END TAILWIND IMPORTS — ALL OTHER CSS MUST GO BELOW THIS LINE */
+
+/* ---------------------------------------------------------------
+   Eventos Médicos LATAM — tokens de marca (placeholder institucional).
+   Cuando llegue la identidad oficial, se reemplazan aquí y en
+   tailwind.config.js. Ningún componente usa colores literales.
+   --------------------------------------------------------------- */
+:root {
+  --brand: #0f2d52;
+  --brand-deep: #0a2140;
+  --brand-support: #1c5f8c;
+  --brand-soft: #e8eef6;
+  --canvas: #f7f9fc;
+  --line: #dbe4ee;
+  --ink: #33475f;
+  --ink-muted: #5b6b80;
+  /* Acento por evento. La capa corporativa usa el azul de apoyo;
+     cada edición sobreescribe --accent-rgb en su contenedor. */
+  --accent-rgb: 28 95 140;
+  /* -------------------------------------------------------------
+     Marca Hormobiota. Tomada del logotipo oficial: azul noche muy
+     profundo y lavanda. Es la identidad del producto, no la de la
+     empresa: solo vive en las superficies de Hormobiota.
+     ------------------------------------------------------------- */
+  --hb-ink: #1a1a3d;
+  --hb-violet: #ada0da;
+  --hb-violet-deep: #7c6bc0;
+  --hb-violet-soft: #efecf9;
+  /* -------------------------------------------------------------
+     Tonos temáticos. Un color por línea académica, usado con
+     moderación para que cada evento tenga carácter sin volver el
+     sitio un arcoíris. Se aplican como --accent-rgb local.
+     ------------------------------------------------------------- */
+  --tone-inflamacion: 193 68 62;
+  --tone-obesidad: 15 122 122;
+  --tone-longevidad: 176 122 44;
+  --tone-hormobiota: 124 107 192;
+  --tone-corporativo: 28 95 140;
+  /* Fucsia reservado a lo que aún no ocurre: la próxima edición. */
+  --tone-futuro: 214 51 132;
+  /* Movimiento */
+  --ease-emphasis: cubic-bezier(0.23, 1, 0.32, 1);
+  --marquee-duration: 42s;
+  /* Profundidad: escala de elevación única para todo el producto. */
+  --elev-1: 0 1px 2px rgba(10, 33, 64, 0.05), 0 2px 6px -2px rgba(10, 33, 64, 0.08);
+  --elev-2: 0 2px 4px rgba(10, 33, 64, 0.05), 0 10px 24px -12px rgba(10, 33, 64, 0.22);
+  --elev-3: 0 4px 8px rgba(10, 33, 64, 0.06), 0 22px 48px -20px rgba(10, 33, 64, 0.32);
+  --elev-4: 0 8px 16px rgba(10, 33, 64, 0.08), 0 40px 80px -32px rgba(10, 33, 64, 0.42);
+}
+html {
+  /* Cualquier desbordamiento lateral hace que iOS reduzca la página para que
+     quepa entera, y eso es lo que deja el marco blanco alrededor. `clip`
+     recorta sin convertir el documento en contenedor de scroll, así que las
+     secciones ancladas (los 6 puentes) siguen funcionando. */
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+body {
+  width: 100%;
+  overflow-x: clip;
+}
+html {
+  /* El scroll suavizado lo gestiona Lenis; scroll-behavior nativo lo pelearía. */
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+*:focus-visible {
+  outline: 2px solid var(--brand-support);
+  outline-offset: 2px;
+}
+/* Cinta de patrocinadores: desplazamiento lineal continuo. */
+@keyframes emlatam-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+.marquee-track {
+  animation: emlatam-marquee var(--marquee-duration) linear infinite;
+  will-change: transform;
+}
+.marquee-paused .marquee-track {
+  animation-play-state: paused;
+}
+/* Los extremos se disuelven para que la cinta no tenga corte visible. */
+.marquee-fade {
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 7%,
+    #000 93%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(90deg, transparent 0, #000 7%, #000 93%, transparent 100%);
+}
+/* Skeletons con la forma del contenido, nunca un spinner centrado. */
+@keyframes emlatam-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+.skeleton {
+  background-color: var(--line);
+  border-radius: 6px;
+  animation: emlatam-pulse 1.6s ease-in-out infinite;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+/* ---------------------------------------------------------------
+   Profundidad y ambiente. Tarjetas con capas, superficies de vidrio
+   sobre oscuro y realces de acento. Sin degradados decorativos:
+   la profundidad viene de la sombra y de la luz, no del color.
+   --------------------------------------------------------------- */
+.surface-1 {
+  box-shadow: var(--elev-1);
+}
+.surface-2 {
+  box-shadow: var(--elev-2);
+}
+.surface-3 {
+  box-shadow: var(--elev-3);
+}
+.surface-4 {
+  box-shadow: var(--elev-4);
+}
+/* Tarjeta elevable: sube y gana sombra al pasar el cursor. */
+.card-lift {
+  box-shadow: var(--elev-1);
+  transition:
+    transform 220ms var(--ease-emphasis),
+    box-shadow 220ms var(--ease-emphasis);
+  will-change: transform;
+}
+.card-lift:hover {
+  transform: translate3d(0, -4px, 0);
+  box-shadow: var(--elev-3);
+}
+/* Vidrio sobre superficies oscuras: el encabezado y las fichas del hero. */
+.glass-dark {
+  background-color: rgba(10, 33, 64, 0.72);
+  backdrop-filter: saturate(150%) blur(14px);
+  -webkit-backdrop-filter: saturate(150%) blur(14px);
+}
+.glass-panel {
+  background-color: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    var(--elev-3);
+}
+/* Contenedor con perspectiva para las piezas con inclinación 3D. */
+.scene-3d {
+  perspective: 1100px;
+}
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+/* Luz de ambiente detrás de una pieza protagonista. */
+.halo::before {
+  content: '';
+  position: absolute;
+  inset: -18%;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgb(var(--accent-rgb) / 0.32) 0%, transparent 68%);
+  filter: blur(28px);
+  z-index: -1;
+}
+/* -----------------------------------------------------------------
+   Campo de marca. Reemplaza la antigua rejilla azul: capas suaves de
+   violeta y azul que se cruzan sobre el fondo profundo, más una trama
+   fina de puntos. Es el ambiente sobre el que vive el logotipo.
+   ----------------------------------------------------------------- */
+.grid-texture {
+  background-image:
+    radial-gradient(72% 92% at 10% 0%, rgba(48, 86, 176, 0.42) 0%, transparent 62%),
+    radial-gradient(62% 82% at 84% 6%, rgba(124, 107, 192, 0.38) 0%, transparent 60%),
+    radial-gradient(58% 76% at 74% 100%, rgba(176, 62, 148, 0.3) 0%, transparent 62%),
+    radial-gradient(52% 64% at 22% 94%, rgba(90, 74, 168, 0.32) 0%, transparent 62%),
+    radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size:
+    auto,
+    auto,
+    auto,
+    auto,
+    26px 26px;
+  /* Anclado al viewport: dos secciones oscuras seguidas comparten el mismo
+     campo continuo en vez de reiniciar el degradado en el borde. */
+  background-attachment: fixed;
+}
+/* Recorrido completo de la gama: azul → violeta → fucsia. Para superficies
+   Hormobiota donde el color debe avanzar de un extremo al otro. */
+.brand-field-violet {
+  background-image:
+    radial-gradient(74% 94% at 6% 0%, rgba(40, 78, 172, 0.5) 0%, transparent 60%),
+    radial-gradient(64% 84% at 44% 30%, rgba(112, 84, 196, 0.44) 0%, transparent 62%),
+    radial-gradient(60% 78% at 88% 72%, rgba(196, 58, 150, 0.4) 0%, transparent 62%),
+    radial-gradient(52% 66% at 20% 100%, rgba(88, 62, 168, 0.36) 0%, transparent 62%),
+    radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: auto, auto, auto, auto, 26px 26px;
+  background-attachment: fixed;
+}
+/* Extremo fucsia de la gama: cierres y llamados a la acción. */
+.brand-field-fuchsia {
+  background-image:
+    radial-gradient(70% 90% at 14% 0%, rgba(126, 74, 196, 0.44) 0%, transparent 62%),
+    radial-gradient(66% 84% at 86% 20%, rgba(214, 51, 132, 0.42) 0%, transparent 60%),
+    radial-gradient(58% 74% at 62% 100%, rgba(168, 48, 138, 0.38) 0%, transparent 62%),
+    radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: auto, auto, auto, 26px 26px;
+  background-attachment: fixed;
+}
+/* -----------------------------------------------------------------
+   Marca del futuro: la MISMA trama de los fondos —capas de azul,
+   violeta y fucsia más la retícula de puntos— reducida a la escala de
+   un botón o una celda, y con las capas desplazándose lentamente.
+   Reservada al día del congreso y a los llamados principales.
+   ----------------------------------------------------------------- */
+@keyframes emlatam-field-drift {
+  0% {
+    background-position:
+      0% 50%,
+      100% 50%,
+      50% 100%,
+      0 0;
+  }
+  50% {
+    background-position:
+      100% 50%,
+      0% 50%,
+      50% 0%,
+      0 0;
+  }
+  100% {
+    background-position:
+      0% 50%,
+      100% 50%,
+      50% 100%,
+      0 0;
+  }
+}
+.grad-futuro {
+  background-color: var(--hb-ink);
+  background-image:
+    radial-gradient(60% 90% at 12% 0%, rgba(48, 86, 176, 0.66) 0%, transparent 62%),
+    radial-gradient(55% 82% at 84% 6%, rgba(124, 107, 192, 0.6) 0%, transparent 60%),
+    radial-gradient(55% 76% at 74% 100%, rgba(214, 51, 132, 0.66) 0%, transparent 62%),
+    radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1px);
+  background-size:
+    180% 180%,
+    180% 180%,
+    180% 180%,
+    8px 8px;
+  animation: emlatam-field-drift 9s ease-in-out infinite;
+}
+/* Versión clara: misma trama lavada, para el marcado suave. */
+.grad-futuro-soft {
+  background-color: #f2ecfa;
+  background-image:
+    radial-gradient(70% 90% at 20% 0%, rgba(48, 86, 176, 0.2) 0%, transparent 62%),
+    radial-gradient(60% 80% at 90% 100%, rgba(214, 51, 132, 0.24) 0%, transparent 62%),
+    radial-gradient(rgba(26, 26, 61, 0.09) 1px, transparent 1px);
+  background-size: auto, auto, 7px 7px;
+}
+/* Palabra que rota dentro de un titular: degradado violeta → magenta con un
+   halo tenue del mismo tono, para que gane peso sin perder el aire editorial. */
+.word-rotate {
+  background-image: linear-gradient(96deg, #a78bfa 0%, #c56ce0 46%, #e0559e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 4px 16px rgba(214, 51, 132, 0.45));
+  padding-right: 0.06em;
+}
+/* Base común de todas las superficies oscuras. Que compartan el mismo color
+   evita el corte visible cuando dos secciones oscuras van seguidas. */
+.surface-deep {
+  background-color: var(--hb-ink);
+}
+/* -----------------------------------------------------------------
+   Tintes de sección para superficies claras. Rompen la sucesión de
+   blanco y gris sin salirse del rango institucional.
+   ----------------------------------------------------------------- */
+.tint-violet {
+  background-color: #f6f4fc;
+  background-image: radial-gradient(60% 70% at 85% 0%, rgba(124, 107, 192, 0.1) 0%, transparent 65%);
+}
+/* Trama clara con el recorrido completo: azul → violeta → fucsia. */
+.tint-aurora {
+  background-color: #f6f4fb;
+  background-image:
+    radial-gradient(58% 64% at 4% 0%, rgba(40, 78, 172, 0.16) 0%, transparent 62%),
+    radial-gradient(54% 60% at 52% 26%, rgba(124, 107, 192, 0.15) 0%, transparent 62%),
+    radial-gradient(56% 62% at 96% 74%, rgba(214, 51, 132, 0.14) 0%, transparent 62%),
+    radial-gradient(rgba(26, 26, 61, 0.05) 1px, transparent 1px);
+  background-size: auto, auto, auto, 26px 26px;
+  background-attachment: fixed;
+}
+.tint-teal {
+  background-color: #f1f7f7;
+  background-image: radial-gradient(58% 68% at 12% 0%, rgba(15, 122, 122, 0.1) 0%, transparent 64%);
+}
+.tint-sand {
+  background-color: #faf6ef;
+  background-image: radial-gradient(58% 70% at 88% 4%, rgba(176, 122, 44, 0.12) 0%, transparent 64%);
+}
+.tint-blue {
+  background-color: #f2f6fb;
+  background-image: radial-gradient(60% 70% at 10% 0%, rgba(28, 95, 140, 0.11) 0%, transparent 64%);
+}
+/* Giro continuo del anillo exterior del reloj. */
+@keyframes emlatam-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.ring-spin {
+  animation: emlatam-spin 26s linear infinite;
+}
+/* Área segura para la navegación inferior en móvil. */
+.pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+/* iOS no soporta bien los fondos anclados al viewport: los pinta dentro de un
+   recuadro y la sección se ve enmarcada. En táctil el fondo viaja con la
+   sección, que a esa escala se percibe igual de continuo. */
+@media (hover: none), (max-width: 1023px) {
+  .grid-texture,
+  .brand-field-violet,
+  .brand-field-fuchsia,
+  .tint-aurora {
+    background-attachment: scroll;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track,
+  .ring-spin,
+  .grad-futuro {
+    animation: none !important;
+  }
+  .card-lift:hover {
+    transform: none;
+  }
+  .skeleton {
+    animation: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
