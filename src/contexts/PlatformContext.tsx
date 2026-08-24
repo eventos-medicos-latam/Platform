@@ -1,4 +1,6 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import type { AuthError } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabaseClient';
 import type { BannerSlot, Registration, SponsorBannerConfig } from '../types/commerce';
 import { sponsorBanner } from '../data/sponsors';
 import { registrations as seedRegistrations } from '../data/registrations';
@@ -12,7 +14,8 @@ export interface Session {
 }
 interface PlatformContextValue {
   session: Session | null;
-  signIn: (session: Session) => void;
+  sessionLoading: boolean;
+  signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => void;
   activeEditionId: string;
   setActiveEditionId: (id: string) => void;
@@ -33,6 +36,7 @@ export function PlatformProvider({
 
 }: {children: React.ReactNode;}) {
   const [session, setSession] = useState<Session | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
   const [activeEditionId, setActiveEditionId] = useState(featuredEditionId);
   const [banner, setBanner] = useState<SponsorBannerConfig>(sponsorBanner);
   const [registrations, setRegistrations] = useState<Registration[]>(seedRegistrations);
@@ -81,10 +85,68 @@ export function PlatformProvider({
   const addRegistration = useCallback((registration: Registration) => {
     setRegistrations((current) => [registration, ...current]);
   }, []);
+
+  const loadSessionFromUser = useCallback(async (userId: string, email: string | undefined) => {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('role, company_id, full_name')
+      .eq('id', userId)
+      .single();
+    if (error || !profile) {
+      setSession(null);
+      return;
+    }
+    setSession({
+      role: profile.role,
+      name: profile.full_name || email || '',
+      email: email ?? '',
+      companyId: profile.company_id ?? undefined
+    });
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+      const user = data.session?.user;
+      if (user) {
+        loadSessionFromUser(user.id, user.email).finally(() => {
+          if (active) setSessionLoading(false);
+        });
+      } else {
+        setSession(null);
+        setSessionLoading(false);
+      }
+    });
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, authSession) => {
+      const user = authSession?.user;
+      if (user) {
+        loadSessionFromUser(user.id, user.email);
+      } else {
+        setSession(null);
+      }
+    });
+    return () => {
+      active = false;
+      subscription.subscription.unsubscribe();
+    };
+  }, [loadSessionFromUser]);
+
+  const signIn = useCallback(async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error };
+  }, []);
+
+  const signOut = useCallback(() => {
+    supabase.auth.signOut();
+    setSession(null);
+  }, []);
+
   const value = useMemo<PlatformContextValue>(() => ({
     session,
-    signIn: setSession,
-    signOut: () => setSession(null),
+    sessionLoading,
+    signIn,
+    signOut,
     activeEditionId,
     setActiveEditionId,
     banner,
@@ -95,7 +157,7 @@ export function PlatformProvider({
     addRegistration,
     bannerCollapsed,
     setBannerCollapsed
-  }), [session, activeEditionId, banner, updateBanner, updateSlot, moveSlot, registrations, addRegistration, bannerCollapsed, setBannerCollapsed]);
+  }), [session, sessionLoading, signIn, signOut, activeEditionId, banner, updateBanner, updateSlot, moveSlot, registrations, addRegistration, bannerCollapsed, setBannerCollapsed]);
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;
 }
 export function usePlatform(): PlatformContextValue {

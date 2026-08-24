@@ -29,6 +29,7 @@ import { EventLocation } from './pages/event/EventLocation';
 import { EventFaq } from './pages/event/EventFaq';
 import { EventRegistration } from './pages/event/EventRegistration';
 import { Login } from './pages/auth/Login';
+import { RequireRole } from './components/auth/RequireRole';
 import { Overview } from './pages/admin/Overview';
 import { AgendaAdmin } from './pages/admin/AgendaAdmin';
 import { SpeakersAdmin } from './pages/admin/SpeakersAdmin';
@@ -88,33 +89,37 @@ function AnimatedRoutes() {
         <Route path="/login" element={<Login />} />
 
         {/* Dashboard administrativo */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<Overview />} />
-          <Route path="agenda" element={<AgendaAdmin />} />
-          <Route path="speakers" element={<SpeakersAdmin />} />
-          <Route path="tickets" element={<TicketsAdmin />} />
-          <Route path="registros" element={<Registrations />} />
-          <Route path="checkin" element={<CheckIn />} />
-          <Route path="formacion-en-vivo" element={<LiveSessionsAdmin />} />
-          <Route path="tienda" element={<StoreAdmin />} />
-          <Route path="empresas" element={<Companies />} />
-          <Route path="patrocinio" element={<SponsorshipAdmin />} />
-          <Route path="banner" element={<BannerAdmin />} />
-          <Route path="stands" element={<StandsAdmin />} />
-          <Route path="pagos" element={<PaymentsAdmin />} />
-          <Route path="documentos" element={<DocumentsAdmin />} />
-          <Route path="configuracion" element={<Settings />} />
+        <Route element={<RequireRole role="admin" />}>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<Overview />} />
+            <Route path="agenda" element={<AgendaAdmin />} />
+            <Route path="speakers" element={<SpeakersAdmin />} />
+            <Route path="tickets" element={<TicketsAdmin />} />
+            <Route path="registros" element={<Registrations />} />
+            <Route path="checkin" element={<CheckIn />} />
+            <Route path="formacion-en-vivo" element={<LiveSessionsAdmin />} />
+            <Route path="tienda" element={<StoreAdmin />} />
+            <Route path="empresas" element={<Companies />} />
+            <Route path="patrocinio" element={<SponsorshipAdmin />} />
+            <Route path="banner" element={<BannerAdmin />} />
+            <Route path="stands" element={<StandsAdmin />} />
+            <Route path="pagos" element={<PaymentsAdmin />} />
+            <Route path="documentos" element={<DocumentsAdmin />} />
+            <Route path="configuracion" element={<Settings />} />
+          </Route>
         </Route>
 
         {/* Portal de empresas */}
-        <Route path="/portal" element={<PortalLayout />}>
-          <Route index element={<PortalHome />} />
-          <Route path="participacion" element={<PortalParticipation />} />
-          <Route path="equipo" element={<PortalTeam />} />
-          <Route path="requerimientos" element={<PortalRequirements />} />
-          <Route path="documentos" element={<PortalDocuments />} />
-          <Route path="pagos" element={<PortalPayments />} />
-          <Route path="perfil" element={<PortalProfile />} />
+        <Route element={<RequireRole role="empresa" />}>
+          <Route path="/portal" element={<PortalLayout />}>
+            <Route index element={<PortalHome />} />
+            <Route path="participacion" element={<PortalParticipation />} />
+            <Route path="equipo" element={<PortalTeam />} />
+            <Route path="requerimientos" element={<PortalRequirements />} />
+            <Route path="documentos" element={<PortalDocuments />} />
+            <Route path="pagos" element={<PortalPayments />} />
+            <Route path="perfil" element={<PortalProfile />} />
+          </Route>
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
