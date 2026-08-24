@@ -267,13 +267,6 @@ insert into faq_items (edition_id, question, answer, order_num, visible) values
 ('ed-hormobiota-2027', '¿Cómo participa una empresa?', 'Con paquetes de patrocinio, stand o activaciones. Solicita la propuesta y el equipo comercial te comparte disponibilidad e inventario real de la edición.', 8, true);
 
 -- =========================================================
--- tickets
--- =========================================================
-
-insert into tickets (id, edition_id, name, kind, modality, price, vat_rate, quota, sold, start_date, end_date, benefits, status, visible, wompi_enabled, emits_qr) values
-('tkt-2027-preventa'::uuid, 'ed-hormobiota-2027', 'Preventa', 'preventa', 'presencial', null, 0.19, 120, 0, '2026-09-01', '2026-12-15', array['Acceso a los dos días del congreso','Ruta Hormobiota (21 días previos)','Memorias digitales','Cóctel de networking'], 'en-revision', true, true, true);
-
--- =========================================================
 -- tickets (id se deja en default gen_random_uuid(), no se referencia
 -- desde ninguna otra tabla del seed)
 -- =========================================================
