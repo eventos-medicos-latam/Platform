@@ -30,6 +30,7 @@ import { EventFaq } from './pages/event/EventFaq';
 import { EventRegistration } from './pages/event/EventRegistration';
 import { Login } from './pages/auth/Login';
 import { RequireRole } from './components/auth/RequireRole';
+import { TrackingScripts } from './components/TrackingScripts';
 import { Overview } from './pages/admin/Overview';
 import { AgendaAdmin } from './pages/admin/AgendaAdmin';
 import { SpeakersAdmin } from './pages/admin/SpeakersAdmin';
@@ -128,6 +129,7 @@ function AnimatedRoutes() {
 }
 export function App() {
   return <PlatformProvider>
+      <TrackingScripts />
       <BrowserRouter>
         <SmoothScroll>
           <ScrollReset />

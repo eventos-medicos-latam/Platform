@@ -1,15 +1,29 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { DownloadIcon, FileTextIcon, PlayCircleIcon, ShoppingBagIcon, SparklesIcon } from 'lucide-react';
-import type { InfoProduct, InfoProductKind } from '../../types/product';
+import { DownloadIcon, ExternalLinkIcon, FileTextIcon, PlayCircleIcon, SparklesIcon } from 'lucide-react';
+import type { InfoProductKind } from '../../types/product';
 import { PageTransition } from '../../components/motion/PageTransition';
 import { PageHero } from '../../components/public/PageHero';
 import { UpcomingProductSection } from '../../components/public/UpcomingProductSection';
-import { publicInfoProducts } from '../../data/products';
+import { supabase } from '../../lib/supabaseClient';
 import { formatCop, withVat } from '../../utils/format';
 import { Pending } from '../../components/ui/Pending';
 import { media } from '../../data/media';
 import { EASE_EMPHASIS } from '../../utils/motion';
+
+interface StoreProduct {
+  id: string;
+  name: string;
+  kind: InfoProductKind;
+  format: 'video' | 'pdf' | 'mixto' | 'acceso';
+  claim: string;
+  description: string;
+  price: number | null;
+  vatRate: number;
+  volumeLabel: string;
+  includes: string[];
+  hotmartCheckoutUrl: string | null;
+}
 const formatIcon = {
   video: PlayCircleIcon,
   pdf: FileTextIcon,
@@ -25,18 +39,29 @@ const kindLabels: Record<InfoProductKind, string> = {
 };
 const filters: ('todos' | InfoProductKind)[] = ['todos', 'curso', 'memorias', 'guia', 'plantilla', 'membresia'];
 export function Store() {
-  const products = publicInfoProducts();
+  const [products, setProducts] = useState<StoreProduct[]>([]);
   const [filter, setFilter] = useState<'todos' | InfoProductKind>('todos');
-  const [cart, setCart] = useState<string[]>([]);
+  useEffect(() => {
+    supabase
+      .from('info_products')
+      .select('id, name, kind, format, claim, description, price, vat_rate, volume_label, includes, hotmart_checkout_url')
+      .then(({ data }) => {
+        setProducts((data ?? []).map((row) => ({
+          id: row.id,
+          name: row.name,
+          kind: row.kind,
+          format: row.format,
+          claim: row.claim,
+          description: row.description,
+          price: row.price,
+          vatRate: row.vat_rate,
+          volumeLabel: row.volume_label,
+          includes: row.includes ?? [],
+          hotmartCheckoutUrl: row.hotmart_checkout_url
+        })));
+      });
+  }, []);
   const visible = useMemo(() => filter === 'todos' ? products : products.filter((item) => item.kind === filter), [filter, products]);
-  const total = cart.reduce((sum, id) => {
-    const product = products.find((item) => item.id === id);
-    if (!product || product.price === null) return sum;
-    return sum + withVat(product.price, product.vatRate);
-  }, 0);
-  function toggle(product: InfoProduct) {
-    setCart((current) => current.includes(product.id) ? current.filter((id) => id !== product.id) : [...current, product.id]);
-  }
   return <PageTransition>
       <PageHero eyebrow="Tienda digital" title={[{
       text: 'Productos digitales',
@@ -58,22 +83,11 @@ export function Store() {
             {filters.map((item) => <button key={item} type="button" onClick={() => setFilter(item)} className={`rounded-xl px-4 py-2 text-sm font-medium transition-colors duration-150 ease-emphasis ${filter === item ? 'bg-brand text-white shadow-elev2' : 'bg-white text-ink-muted shadow-elev1 hover:text-brand'}`}>
                 {item === 'todos' ? 'Todo el catálogo' : kindLabels[item]}
               </button>)}
-
-            {cart.length > 0 ? <div className="ml-auto flex items-center gap-3 rounded-xl bg-brand px-4 py-2.5 text-white shadow-elev3">
-                <ShoppingBagIcon size={17} />
-                <span className="text-sm font-semibold">
-                  {cart.length} {cart.length === 1 ? 'producto' : 'productos'} · {formatCop(total)}
-                </span>
-                <button type="button" className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-brand-deep">
-                  Pagar con Wompi
-                </button>
-              </div> : null}
           </div>
 
           <ul className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {visible.map((product, index) => {
             const Icon = formatIcon[product.format];
-            const inCart = cart.includes(product.id);
             return <motion.li key={product.id} initial={{
               opacity: 0,
               y: 22
@@ -88,7 +102,7 @@ export function Store() {
               ease: EASE_EMPHASIS,
               delay: Math.min(index, 5) * 0.05
             }} className="h-full">
-                  <article className={`card-lift flex h-full flex-col rounded-2xl border bg-white p-6 ${inCart ? 'border-accent' : 'border-line'}`}>
+                  <article className="card-lift flex h-full flex-col rounded-2xl border border-line bg-white p-6">
                     <div className="flex items-start justify-between gap-3">
                       <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-soft text-brand">
                         <Icon size={21} />
@@ -117,9 +131,12 @@ export function Store() {
                         </div> : <p className="mb-3 text-xl font-bold text-brand">
                           {formatCop(withVat(product.price, product.vatRate))}
                         </p>}
-                      <button type="button" onClick={() => toggle(product)} className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-200 ease-emphasis ${inCart ? 'border border-accent text-accent' : 'bg-brand text-white hover:bg-brand-deep'}`}>
-                        {product.price === null ? 'Avísame cuando salga' : inCart ? 'Quitar del carrito' : 'Agregar al carrito'}
-                      </button>
+                      {product.hotmartCheckoutUrl ? <a href={product.hotmartCheckoutUrl} target="_blank" rel="noopener noreferrer" className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors duration-200 ease-emphasis hover:bg-brand-deep">
+                          Comprar en Hotmart
+                          <ExternalLinkIcon size={14} />
+                        </a> : <button type="button" disabled className="w-full cursor-not-allowed rounded-xl border border-line px-4 py-2.5 text-sm font-semibold text-ink-muted">
+                          {product.price === null ? 'Próximamente' : 'Compra no disponible todavía'}
+                        </button>}
                     </div>
                   </article>
                 </motion.li>;
