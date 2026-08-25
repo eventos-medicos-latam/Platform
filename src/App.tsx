@@ -44,6 +44,7 @@ import { StandsAdmin } from './pages/admin/StandsAdmin';
 import { PaymentsAdmin } from './pages/admin/PaymentsAdmin';
 import { DocumentsAdmin } from './pages/admin/DocumentsAdmin';
 import { Settings } from './pages/admin/Settings';
+import { Trash } from './pages/admin/Trash';
 import { LiveSessionsAdmin } from './pages/admin/LiveSessionsAdmin';
 import { StoreAdmin } from './pages/admin/StoreAdmin';
 import { PortalHome } from './pages/portal/PortalHome';
@@ -106,6 +107,7 @@ function AnimatedRoutes() {
             <Route path="stands" element={<StandsAdmin />} />
             <Route path="pagos" element={<PaymentsAdmin />} />
             <Route path="documentos" element={<DocumentsAdmin />} />
+            <Route path="papelera" element={<Trash />} />
             <Route path="configuracion" element={<Settings />} />
           </Route>
         </Route>

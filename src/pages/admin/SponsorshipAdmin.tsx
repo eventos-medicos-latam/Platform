@@ -1,184 +1,331 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { PencilIcon, PlusIcon } from 'lucide-react';
 import { ModuleHeader, Panel, tdClass, thClass } from '../../components/admin/Panel';
 import { usePlatform } from '../../contexts/PlatformContext';
-import { getEdition } from '../../data/editions';
-import { getCompany } from '../../data/companies';
-import { bridgeSponsorships, getPlan, participationPlans, planRequests } from '../../data/plans';
-import type { PlanRequest } from '../../types/participation';
 import { formatCop, formatShortDate } from '../../utils/format';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-const requestMeta: Record<PlanRequest['status'], {
-  label: string;
-  tone: 'neutral' | 'info' | 'success' | 'warning';
-}> = {
-  nueva: {
-    label: 'Nueva',
-    tone: 'info'
-  },
-  'en-conversacion': {
-    label: 'En conversación',
-    tone: 'warning'
-  },
-  aprobada: {
-    label: 'Aprobada',
-    tone: 'success'
-  },
-  descartada: {
-    label: 'Descartada',
-    tone: 'neutral'
-  }
-};
+import { supabase } from '../../lib/supabaseClient';
+import { AdminModal, modalFieldClass, ModalField } from '../../components/admin/AdminModal';
+import { ConfirmDialog } from '../../components/admin/ConfirmDialog';
+import { RowActions } from '../../components/admin/RowActions';
+import { moveToTrash } from '../../lib/trash';
 
-/**
- * Comercial. Los tres planes gobiernan el inventario: cupos por plan y
- * exclusividad por puente en Protagonista.
- */
+interface PlanEdition {
+  plan_id: string;
+  edition_id: string;
+  price: number;
+  total_inventory: number | null;
+  sold: number;
+  availability_note: string | null;
+}
+interface PlanType { id: string; name: string; verb: string; }
+interface Bridge { track_id: string; company_id: string | null; status: 'disponible' | 'reservado' | 'confirmado'; }
+interface Track { id: string; name: string; }
+interface Company { id: string; trade_name: string; }
+interface PlanRequest {
+  id: string; edition_id: string; plan_id: string; space_id: string | null; track_id: string | null;
+  speaker_choice: string | null; company: string; nit: string | null; contact_name: string; contact_email: string;
+  contact_whatsapp: string | null; category: string | null; notes: string | null; status: string; created_at: string;
+}
+
+const requestMeta: Record<string, { label: string; tone: 'info' | 'warning' | 'success' | 'neutral' }> = {
+  nueva: { label: 'Nueva', tone: 'info' },
+  'en-conversacion': { label: 'En conversación', tone: 'warning' },
+  aprobada: { label: 'Aprobada', tone: 'success' },
+  descartada: { label: 'Descartada', tone: 'neutral' }
+};
+const bridgeStatusOptions: Bridge['status'][] = ['disponible', 'reservado', 'confirmado'];
+
+const emptyRequest = (editionId: string): Omit<PlanRequest, 'id' | 'created_at'> => ({
+  edition_id: editionId, plan_id: 'pop-up', space_id: null, track_id: null, speaker_choice: null,
+  company: '', nit: null, contact_name: '', contact_email: '', contact_whatsapp: null, category: null, notes: null, status: 'nueva'
+});
+
 export function SponsorshipAdmin() {
-  const {
-    activeEditionId
-  } = usePlatform();
-  const edition = getEdition(activeEditionId);
-  const requests = planRequests.filter((item) => item.editionId === activeEditionId);
+  const { activeEditionId } = usePlatform();
+  const [planEditions, setPlanEditions] = useState<PlanEdition[]>([]);
+  const [planTypes, setPlanTypes] = useState<PlanType[]>([]);
+  const [bridges, setBridges] = useState<Bridge[]>([]);
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [requests, setRequests] = useState<PlanRequest[]>([]);
   const [filter, setFilter] = useState<'todas' | PlanRequest['status']>('todas');
+
+  const [planModal, setPlanModal] = useState<PlanEdition | null>(null);
+  const [bridgeModal, setBridgeModal] = useState<Bridge | null>(null);
+  const [reqModalOpen, setReqModalOpen] = useState(false);
+  const [editingReqId, setEditingReqId] = useState<string | null>(null);
+  const [reqForm, setReqForm] = useState<Omit<PlanRequest, 'id' | 'created_at'>>(emptyRequest(activeEditionId));
+  const [trashTarget, setTrashTarget] = useState<PlanRequest | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [trashing, setTrashing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    const [{ data: pe }, { data: pt }, { data: br }, { data: tr }, { data: co }, { data: rq }] = await Promise.all([
+      supabase.from('participation_plan_editions').select('*').eq('edition_id', activeEditionId),
+      supabase.from('participation_plan_types').select('id, name, verb'),
+      supabase.from('bridge_sponsorships').select('*'),
+      supabase.from('tracks').select('id, name').eq('edition_id', activeEditionId),
+      supabase.from('companies').select('id, trade_name'),
+      supabase.from('plan_requests').select('*').eq('edition_id', activeEditionId).order('created_at', { ascending: false })
+    ]);
+    setPlanEditions(pe ?? []);
+    setPlanTypes(pt ?? []);
+    setBridges(br ?? []);
+    setTracks(tr ?? []);
+    setCompanies(co ?? []);
+    setRequests(rq ?? []);
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeEditionId]);
+
   const visible = filter === 'todas' ? requests : requests.filter((r) => r.status === filter);
+
+  const submitPlan = async () => {
+    if (!planModal) return;
+    setSaving(true);
+    setError(null);
+    const { error: submitError } = await supabase
+      .from('participation_plan_editions')
+      .update({ price: planModal.price, total_inventory: planModal.total_inventory, availability_note: planModal.availability_note })
+      .eq('plan_id', planModal.plan_id)
+      .eq('edition_id', planModal.edition_id);
+    setSaving(false);
+    if (submitError) { setError(submitError.message); return; }
+    setPlanModal(null);
+    load();
+  };
+
+  const submitBridge = async () => {
+    if (!bridgeModal) return;
+    setSaving(true);
+    setError(null);
+    const { error: submitError } = await supabase
+      .from('bridge_sponsorships')
+      .update({ company_id: bridgeModal.company_id, status: bridgeModal.status })
+      .eq('track_id', bridgeModal.track_id);
+    setSaving(false);
+    if (submitError) { setError(submitError.message); return; }
+    setBridgeModal(null);
+    load();
+  };
+
+  const openCreateReq = () => { setEditingReqId(null); setReqForm(emptyRequest(activeEditionId)); setError(null); setReqModalOpen(true); };
+  const openEditReq = (request: PlanRequest) => {
+    setEditingReqId(request.id);
+    const { id: _id, created_at: _created, ...rest } = request;
+    setReqForm(rest);
+    setError(null);
+    setReqModalOpen(true);
+  };
+  const submitReq = async () => {
+    if (!reqForm.company.trim() || !reqForm.contact_email.trim()) { setError('Empresa y correo de contacto son obligatorios.'); return; }
+    setSaving(true);
+    setError(null);
+    const { error: submitError } = editingReqId
+      ? await supabase.from('plan_requests').update(reqForm).eq('id', editingReqId)
+      : await supabase.from('plan_requests').insert(reqForm);
+    setSaving(false);
+    if (submitError) { setError(submitError.message); return; }
+    setReqModalOpen(false);
+    load();
+  };
+  const confirmTrash = async () => {
+    if (!trashTarget) return;
+    setTrashing(true);
+    const { error: trashError } = await moveToTrash('plan_requests', trashTarget.id);
+    setTrashing(false);
+    if (trashError) { setError(trashError); return; }
+    setTrashTarget(null);
+    load();
+  };
+
   return <>
-      <ModuleHeader eyebrow="Comercial" title="Planes de participación" description="Todo nace del plan. El espacio, el puente y el speaker se derivan de él. Los precios sí se publican en la web; los cupos se controlan aquí." />
+      <ModuleHeader eyebrow="Comercial" title="Planes de participación" description="Todo nace del plan. Los precios se publican en la web; los cupos se controlan aquí." />
 
       <div className="space-y-5">
         <Panel emphasis title="Cupos por plan" description="Disponibilidad publicada en el configurador de la web.">
           <div className="grid gap-px bg-line md:grid-cols-3">
-            {participationPlans.map((plan) => {
-            const left = plan.totalInventory === null ? null : plan.totalInventory - plan.sold;
-            const fill = plan.totalInventory && plan.totalInventory > 0 ? plan.sold / plan.totalInventory : 0;
-            return <div key={plan.id} className="bg-white p-5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">
-                    {plan.verb}
-                  </p>
-                  <p className="mt-1 text-base font-bold text-brand">{plan.name}</p>
-                  <p className="mt-3 text-2xl font-bold tabular-nums text-brand">
-                    {formatCop(plan.price)}
-                  </p>
-
+            {planEditions.map((edition) => {
+            const type = planTypes.find((t) => t.id === edition.plan_id);
+            const left = edition.total_inventory === null ? null : edition.total_inventory - edition.sold;
+            const fill = edition.total_inventory && edition.total_inventory > 0 ? edition.sold / edition.total_inventory : 0;
+            return <div key={edition.plan_id} className="bg-white p-5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">{type?.verb}</p>
+                      <p className="mt-1 text-base font-bold text-brand">{type?.name}</p>
+                    </div>
+                    <button type="button" onClick={() => setPlanModal(edition)} aria-label="Editar plan" className="rounded-lg p-1.5 text-ink-muted hover:bg-brand-soft hover:text-brand">
+                      <PencilIcon size={15} />
+                    </button>
+                  </div>
+                  <p className="mt-3 text-2xl font-bold tabular-nums text-brand">{formatCop(edition.price)}</p>
                   <div className="mt-4 flex items-baseline justify-between text-sm">
                     <span className="text-ink-muted">Vendidos</span>
-                    <span className="font-semibold text-brand">
-                      {plan.sold} / {plan.totalInventory ?? '—'}
-                    </span>
+                    <span className="font-semibold text-brand">{edition.sold} / {edition.total_inventory ?? '—'}</span>
                   </div>
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-brand-soft">
-                    <div className="grad-futuro h-full rounded-full" style={{
-                  width: `${Math.round(fill * 100)}%`
-                }} />
+                    <div className="grad-futuro h-full rounded-full" style={{ width: `${Math.round(fill * 100)}%` }} />
                   </div>
                   <p className="mt-3 text-xs text-ink-muted">
-                    {left !== null ? `${left} cupos disponibles · ` : ''}
-                    {plan.availabilityNote}
+                    {left !== null ? `${left} cupos disponibles · ` : ''}{edition.availability_note}
                   </p>
-
-                  <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-xs">
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-ink-muted">Espacio</dt>
-                      <dd className="font-medium text-brand">
-                        {plan.space === 'estacion' ? 'Estación Pop Up' : 'Stand de foyer'}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-ink-muted">Colaboradores</dt>
-                      <dd className="font-medium text-brand">{plan.maxStaff}</dd>
-                    </div>
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-ink-muted">Invitados</dt>
-                      <dd className="font-medium text-brand">
-                        {plan.guestPasses > 0 ? plan.guestPasses : '—'}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-ink-muted">Speaker</dt>
-                      <dd className="font-medium text-brand">
-                        {plan.includesSpeaker ? 'Incluido' : 'No incluye'}
-                      </dd>
-                    </div>
-                  </dl>
                 </div>;
           })}
           </div>
         </Panel>
 
-        <Panel title="Exclusividad por puente" description="Protagonista: una sola marca por puente. Seis espacios en toda la edición.">
+        <Panel title="Exclusividad por puente" description="Protagonista: una sola marca por puente.">
           <ul className="grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-3">
-            {bridgeSponsorships.map((item) => {
-            const track = edition?.trackAxis.tracks.find((t) => t.id === item.trackId);
-            const company = item.companyId ? getCompany(item.companyId) : null;
-            const tone = item.status === 'confirmado' ? 'success' : item.status === 'reservado' ? 'warning' : 'info';
-            return <li key={item.trackId} className="bg-white p-5">
+            {bridges.map((bridge) => {
+            const track = tracks.find((t) => t.id === bridge.track_id);
+            const bridgeCompany = bridge.company_id ? companies.find((c) => c.id === bridge.company_id) : null;
+            const tone = bridge.status === 'confirmado' ? 'success' : bridge.status === 'reservado' ? 'warning' : 'info';
+            return <li key={bridge.track_id} className="bg-white p-5">
                   <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm font-semibold text-brand">
-                      {track?.name ?? item.trackId}
-                    </p>
-                    <StatusBadge label={item.status === 'disponible' ? 'Disponible' : item.status === 'reservado' ? 'Reservado' : 'Confirmado'} tone={tone} />
+                    <p className="text-sm font-semibold text-brand">{track?.name ?? bridge.track_id}</p>
+                    <div className="flex items-center gap-1.5">
+                      <StatusBadge label={bridge.status === 'disponible' ? 'Disponible' : bridge.status === 'reservado' ? 'Reservado' : 'Confirmado'} tone={tone} />
+                      <button type="button" onClick={() => setBridgeModal(bridge)} aria-label="Editar puente" className="rounded-lg p-1 text-ink-muted hover:bg-brand-soft hover:text-brand">
+                        <PencilIcon size={13} />
+                      </button>
+                    </div>
                   </div>
-                  <p className="mt-2 text-sm text-ink-muted">
-                    {company ? company.tradeName : 'Sin marca asignada'}
-                  </p>
+                  <p className="mt-2 text-sm text-ink-muted">{bridgeCompany ? bridgeCompany.trade_name : 'Sin marca asignada'}</p>
                 </li>;
           })}
           </ul>
         </Panel>
 
-        <Panel title="Solicitudes entrantes" description="Cada envío del configurador crea el perfil de la marca y notifica a comercial." actions={<div className="flex flex-wrap gap-1.5">
+        <Panel title="Solicitudes entrantes" description="Cada envío del configurador crea el perfil de la marca y notifica a comercial." actions={<div className="flex flex-wrap items-center gap-1.5">
               {(['todas', 'nueva', 'en-conversacion', 'aprobada'] as const).map((item) => <button key={item} type="button" onClick={() => setFilter(item)} className={`rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition-colors duration-150 ease-emphasis ${filter === item ? 'bg-brand text-white' : 'border border-line text-ink-muted hover:text-brand'}`}>
                   {item === 'todas' ? 'Todas' : requestMeta[item].label}
                 </button>)}
+              <button type="button" onClick={openCreateReq} className="ml-2 inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white transition-colors duration-200 ease-emphasis hover:bg-brand-deep">
+                <PlusIcon size={13} /> Nueva
+              </button>
             </div>}>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px]">
+            <table className="w-full min-w-[960px]">
               <thead className="bg-canvas">
                 <tr>
                   <th className={thClass}>Marca</th>
                   <th className={thClass}>Plan</th>
-                  <th className={thClass}>Espacio</th>
                   <th className={thClass}>Puente</th>
-                  <th className={thClass}>Speaker</th>
                   <th className={thClass}>Categoría</th>
                   <th className={thClass}>Recibida</th>
                   <th className={thClass}>Estado</th>
+                  <th className={thClass} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {visible.map((request) => {
-                const plan = getPlan(request.planId);
-                const track = edition?.trackAxis.tracks.find((t) => t.id === request.trackId);
+                const type = planTypes.find((t) => t.id === request.plan_id);
+                const track = tracks.find((t) => t.id === request.track_id);
                 const meta = requestMeta[request.status];
                 return <tr key={request.id} className="transition-colors duration-150 hover:bg-canvas">
                       <td className={`${tdClass} font-medium text-brand`}>
                         {request.company}
-                        <span className="mt-0.5 block text-xs font-normal text-ink-muted">
-                          {request.contactEmail}
-                        </span>
+                        <span className="mt-0.5 block text-xs font-normal text-ink-muted">{request.contact_email}</span>
                       </td>
-                      <td className={tdClass}>{plan?.name ?? request.planId}</td>
-                      <td className={tdClass}>{request.spaceId ?? '—'}</td>
+                      <td className={tdClass}>{type?.name ?? request.plan_id}</td>
                       <td className={tdClass}>{track?.name ?? '—'}</td>
-                      <td className={tdClass}>
-                        {request.speakerChoice === 'propio' ? 'Propio' : request.speakerChoice === 'propuesta' ? 'Propuesta' : request.speakerChoice === 'acompanamiento' ? 'Acompañamiento' : '—'}
-                      </td>
-                      <td className={tdClass}>{request.category}</td>
-                      <td className={tdClass}>{formatShortDate(request.createdAt)}</td>
+                      <td className={tdClass}>{request.category ?? '—'}</td>
+                      <td className={tdClass}>{formatShortDate(request.created_at)}</td>
                       <td className={tdClass}>
                         <StatusBadge label={meta.label} tone={meta.tone} />
+                      </td>
+                      <td className={tdClass}>
+                        <RowActions onEdit={() => openEditReq(request)} onDelete={() => setTrashTarget(request)} />
                       </td>
                     </tr>;
               })}
               </tbody>
             </table>
           </div>
-          {visible.length === 0 ? <p className="border-t border-line px-5 py-8 text-center text-sm text-ink-muted">
-              No hay solicitudes con este estado.
-            </p> : <p className="border-t border-line bg-canvas px-5 py-3 text-xs text-ink-muted">
-              Al aprobar una solicitud se descuenta el cupo del plan y se habilita el acceso al
-              Portal de la marca.
-            </p>}
+          {visible.length === 0 ? <p className="border-t border-line px-5 py-8 text-center text-sm text-ink-muted">No hay solicitudes con este estado.</p> : null}
         </Panel>
       </div>
+
+      {planModal ? <AdminModal open title="Editar plan" onClose={() => setPlanModal(null)} onSubmit={submitPlan} submitting={saving} error={error}>
+          <div className="space-y-4">
+            <ModalField label="Precio (COP)">
+              <input type="number" className={modalFieldClass} value={planModal.price} onChange={(event) => setPlanModal({ ...planModal, price: Number(event.target.value) })} />
+            </ModalField>
+            <ModalField label="Cupo total (vacío = ilimitado)">
+              <input type="number" className={modalFieldClass} value={planModal.total_inventory ?? ''} onChange={(event) => setPlanModal({ ...planModal, total_inventory: event.target.value === '' ? null : Number(event.target.value) })} />
+            </ModalField>
+            <ModalField label="Nota de disponibilidad">
+              <input className={modalFieldClass} value={planModal.availability_note ?? ''} onChange={(event) => setPlanModal({ ...planModal, availability_note: event.target.value })} />
+            </ModalField>
+          </div>
+        </AdminModal> : null}
+
+      {bridgeModal ? <AdminModal open title="Editar puente" onClose={() => setBridgeModal(null)} onSubmit={submitBridge} submitting={saving} error={error}>
+          <div className="space-y-4">
+            <ModalField label="Empresa asignada">
+              <select className={modalFieldClass} value={bridgeModal.company_id ?? ''} onChange={(event) => setBridgeModal({ ...bridgeModal, company_id: event.target.value || null })}>
+                <option value="">Sin asignar</option>
+                {companies.map((c) => <option key={c.id} value={c.id}>{c.trade_name}</option>)}
+              </select>
+            </ModalField>
+            <ModalField label="Estado">
+              <select className={modalFieldClass} value={bridgeModal.status} onChange={(event) => setBridgeModal({ ...bridgeModal, status: event.target.value as Bridge['status'] })}>
+                {bridgeStatusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </ModalField>
+          </div>
+        </AdminModal> : null}
+
+      <AdminModal open={reqModalOpen} onClose={() => setReqModalOpen(false)} title={editingReqId ? 'Editar solicitud' : 'Nueva solicitud'} onSubmit={submitReq} submitting={saving} error={error}>
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ModalField label="Empresa">
+              <input className={modalFieldClass} value={reqForm.company} onChange={(event) => setReqForm({ ...reqForm, company: event.target.value })} />
+            </ModalField>
+            <ModalField label="NIT">
+              <input className={modalFieldClass} value={reqForm.nit ?? ''} onChange={(event) => setReqForm({ ...reqForm, nit: event.target.value })} />
+            </ModalField>
+            <ModalField label="Contacto">
+              <input className={modalFieldClass} value={reqForm.contact_name} onChange={(event) => setReqForm({ ...reqForm, contact_name: event.target.value })} />
+            </ModalField>
+            <ModalField label="Correo">
+              <input type="email" className={modalFieldClass} value={reqForm.contact_email} onChange={(event) => setReqForm({ ...reqForm, contact_email: event.target.value })} />
+            </ModalField>
+            <ModalField label="WhatsApp">
+              <input className={modalFieldClass} value={reqForm.contact_whatsapp ?? ''} onChange={(event) => setReqForm({ ...reqForm, contact_whatsapp: event.target.value })} />
+            </ModalField>
+            <ModalField label="Categoría">
+              <input className={modalFieldClass} value={reqForm.category ?? ''} onChange={(event) => setReqForm({ ...reqForm, category: event.target.value })} />
+            </ModalField>
+            <ModalField label="Plan">
+              <select className={modalFieldClass} value={reqForm.plan_id} onChange={(event) => setReqForm({ ...reqForm, plan_id: event.target.value })}>
+                {planTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
+              </select>
+            </ModalField>
+            <ModalField label="Puente de interés">
+              <select className={modalFieldClass} value={reqForm.track_id ?? ''} onChange={(event) => setReqForm({ ...reqForm, track_id: event.target.value || null })}>
+                <option value="">Sin definir</option>
+                {tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
+              </select>
+            </ModalField>
+            <ModalField label="Estado">
+              <select className={modalFieldClass} value={reqForm.status} onChange={(event) => setReqForm({ ...reqForm, status: event.target.value })}>
+                {Object.entries(requestMeta).map(([value, meta]) => <option key={value} value={value}>{meta.label}</option>)}
+              </select>
+            </ModalField>
+          </div>
+          <ModalField label="Notas">
+            <textarea className={modalFieldClass} rows={2} value={reqForm.notes ?? ''} onChange={(event) => setReqForm({ ...reqForm, notes: event.target.value })} />
+          </ModalField>
+        </div>
+      </AdminModal>
+
+      <ConfirmDialog open={Boolean(trashTarget)} title="¿Mover esta solicitud a la papelera?" description={trashTarget?.company} onConfirm={confirmTrash} onCancel={() => setTrashTarget(null)} loading={trashing} confirmLabel="Mover a la papelera" />
     </>;
 }

@@ -85,7 +85,7 @@ export function EventRegistration() {
   };
   const pay = async () => {
     setStep('pasarela');
-    const reference = `HB-${crypto.randomUUID()}`;
+    const reference = `HB-REG-${crypto.randomUUID()}`;
 
     const { data, error: insertError } = await supabase
       .from('registrations')

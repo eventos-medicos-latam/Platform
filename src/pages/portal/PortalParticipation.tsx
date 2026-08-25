@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { CheckIcon } from 'lucide-react';
 import { ModuleHeader, Panel } from '../../components/admin/Panel';
 import { usePlatform } from '../../contexts/PlatformContext';
@@ -9,16 +9,26 @@ import { planFromTier } from '../../data/plans';
 import { StatusBadge, participationStatusMeta } from '../../components/ui/StatusBadge';
 import { Pending } from '../../components/ui/Pending';
 import { TrackIcon } from '../../components/ui/TrackIcon';
+import { supabase } from '../../lib/supabaseClient';
+
+interface BannerSlot { tier: string; order_num: number; logo_ready: boolean; active: boolean; }
+
 export function PortalParticipation() {
   const {
     session,
-    activeEditionId,
-    banner
+    activeEditionId
   } = usePlatform();
   const companyId = session?.companyId ?? portalCompanyId;
   const company = getCompany(companyId);
   const edition = getEdition(activeEditionId);
   const participation = participationsByCompany(companyId).find((item) => item.editionId === activeEditionId);
+  const [slot, setSlot] = useState<BannerSlot | null>(null);
+  const [surfaces, setSurfaces] = useState<string[]>([]);
+  useEffect(() => {
+    if (!session?.companyId) return;
+    supabase.from('banner_slots').select('tier, order_num, logo_ready, active').eq('company_id', session.companyId).eq('edition_id', activeEditionId).maybeSingle().then(({ data }) => setSlot(data));
+    supabase.from('sponsor_banner_configs').select('surfaces').eq('edition_id', activeEditionId).maybeSingle().then(({ data }) => setSurfaces(data?.surfaces ?? []));
+  }, [session?.companyId, activeEditionId]);
   if (!company || !participation || !edition) {
     return <Panel title="Sin participación">
         <p className="px-5 py-10 text-center text-sm text-ink-muted">
@@ -30,7 +40,6 @@ export function PortalParticipation() {
   const plan = planFromTier(participation.packageTier);
   const track = edition.trackAxis.tracks.find((item) => item.id === participation.trackId);
   const speakerTrack = edition.trackAxis.tracks.find((item) => item.id === participation.sponsoredSpeakerTrackId);
-  const slot = banner.slots.find((item) => item.companyId === companyId);
   const meta = participationStatusMeta[participation.status];
   return <>
       <ModuleHeader eyebrow={`${edition.name} · ${edition.year}`} title="Mi participación" description="Todo lo que incluye tu paquete y cómo se está mostrando tu marca." actions={<StatusBadge label={meta.label} tone={meta.tone} dot />} />
@@ -139,13 +148,13 @@ export function PortalParticipation() {
               value: slot.tier
             }, {
               label: 'Posición en la cinta',
-              value: String(slot.order)
+              value: String(slot.order_num)
             }, {
               label: 'Superficies',
-              value: banner.surfaces.join(', ')
+              value: surfaces.join(', ')
             }, {
               label: 'Logo vectorial',
-              value: slot.logoReady ? 'Aprobado' : 'Falta cargar'
+              value: slot.logo_ready ? 'Aprobado' : 'Falta cargar'
             }, {
               label: 'Visible ahora',
               value: slot.active ? 'Sí' : 'No'

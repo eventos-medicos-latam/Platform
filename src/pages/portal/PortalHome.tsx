@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRightIcon, EyeIcon, MousePointerClickIcon } from 'lucide-react';
@@ -9,11 +9,14 @@ import { getEdition } from '../../data/editions';
 import { formatCop, formatNumber } from '../../utils/format';
 import { participationStatusMeta, requirementStatusMeta, StatusBadge } from '../../components/ui/StatusBadge';
 import { EASE_EMPHASIS } from '../../utils/motion';
+import { supabase } from '../../lib/supabaseClient';
+
+interface BannerSlot { tier: string; impressions: number; clicks: number; active: boolean; }
+
 export function PortalHome() {
   const {
     session,
-    activeEditionId,
-    banner
+    activeEditionId
   } = usePlatform();
   const companyId = session?.companyId ?? portalCompanyId;
   const company = getCompany(companyId);
@@ -22,7 +25,11 @@ export function PortalHome() {
   const pending = openRequirements(companyId);
   const payments = companyPayments.filter((payment) => payment.companyId === companyId && payment.status !== 'pagado');
   const documents = companyDocuments.filter((document) => document.companyId === companyId && document.status !== 'aprobado');
-  const slot = banner.slots.find((item) => item.companyId === companyId);
+  const [slot, setSlot] = useState<BannerSlot | null>(null);
+  useEffect(() => {
+    if (!session?.companyId) return;
+    supabase.from('banner_slots').select('tier, impressions, clicks, active').eq('company_id', session.companyId).eq('edition_id', activeEditionId).maybeSingle().then(({ data }) => setSlot(data));
+  }, [session?.companyId, activeEditionId]);
   const activity = activityLog.filter((entry) => entry.companyId === companyId).slice(0, 5);
   if (!company || !participation) {
     return <Panel title="Sin participación activa">

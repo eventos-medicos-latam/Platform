@@ -79,13 +79,42 @@ Deno.serve(async (req) => {
     }
 
     const admin = supabaseAdmin();
+    const reference: string = transaction.reference;
+
+    // Esquema de referencia: HB-REG-<registration.id> para tickets,
+    // HB-PAY-<company_payment.id> para cobros de patrocinio (Portal).
+    if (reference.startsWith('HB-PAY-')) {
+      if (mappedStatus !== 'approved') {
+        // company_payments no tiene un estado "rechazado" equivalente;
+        // solo se actualiza cuando Wompi aprueba el pago.
+        return new Response('ok', { headers: corsHeaders });
+      }
+      const paymentId = reference.slice('HB-PAY-'.length);
+      const { error } = await admin
+        .from('company_payments')
+        .update({
+          status: 'pagado',
+          payment_method: 'wompi',
+          paid_at: new Date().toISOString(),
+          wompi_reference: reference,
+          wompi_transaction_id: transaction.id ?? null,
+        })
+        .eq('id', paymentId);
+
+      if (error) {
+        console.error('wompi-webhook: error actualizando company_payment', error);
+        return new Response('Error interno', { status: 500 });
+      }
+      return new Response('ok', { headers: corsHeaders });
+    }
+
     const { error } = await admin
       .from('registrations')
       .update({
         payment_status: mappedStatus,
         wompi_transaction_id: transaction.id ?? null,
       })
-      .eq('wompi_reference', transaction.reference);
+      .eq('wompi_reference', reference);
 
     if (error) {
       console.error('wompi-webhook: error actualizando registration', error);
