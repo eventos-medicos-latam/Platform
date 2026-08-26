@@ -26,10 +26,21 @@ interface Registration {
   qr_status: 'active' | 'used' | 'cancelled' | 'invalid';
   source: string;
   crm_synced: boolean;
+  company_id: string | null;
 }
 
 interface Ticket { id: string; name: string; }
 interface Track { id: string; name: string; }
+interface Company { id: string; trade_name: string; }
+
+const originMeta: Record<string, { label: string; tone: 'neutral' | 'info' | 'accent' | 'success' }> = {
+  'compra-empresa': { label: 'Compra empresa', tone: 'accent' },
+  'equipo-patrocinio': { label: 'Equipo', tone: 'info' },
+  'invitado-patrocinio': { label: 'Invitado', tone: 'success' }
+};
+function originFor(source: string): { label: string; tone: 'neutral' | 'info' | 'accent' | 'success' } {
+  return originMeta[source] ?? { label: 'Compra pública', tone: 'neutral' };
+}
 
 const paymentFilters = ['todos', 'approved', 'pending', 'declined', 'expired', 'refunded'] as const;
 const paymentStatusOptions = Object.entries(paymentStatusMeta) as [Registration['payment_status'], { label: string }][];
@@ -40,6 +51,7 @@ export function Registrations() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [query, setQuery] = useState('');
   const [payment, setPayment] = useState<(typeof paymentFilters)[number]>('todos');
   const [modalOpen, setModalOpen] = useState(false);
@@ -50,14 +62,16 @@ export function Registrations() {
   const [trashing, setTrashing] = useState(false);
 
   const load = async () => {
-    const [{ data: regRows }, { data: ticketRows }, { data: trackRows }] = await Promise.all([
+    const [{ data: regRows }, { data: ticketRows }, { data: trackRows }, { data: companyRows }] = await Promise.all([
       supabase.from('registrations').select('*').eq('edition_id', activeEditionId).order('created_at', { ascending: false }),
       supabase.from('tickets').select('id, name').eq('edition_id', activeEditionId),
-      supabase.from('tracks').select('id, name').eq('edition_id', activeEditionId)
+      supabase.from('tracks').select('id, name').eq('edition_id', activeEditionId),
+      supabase.from('companies').select('id, trade_name')
     ]);
     setRegistrations(regRows ?? []);
     setTickets(ticketRows ?? []);
     setTracks(trackRows ?? []);
+    setCompanies(companyRows ?? []);
   };
 
   useEffect(() => {
@@ -130,7 +144,7 @@ export function Registrations() {
                 <th className={thClass}>Interés</th>
                 <th className={thClass}>Pago</th>
                 <th className={thClass}>QR</th>
-                <th className={thClass}>Fuente</th>
+                <th className={thClass}>Origen</th>
                 <th className={thClass}>CRM</th>
                 <th className={thClass} />
               </tr>
@@ -153,7 +167,10 @@ export function Registrations() {
                       {registration.qr_code}
                       <span className="ml-2 text-[10px] uppercase text-ink-muted">{registration.qr_status}</span>
                     </td>
-                    <td className={`${tdClass} text-xs`}>{registration.source}</td>
+                    <td className={tdClass}>
+                      <StatusBadge label={originFor(registration.source).label} tone={originFor(registration.source).tone} />
+                      {registration.company_id ? <span className="mt-1 block text-xs text-ink-muted">{companies.find((c) => c.id === registration.company_id)?.trade_name ?? ''}</span> : null}
+                    </td>
                     <td className={tdClass}>{registration.crm_synced ? 'Sí' : 'Pendiente'}</td>
                     <td className={tdClass}>
                       <RowActions onEdit={() => openEdit(registration)} onDelete={() => setTrashTarget(registration)} />

@@ -82,7 +82,9 @@ Deno.serve(async (req) => {
     const reference: string = transaction.reference;
 
     // Esquema de referencia: HB-REG-<registration.id> para tickets,
-    // HB-PAY-<company_payment.id> para cobros de patrocinio (Portal).
+    // HB-PAY-<company_payment.id> para cobros de patrocinio (Portal),
+    // HB-SPONSOR-<plan_request.id> para quien paga de una vez al
+    // registrarse como patrocinador desde el sitio público.
     if (reference.startsWith('HB-PAY-')) {
       if (mappedStatus !== 'approved') {
         // company_payments no tiene un estado "rechazado" equivalente;
@@ -103,6 +105,30 @@ Deno.serve(async (req) => {
 
       if (error) {
         console.error('wompi-webhook: error actualizando company_payment', error);
+        return new Response('Error interno', { status: 500 });
+      }
+      return new Response('ok', { headers: corsHeaders });
+    }
+
+    if (reference.startsWith('HB-SPONSOR-')) {
+      if (mappedStatus !== 'approved') {
+        // plan_requests tampoco tiene un estado "rechazado" por Wompi
+        // distinto de 'descartada' (que es una decisión comercial, no de
+        // pago); solo se actualiza cuando Wompi aprueba.
+        return new Response('ok', { headers: corsHeaders });
+      }
+      const requestId = reference.slice('HB-SPONSOR-'.length);
+      const { error } = await admin
+        .from('plan_requests')
+        .update({
+          status: 'aprobada',
+          paid_at: new Date().toISOString(),
+          wompi_transaction_id: transaction.id ?? null,
+        })
+        .eq('id', requestId);
+
+      if (error) {
+        console.error('wompi-webhook: error actualizando plan_request', error);
         return new Response('Error interno', { status: 500 });
       }
       return new Response('ok', { headers: corsHeaders });

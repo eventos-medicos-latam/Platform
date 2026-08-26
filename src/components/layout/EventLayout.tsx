@@ -10,36 +10,32 @@ import { PublicFooter } from './PublicFooter';
 import { PublicHeader } from './PublicHeader';
 import { DURATION, EASE_EMPHASIS } from '../../utils/motion';
 import type { EditionSection } from '../../types/event';
+// Menú de 4 secciones: Inicio decide, "Agenda" agrupa todo lo que necesita
+// un profesional que va a asistir (agenda, speakers, ubicación, tickets),
+// "Registro" es el único camino para una marca, y "Preguntas y respuestas"
+// queda aparte. `agendaSections` es la lista de section keys que, si
+// NINGUNA está presente en la edición, oculta la pestaña completa (edición
+// sin nada de eso publicado todavía).
+const agendaSections: EditionSection[] = ['agenda', 'speakers', 'ubicacion', 'tickets'];
 const subNav: {
   path: string;
   label: string;
   section?: EditionSection;
+  anySections?: EditionSection[];
 }[] = [{
   path: '',
   label: 'Inicio'
 }, {
   path: 'agenda',
   label: 'Agenda',
-  section: 'agenda'
+  anySections: agendaSections
 }, {
-  path: 'patrocinadores',
-  label: 'Participación de marca',
+  path: 'registro',
+  label: 'Registro',
   section: 'patrocinadores'
 }, {
-  path: 'speakers',
-  label: 'Speakers',
-  section: 'speakers'
-}, {
-  path: 'tickets',
-  label: 'Tickets',
-  section: 'tickets'
-}, {
-  path: 'ubicacion',
-  label: 'Ubicación',
-  section: 'ubicacion'
-}, {
   path: 'faq',
-  label: 'FAQ',
+  label: 'Preguntas y respuestas',
   section: 'faq'
 }];
 const salesOpen = ['preventa', 'venta-activa'];
@@ -77,7 +73,11 @@ export function EventLayout() {
   const next = edition.nextEditionId ? getEdition(edition.nextEditionId) : undefined;
   const isRegistration = location.pathname.includes('/inscripcion');
   const canRegister = salesOpen.includes(edition.status);
-  const items = subNav.filter((item) => !item.section || edition.sections.includes(item.section));
+  const items = subNav.filter((item) => {
+    if (item.section) return edition.sections.includes(item.section);
+    if (item.anySections) return item.anySections.some((section) => edition.sections.includes(section));
+    return true;
+  });
   return <div className="flex min-h-screen w-full flex-col bg-canvas" style={{
     ['--accent-rgb' as string]: edition.accentRgb
   }}>

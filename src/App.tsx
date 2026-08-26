@@ -21,14 +21,12 @@ import { Store } from './pages/public/Store';
 import { Contact } from './pages/public/Contact';
 import { Legal } from './pages/public/Legal';
 import { EventHome } from './pages/event/EventHome';
-import { EventAgenda } from './pages/event/EventAgenda';
-import { EventSpeakers } from './pages/event/EventSpeakers';
-import { EventTickets } from './pages/event/EventTickets';
-import { EventSponsors } from './pages/event/EventSponsors';
-import { EventLocation } from './pages/event/EventLocation';
+import { EventProgram } from './pages/event/EventProgram';
 import { EventFaq } from './pages/event/EventFaq';
+import { EventSponsors } from './pages/event/EventSponsors';
 import { EventRegistration } from './pages/event/EventRegistration';
 import { Login } from './pages/auth/Login';
+import { InvitationResponse } from './pages/InvitationResponse';
 import { RequireRole } from './components/auth/RequireRole';
 import { TrackingScripts } from './components/TrackingScripts';
 import { Overview } from './pages/admin/Overview';
@@ -47,6 +45,8 @@ import { Settings } from './pages/admin/Settings';
 import { Trash } from './pages/admin/Trash';
 import { LiveSessionsAdmin } from './pages/admin/LiveSessionsAdmin';
 import { StoreAdmin } from './pages/admin/StoreAdmin';
+import { SupportAdmin } from './pages/admin/SupportAdmin';
+import { ResourcesAdmin } from './pages/admin/ResourcesAdmin';
 import { PortalHome } from './pages/portal/PortalHome';
 import { PortalParticipation } from './pages/portal/PortalParticipation';
 import { PortalRequirements } from './pages/portal/PortalRequirements';
@@ -54,6 +54,8 @@ import { PortalTeam } from './pages/portal/PortalTeam';
 import { PortalDocuments } from './pages/portal/PortalDocuments';
 import { PortalPayments } from './pages/portal/PortalPayments';
 import { PortalProfile } from './pages/portal/PortalProfile';
+import { PortalHelp } from './pages/portal/PortalHelp';
+import { PortalResources } from './pages/portal/PortalResources';
 function AnimatedRoutes() {
   const location = useLocation();
   return <AnimatePresence mode="wait" initial={false}>
@@ -76,19 +78,26 @@ function AnimatedRoutes() {
         {/* Páginas de evento */}
         <Route path="/eventos/:familySlug/:editionSlug" element={<EventLayout />}>
           <Route index element={<EventHome />} />
-          <Route path="agenda" element={<EventAgenda />} />
-          <Route path="speakers" element={<EventSpeakers />} />
-          <Route path="tickets" element={<EventTickets />} />
-          <Route path="patrocinadores" element={<EventSponsors />} />
-          {/* Los stands dejaron de ser puerta de entrada: viven dentro del plan. */}
-          <Route path="stands" element={<Navigate to="../patrocinadores" replace />} />
-          <Route path="ubicacion" element={<EventLocation />} />
+          <Route path="agenda" element={<EventProgram />} />
           <Route path="faq" element={<EventFaq />} />
+          <Route path="registro" element={<EventSponsors />} />
+          {/* Speakers, tickets y ubicación se unificaron en "agenda" (con anclas
+              #speakers, #tickets, etc.) — se redirige para no romper enlaces
+              guardados. Los stands viven dentro del plan, no como puerta de
+              entrada aparte. "programa" y "patrocinadores" son los nombres
+              anteriores de estas mismas páginas. */}
+          <Route path="programa" element={<Navigate to="../agenda" replace />} />
+          <Route path="speakers" element={<Navigate to="../agenda#speakers" replace />} />
+          <Route path="tickets" element={<Navigate to="../agenda#tickets" replace />} />
+          <Route path="ubicacion" element={<Navigate to="../agenda#ubicacion" replace />} />
+          <Route path="patrocinadores" element={<Navigate to="../registro" replace />} />
+          <Route path="stands" element={<Navigate to="../registro" replace />} />
           <Route path="inscripcion" element={<EventRegistration />} />
         </Route>
 
         {/* Acceso */}
         <Route path="/login" element={<Login />} />
+        <Route path="/invitacion/:kind/:token" element={<InvitationResponse />} />
 
         {/* Dashboard administrativo */}
         <Route element={<RequireRole role="admin" />}>
@@ -107,6 +116,8 @@ function AnimatedRoutes() {
             <Route path="stands" element={<StandsAdmin />} />
             <Route path="pagos" element={<PaymentsAdmin />} />
             <Route path="documentos" element={<DocumentsAdmin />} />
+            <Route path="soporte" element={<SupportAdmin />} />
+            <Route path="recursos" element={<ResourcesAdmin />} />
             <Route path="papelera" element={<Trash />} />
             <Route path="configuracion" element={<Settings />} />
           </Route>
@@ -121,6 +132,8 @@ function AnimatedRoutes() {
             <Route path="requerimientos" element={<PortalRequirements />} />
             <Route path="documentos" element={<PortalDocuments />} />
             <Route path="pagos" element={<PortalPayments />} />
+            <Route path="ayuda" element={<PortalHelp />} />
+            <Route path="recursos" element={<PortalResources />} />
             <Route path="perfil" element={<PortalProfile />} />
           </Route>
         </Route>

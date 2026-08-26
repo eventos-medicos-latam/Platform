@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { DisplayTitle } from '../ui/DisplayTitle';
 import { PlanShowcase } from '../event/PlanShowcase';
 import type { PlanId } from '../../types/participation';
-const target = '/eventos/hormobiota/hormobiota-2-2027/patrocinadores';
+const target = '/eventos/hormobiota/hormobiota-2-2027/registro';
 interface PlansSectionProps {
   /** Subconjunto de planes a exponer. Por defecto, los tres. */
   planIds?: PlanId[];
@@ -15,11 +15,11 @@ interface PlansSectionProps {
 
 /**
  * Los planes de participación de marca en el sitio corporativo.
- * El CTA lleva siempre al configurador de la edición, que es donde se registra.
+ * El CTA lleva siempre a la página de Registro, ya con el plan elegido.
  */
 export function PlansSection({
   planIds,
-  eyebrow = 'Participación de marca',
+  eyebrow = 'Registro de marca',
   titleLight = 'Tres formas de estar',
   titleBold = 'dentro del ecosistema',
   description = 'Estar presente, construir relaciones o posicionarte dentro de la conversación científica. Toca un plan para ver todo lo que incluye.'
@@ -41,7 +41,7 @@ export function PlansSection({
         <p className="mt-5 max-w-2xl text-base leading-relaxed text-ink">{description}</p>
 
         <div className="mt-10">
-          <PlanShowcase planIds={planIds} activeId={planId} onSelect={(id) => setPlanId(planId === id ? null : id)} ctaLabel="Ir al registro" onCta={() => navigate(target)} />
+          <PlanShowcase planIds={planIds} activeId={planId} onSelect={(id) => setPlanId(planId === id ? null : id)} ctaLabel="Ir al registro" onCta={(id) => navigate(`${target}?tipo=${id}#registro`)} />
         </div>
       </div>
     </section>;

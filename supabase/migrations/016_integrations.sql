@@ -147,7 +147,7 @@ grant execute on function get_integration_secret(text) to service_role;
 -- id — vuelve a leer la fila real con service_role antes de sincronizar.
 -- =========================================================
 
-create function trigger_ghl_sync()
+create or replace function trigger_ghl_sync()
 returns trigger
 language plpgsql
 security definer

@@ -23,9 +23,14 @@ interface Bridge { track_id: string; company_id: string | null; status: 'disponi
 interface Track { id: string; name: string; }
 interface Company { id: string; trade_name: string; }
 interface PlanRequest {
-  id: string; edition_id: string; plan_id: string; space_id: string | null; track_id: string | null;
+  id: string; edition_id: string; plan_id: string | null; ally_role: string | null; space_id: string | null; track_id: string | null;
   speaker_choice: string | null; company: string; nit: string | null; contact_name: string; contact_email: string;
-  contact_whatsapp: string | null; category: string | null; notes: string | null; status: string; created_at: string;
+  contact_whatsapp: string | null; category: string | null; country: string | null; city: string | null; notes: string | null; status: string; created_at: string;
+}
+interface SpeakerSubmission {
+  id: string; name: string; email: string; bio: string | null; topic: string | null;
+  status: 'enviado' | 'en-revision' | 'aprobado' | 'rechazado'; created_at: string;
+  participations: { company_id: string; edition_id: string } | null;
 }
 
 const requestMeta: Record<string, { label: string; tone: 'info' | 'warning' | 'success' | 'neutral' }> = {
@@ -35,10 +40,23 @@ const requestMeta: Record<string, { label: string; tone: 'info' | 'warning' | 's
   descartada: { label: 'Descartada', tone: 'neutral' }
 };
 const bridgeStatusOptions: Bridge['status'][] = ['disponible', 'reservado', 'confirmado'];
+const allyRoleOptions = ['sociedad-medica', 'aliado-academico', 'media-partner'];
+const allyRoleLabels: Record<string, string> = {
+  'sociedad-medica': 'Sociedad médica o científica',
+  'aliado-academico': 'Universidad o grupo de investigación',
+  'media-partner': 'Medio especializado'
+};
+const speakerSubmissionMeta: Record<SpeakerSubmission['status'], { label: string; tone: 'warning' | 'info' | 'success' | 'danger' }> = {
+  enviado: { label: 'Enviado', tone: 'warning' },
+  'en-revision': { label: 'En revisión', tone: 'info' },
+  aprobado: { label: 'Aprobado', tone: 'success' },
+  rechazado: { label: 'Rechazado', tone: 'danger' }
+};
+const speakerSubmissionOptions = Object.keys(speakerSubmissionMeta) as SpeakerSubmission['status'][];
 
 const emptyRequest = (editionId: string): Omit<PlanRequest, 'id' | 'created_at'> => ({
-  edition_id: editionId, plan_id: 'pop-up', space_id: null, track_id: null, speaker_choice: null,
-  company: '', nit: null, contact_name: '', contact_email: '', contact_whatsapp: null, category: null, notes: null, status: 'nueva'
+  edition_id: editionId, plan_id: 'pop-up', ally_role: null, space_id: null, track_id: null, speaker_choice: null,
+  company: '', nit: null, contact_name: '', contact_email: '', contact_whatsapp: null, category: null, country: null, city: null, notes: null, status: 'nueva'
 });
 
 export function SponsorshipAdmin() {
@@ -49,6 +67,7 @@ export function SponsorshipAdmin() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [requests, setRequests] = useState<PlanRequest[]>([]);
+  const [speakerSubmissions, setSpeakerSubmissions] = useState<SpeakerSubmission[]>([]);
   const [filter, setFilter] = useState<'todas' | PlanRequest['status']>('todas');
 
   const [planModal, setPlanModal] = useState<PlanEdition | null>(null);
@@ -62,13 +81,14 @@ export function SponsorshipAdmin() {
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
-    const [{ data: pe }, { data: pt }, { data: br }, { data: tr }, { data: co }, { data: rq }] = await Promise.all([
+    const [{ data: pe }, { data: pt }, { data: br }, { data: tr }, { data: co }, { data: rq }, { data: ss }] = await Promise.all([
       supabase.from('participation_plan_editions').select('*').eq('edition_id', activeEditionId),
       supabase.from('participation_plan_types').select('id, name, verb'),
       supabase.from('bridge_sponsorships').select('*'),
       supabase.from('tracks').select('id, name').eq('edition_id', activeEditionId),
       supabase.from('companies').select('id, trade_name'),
-      supabase.from('plan_requests').select('*').eq('edition_id', activeEditionId).order('created_at', { ascending: false })
+      supabase.from('plan_requests').select('*').eq('edition_id', activeEditionId).order('created_at', { ascending: false }),
+      supabase.from('sponsored_speaker_submissions').select('id, name, email, bio, topic, status, created_at, participations!inner(company_id, edition_id)').eq('participations.edition_id', activeEditionId).order('created_at', { ascending: false })
     ]);
     setPlanEditions(pe ?? []);
     setPlanTypes(pt ?? []);
@@ -76,6 +96,12 @@ export function SponsorshipAdmin() {
     setTracks(tr ?? []);
     setCompanies(co ?? []);
     setRequests(rq ?? []);
+    setSpeakerSubmissions((ss as unknown as SpeakerSubmission[]) ?? []);
+  };
+
+  const updateSpeakerStatus = async (id: string, status: SpeakerSubmission['status']) => {
+    await supabase.from('sponsored_speaker_submissions').update({ status }).eq('id', id);
+    load();
   };
 
   useEffect(() => {
@@ -218,6 +244,7 @@ export function SponsorshipAdmin() {
                   <th className={thClass}>Plan</th>
                   <th className={thClass}>Puente</th>
                   <th className={thClass}>Categoría</th>
+                  <th className={thClass}>Ubicación</th>
                   <th className={thClass}>Recibida</th>
                   <th className={thClass}>Estado</th>
                   <th className={thClass} />
@@ -233,9 +260,12 @@ export function SponsorshipAdmin() {
                         {request.company}
                         <span className="mt-0.5 block text-xs font-normal text-ink-muted">{request.contact_email}</span>
                       </td>
-                      <td className={tdClass}>{type?.name ?? request.plan_id}</td>
+                      <td className={tdClass}>
+                        {request.plan_id ? (type?.name ?? request.plan_id) : <span className="text-brand-support">{allyRoleLabels[request.ally_role ?? ''] ?? request.ally_role}</span>}
+                      </td>
                       <td className={tdClass}>{track?.name ?? '—'}</td>
                       <td className={tdClass}>{request.category ?? '—'}</td>
+                      <td className={tdClass}>{[request.city, request.country].filter(Boolean).join(', ') || '—'}</td>
                       <td className={tdClass}>{formatShortDate(request.created_at)}</td>
                       <td className={tdClass}>
                         <StatusBadge label={meta.label} tone={meta.tone} />
@@ -249,6 +279,25 @@ export function SponsorshipAdmin() {
             </table>
           </div>
           {visible.length === 0 ? <p className="border-t border-line px-5 py-8 text-center text-sm text-ink-muted">No hay solicitudes con este estado.</p> : null}
+        </Panel>
+
+        <Panel title="Speakers patrocinados propuestos" description="Propuestas enviadas desde el Portal para los planes que incluyen speaker.">
+          <ul className="divide-y divide-line">
+            {speakerSubmissions.map((submission) => {
+            const company = companies.find((c) => c.id === submission.participations?.company_id);
+            return <li key={submission.id} className="flex items-start gap-3 px-5 py-3.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-brand">{submission.name} <span className="font-normal text-ink-muted">· {company?.trade_name ?? '—'}</span></p>
+                    <p className="text-xs text-ink-muted">{submission.email}{submission.topic ? ` · ${submission.topic}` : ''}</p>
+                    {submission.bio ? <p className="mt-1 text-sm text-ink">{submission.bio}</p> : null}
+                  </div>
+                  <select value={submission.status} onChange={(event) => updateSpeakerStatus(submission.id, event.target.value as SpeakerSubmission['status'])} className="rounded-lg border border-line bg-white px-2 py-1.5 text-xs font-medium text-brand outline-none focus:border-brand">
+                    {speakerSubmissionOptions.map((option) => <option key={option} value={option}>{speakerSubmissionMeta[option].label}</option>)}
+                  </select>
+                </li>;
+          })}
+            {speakerSubmissions.length === 0 ? <li className="px-5 py-6 text-center text-sm text-ink-muted">Sin propuestas de speaker todavía.</li> : null}
+          </ul>
         </Panel>
       </div>
 
@@ -303,11 +352,27 @@ export function SponsorshipAdmin() {
             <ModalField label="Categoría">
               <input className={modalFieldClass} value={reqForm.category ?? ''} onChange={(event) => setReqForm({ ...reqForm, category: event.target.value })} />
             </ModalField>
-            <ModalField label="Plan">
-              <select className={modalFieldClass} value={reqForm.plan_id} onChange={(event) => setReqForm({ ...reqForm, plan_id: event.target.value })}>
-                {planTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
+            <ModalField label="País">
+              <input className={modalFieldClass} value={reqForm.country ?? ''} onChange={(event) => setReqForm({ ...reqForm, country: event.target.value })} />
+            </ModalField>
+            <ModalField label="Ciudad">
+              <input className={modalFieldClass} value={reqForm.city ?? ''} onChange={(event) => setReqForm({ ...reqForm, city: event.target.value })} />
+            </ModalField>
+            <ModalField label="Tipo de solicitud">
+              <select className={modalFieldClass} value={reqForm.plan_id ? 'plan' : 'alianza'} onChange={(event) => setReqForm(event.target.value === 'plan' ? { ...reqForm, plan_id: planTypes[0]?.id ?? 'pop-up', ally_role: null } : { ...reqForm, plan_id: null, ally_role: allyRoleOptions[0] })}>
+                <option value="plan">Plan comercial</option>
+                <option value="alianza">Alianza institucional</option>
               </select>
             </ModalField>
+            {reqForm.plan_id ? <ModalField label="Plan">
+                <select className={modalFieldClass} value={reqForm.plan_id} onChange={(event) => setReqForm({ ...reqForm, plan_id: event.target.value })}>
+                  {planTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
+                </select>
+              </ModalField> : <ModalField label="Rol de alianza">
+                <select className={modalFieldClass} value={reqForm.ally_role ?? ''} onChange={(event) => setReqForm({ ...reqForm, ally_role: event.target.value })}>
+                  {allyRoleOptions.map((option) => <option key={option} value={option}>{allyRoleLabels[option]}</option>)}
+                </select>
+              </ModalField>}
             <ModalField label="Puente de interés">
               <select className={modalFieldClass} value={reqForm.track_id ?? ''} onChange={(event) => setReqForm({ ...reqForm, track_id: event.target.value || null })}>
                 <option value="">Sin definir</option>

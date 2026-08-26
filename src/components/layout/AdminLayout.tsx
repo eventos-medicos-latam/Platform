@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BarChart3Icon, BuildingIcon, CalendarRangeIcon, ChevronDownIcon, FileTextIcon, GalleryHorizontalIcon, LayoutDashboardIcon, LayoutPanelLeftIcon, LogOutIcon, MicIcon, QrCodeIcon, RadioIcon, SettingsIcon, ShoppingBagIcon, TicketIcon, Trash2Icon, UsersIcon, WalletIcon } from 'lucide-react';
+import { BarChart3Icon, BuildingIcon, CalendarRangeIcon, ChevronDownIcon, FileTextIcon, FolderIcon, GalleryHorizontalIcon, HelpCircleIcon, LayoutDashboardIcon, LayoutPanelLeftIcon, LogOutIcon, MicIcon, QrCodeIcon, RadioIcon, SettingsIcon, ShoppingBagIcon, TicketIcon, Trash2Icon, UsersIcon, WalletIcon } from 'lucide-react';
 import { Logo } from '../ui/Logo';
 import { editions } from '../../data/editions';
 import { usePlatform } from '../../contexts/PlatformContext';
@@ -71,6 +71,14 @@ const groups = [{
     to: '/admin/documentos',
     label: 'Documentos',
     icon: FileTextIcon
+  }, {
+    to: '/admin/soporte',
+    label: 'Soporte',
+    icon: HelpCircleIcon
+  }, {
+    to: '/admin/recursos',
+    label: 'Recursos',
+    icon: FolderIcon
   }]
 }, {
   label: 'Sistema',

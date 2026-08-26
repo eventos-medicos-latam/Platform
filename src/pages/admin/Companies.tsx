@@ -11,6 +11,7 @@ import { AdminModal, modalFieldClass, ModalField } from '../../components/admin/
 import { ConfirmDialog } from '../../components/admin/ConfirmDialog';
 import { RowActions } from '../../components/admin/RowActions';
 import { moveToTrash } from '../../lib/trash';
+import { getCompanyFileUrl } from '../../lib/storage';
 
 interface Company {
   id: string;
@@ -43,6 +44,9 @@ interface Requirement { id: string; title: string; due_date: string | null; stat
 interface Payment { id: string; concept: string; due_date: string | null; amount: number; status: string; }
 interface CompanyDoc { id: string; name: string; kind: string; date: string; size_label: string | null; status: string; }
 interface Activity { id: string; date: string; actor: string; action: string; comment: string | null; }
+interface BrandAsset { id: string; kind: string; name: string; status: string; file_path: string | null; }
+
+const brandAssetStatusOptions = ['pendiente', 'cargado', 'aprobado', 'requiere-cambios'];
 
 const roleOptions = ['patrocinador', 'expositor', 'aliado-comercial', 'marca', 'sociedad-medica', 'aliado-academico', 'aliado-institucional', 'certificador', 'organizador', 'media-partner'];
 const bannerTierOptions = ['principal', 'destacado', 'apoyo'];
@@ -59,7 +63,7 @@ export function Companies() {
   const [participations, setParticipations] = useState<Participation[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<{ requirements: Requirement[]; payments: Payment[]; documents: CompanyDoc[]; activity: Activity[] }>({ requirements: [], payments: [], documents: [], activity: [] });
+  const [detail, setDetail] = useState<{ requirements: Requirement[]; payments: Payment[]; documents: CompanyDoc[]; activity: Activity[]; assets: BrandAsset[] }>({ requirements: [], payments: [], documents: [], activity: [], assets: [] });
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -92,18 +96,33 @@ export function Companies() {
   const selected = participations.find((item) => item.id === openId);
   const company = selected ? companies.find((item) => item.id === selected.company_id) : undefined;
 
+  const loadDetail = async () => {
+    if (!company) { setDetail({ requirements: [], payments: [], documents: [], activity: [], assets: [] }); return; }
+    const [{ data: req }, { data: pay }, { data: docs }, { data: activity }, { data: assets }] = await Promise.all([
+      supabase.from('requirements').select('id, title, due_date, status').eq('company_id', company.id),
+      supabase.from('company_payments').select('id, concept, due_date, amount, status').eq('company_id', company.id),
+      supabase.from('company_documents').select('id, name, kind, date, size_label, status').eq('company_id', company.id),
+      supabase.from('activity_log').select('id, date, actor, action, comment').eq('company_id', company.id).order('date', { ascending: false }).limit(20),
+      supabase.from('brand_assets').select('id, kind, name, status, file_path').eq('company_id', company.id)
+    ]);
+    setDetail({ requirements: req ?? [], payments: pay ?? [], documents: docs ?? [], activity: activity ?? [], assets: assets ?? [] });
+  };
+
   useEffect(() => {
-    if (!company) { setDetail({ requirements: [], payments: [], documents: [], activity: [] }); return; }
-    (async () => {
-      const [{ data: req }, { data: pay }, { data: docs }, { data: activity }] = await Promise.all([
-        supabase.from('requirements').select('id, title, due_date, status').eq('company_id', company.id),
-        supabase.from('company_payments').select('id, concept, due_date, amount, status').eq('company_id', company.id),
-        supabase.from('company_documents').select('id, name, kind, date, size_label, status').eq('company_id', company.id),
-        supabase.from('activity_log').select('id, date, actor, action, comment').eq('company_id', company.id).order('date', { ascending: false }).limit(20)
-      ]);
-      setDetail({ requirements: req ?? [], payments: pay ?? [], documents: docs ?? [], activity: activity ?? [] });
-    })();
+    loadDetail();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company?.id]);
+
+  const updateAssetStatus = async (assetId: string, status: string) => {
+    await supabase.from('brand_assets').update({ status }).eq('id', assetId);
+    loadDetail();
+  };
+
+  const openAssetFile = async (path: string | null) => {
+    if (!path) return;
+    const url = await getCompanyFileUrl(path);
+    if (url) window.open(url, '_blank', 'noopener');
+  };
 
   const openCreate = () => { setEditingId(null); setForm(emptyParticipation(activeEditionId)); setError(null); setModalOpen(true); };
   const openEdit = (participation: Participation) => { setEditingId(participation.id); const { id: _id, ...rest } = participation; setForm(rest); setError(null); setModalOpen(true); };
@@ -260,6 +279,24 @@ export function Companies() {
                       </div>
                       <StatusBadge label={document.status} tone="info" />
                     </li>)}
+              </ul>
+            </section>
+
+            <section>
+              <h3 className="text-sm font-semibold text-brand">Activos de marca</h3>
+              <ul className="mt-3 divide-y divide-line rounded-lg border border-line">
+                {detail.assets.map((asset) => <li key={asset.id} className="flex items-center gap-3 px-4 py-3">
+                      <div className="min-w-0 flex-1">
+                        <button type="button" disabled={!asset.file_path} onClick={() => openAssetFile(asset.file_path)} className="truncate text-left text-sm font-medium text-brand underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:no-underline">
+                          {asset.name}
+                        </button>
+                        <p className="text-xs capitalize text-ink-muted">{asset.kind}</p>
+                      </div>
+                      <select value={asset.status} onChange={(event) => updateAssetStatus(asset.id, event.target.value)} className="rounded-lg border border-line bg-white px-2 py-1.5 text-xs font-medium text-brand outline-none transition-colors duration-150 ease-emphasis focus:border-brand">
+                        {brandAssetStatusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                      </select>
+                    </li>)}
+                {detail.assets.length === 0 ? <li className="px-4 py-3 text-sm text-ink-muted">Sin activos cargados.</li> : null}
               </ul>
             </section>
 

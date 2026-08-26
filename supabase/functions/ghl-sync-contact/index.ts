@@ -16,12 +16,24 @@ interface GhlContact {
   tags: string[];
 }
 
+// Una sola lista de asistentes al evento (registrations), con `source`
+// distinguiendo el caso. Cuando source = 'invitado-patrocinio', la fila
+// también atraviesa el ciclo invitación -> aceptación -> reconfirmación
+// (no hay una tabla aparte para invitados), así que suma las mismas
+// tags de ciclo de vida que un colaborador.
 function mapRegistration(row: Record<string, unknown>): GhlContact {
+  const tags = ['inscripcion', String(row.source ?? '')].filter(Boolean);
+  if (row.source === 'invitado-patrocinio') {
+    if (row.responded_at && row.qr_status !== 'cancelled') tags.push('invitacion-aceptada');
+    if (row.qr_status === 'cancelled' && row.responded_at) tags.push('invitacion-rechazada');
+    if (row.reconfirm_requested_at && !row.reconfirmed_at) tags.push('reconfirmar-asistencia');
+    if (row.reconfirmed_at) tags.push('asistencia-reconfirmada');
+  }
   return {
     email: (row.email as string) ?? null,
     name: (row.full_name as string) ?? null,
     phone: (row.whatsapp as string) ?? null,
-    tags: ['inscripcion', String(row.source ?? '')].filter(Boolean),
+    tags,
   };
 }
 
@@ -43,13 +55,33 @@ function mapPlanRequest(row: Record<string, unknown>): GhlContact {
   };
 }
 
+// Colaborador (staff) o invitado profesional de una marca. El ciclo completo
+// de la invitación (creada -> aceptada/rechazada -> asistencia reconfirmada)
+// pasa por aquí; las tags reflejan el estado ACTUAL de la fila (releída con
+// service_role), así que un mismo contacto puede ir sumando tags conforme
+// avanza, y cada tag es el disparador de un workflow distinto en GHL.
+function mapBrandStaff(row: Record<string, unknown>): GhlContact {
+  const tags = ['invitacion-equipo'];
+  if (row.responded_at && row.accreditation_status === 'acreditado') tags.push('invitacion-aceptada');
+  if (row.accreditation_status === 'rechazado') tags.push('invitacion-rechazada');
+  if (row.reconfirm_requested_at && !row.reconfirmed_at) tags.push('reconfirmar-asistencia');
+  if (row.reconfirmed_at) tags.push('asistencia-reconfirmada');
+  return {
+    email: (row.email as string) ?? null,
+    name: (row.name as string) ?? null,
+    phone: null,
+    tags,
+  };
+}
+
 const TABLE_CONFIG: Record<
   string,
-  { mapper: (row: Record<string, unknown>) => GhlContact }
+  { mapper: (row: Record<string, unknown>) => GhlContact; hasCrmSyncedColumn: boolean }
 > = {
-  registrations: { mapper: mapRegistration },
-  community_members: { mapper: mapCommunityMember },
-  plan_requests: { mapper: mapPlanRequest },
+  registrations: { mapper: mapRegistration, hasCrmSyncedColumn: true },
+  community_members: { mapper: mapCommunityMember, hasCrmSyncedColumn: true },
+  plan_requests: { mapper: mapPlanRequest, hasCrmSyncedColumn: true },
+  brand_staff_members: { mapper: mapBrandStaff, hasCrmSyncedColumn: false },
 };
 
 Deno.serve(async (req) => {
@@ -114,7 +146,9 @@ Deno.serve(async (req) => {
       return new Response('Error sincronizando con GHL', { status: 502 });
     }
 
-    await admin.from(table).update({ crm_synced: true }).eq('id', record.id);
+    if (config.hasCrmSyncedColumn) {
+      await admin.from(table).update({ crm_synced: true }).eq('id', record.id);
+    }
 
     return new Response('ok', { headers: corsHeaders });
   } catch (err) {
