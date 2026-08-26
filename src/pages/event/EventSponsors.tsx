@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { CheckIcon, MinusIcon } from 'lucide-react';
 import type { Edition } from '../../types/event';
@@ -11,8 +11,14 @@ import { SponsorRegistrationSection, type SponsorType } from '../../components/e
 import { SponsorBanner } from '../../components/public/SponsorBanner';
 import { Reveal, RevealItem } from '../../components/motion/Reveal';
 import { media } from '../../data/media';
+import { supabase } from '../../lib/supabaseClient';
 import { comparisonFootnote, planComparison, participationPlans } from '../../data/plans';
-import { getCompany, participationsByEdition } from '../../data/companies';
+
+interface PublishedParticipation {
+  id: string;
+  plan_id: string;
+  company: { trade_name: string; description: string | null };
+}
 
 /**
  * Registro de patrocinio. Todo nace del plan: el espacio, el puente y el
@@ -29,9 +35,29 @@ export function EventSponsors() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tipo = searchParams.get('tipo') as SponsorType | null;
   const activePlanId = (searchParams.get('ver') as PlanId | null) ?? null;
-  const published = participationsByEdition(edition.id).filter((item) => item.status === 'publicado');
-  const protagonista = participationPlans.find((plan) => plan.id === 'protagonista');
-  const bridgesLeft = protagonista ? protagonista.totalInventory! - protagonista.sold : 0;
+  const [published, setPublished] = useState<PublishedParticipation[]>([]);
+  useEffect(() => {
+    supabase
+      .from('participations')
+      .select('id, plan_id, companies!inner(trade_name, description)')
+      .eq('edition_id', edition.id)
+      .eq('status', 'publicado')
+      .then(({ data }) => setPublished((data ?? []).map((row: unknown) => {
+        const r = row as { id: string; plan_id: string; companies: { trade_name: string; description: string | null } };
+        return { id: r.id, plan_id: r.plan_id, company: r.companies };
+      })));
+  }, [edition.id]);
+
+  const [bridgesLeft, setBridgesLeft] = useState(0);
+  useEffect(() => {
+    supabase
+      .from('participation_plan_editions')
+      .select('total_inventory, sold')
+      .eq('edition_id', edition.id)
+      .eq('plan_id', 'protagonista')
+      .maybeSingle()
+      .then(({ data }) => setBridgesLeft(data ? Math.max(0, (data.total_inventory ?? 0) - data.sold) : 0));
+  }, [edition.id]);
 
   const setVer = (id: PlanId | null) => {
     const next = new URLSearchParams(searchParams);
@@ -150,16 +176,15 @@ export function EventSponsors() {
             <Reveal>
               <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {published.map((participation) => {
-              const company = getCompany(participation.companyId);
-              if (!company) return null;
+              const plan = participationPlans.find((item) => item.id === participation.plan_id);
               return <RevealItem key={participation.id} className="h-full">
                       <div className="card-lift flex h-full flex-col rounded-2xl border border-white bg-white/90 p-6 shadow-elev2 backdrop-blur">
-                        <p className="text-base font-bold text-brand">{company.tradeName}</p>
+                        <p className="text-base font-bold text-brand">{participation.company.trade_name}</p>
                         <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-accent">
-                          {participation.packageName}
+                          {plan?.name ?? participation.plan_id}
                         </p>
                         <p className="mt-3 text-sm leading-relaxed text-ink-muted">
-                          {company.description}
+                          {participation.company.description}
                         </p>
                       </div>
                     </RevealItem>;

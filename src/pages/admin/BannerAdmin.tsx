@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowDownIcon, ArrowUpIcon, EyeIcon, ImageOffIcon, MousePointerClickIcon, PlusIcon, SmartphoneIcon } from 'lucide-react';
+import { ArrowDownIcon, ArrowUpIcon, EyeIcon, ImageOffIcon, MousePointerClickIcon, PlusIcon, UploadIcon } from 'lucide-react';
 import { ModuleHeader, Panel, tdClass, thClass } from '../../components/admin/Panel';
 import { usePlatform } from '../../contexts/PlatformContext';
 import { formatNumber, formatPercent } from '../../utils/format';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { SponsorLogoTile } from '../../components/public/SponsorLogoTile';
 import { EASE_EMPHASIS } from '../../utils/motion';
 import { supabase } from '../../lib/supabaseClient';
+import { setCompanyLogo, uploadPublicAsset } from '../../lib/storage';
 import { AdminModal, modalFieldClass, ModalField } from '../../components/admin/AdminModal';
 import { ConfirmDialog } from '../../components/admin/ConfirmDialog';
 import { RowActions } from '../../components/admin/RowActions';
@@ -25,7 +27,9 @@ interface BannerConfig {
 interface Slot {
   id: string;
   edition_id: string;
-  company_id: string;
+  company_id: string | null;
+  standalone_name: string | null;
+  standalone_logo_url: string | null;
   tier: 'principal' | 'destacado' | 'apoyo';
   order_num: number;
   active: boolean;
@@ -33,11 +37,10 @@ interface Slot {
   clicks: number;
   logo_ready: boolean;
 }
-interface Company { id: string; trade_name: string; }
+interface Company { id: string; trade_name: string; logo_url: string | null; }
 interface Participation { company_id: string; status: string; }
 
 const tierLabels: Record<string, string> = { principal: 'Principal', destacado: 'Destacado', apoyo: 'Apoyo' };
-const tierSize: Record<string, string> = { principal: 'h-7 text-[11px] px-3', destacado: 'h-6 text-[10px] px-2.5', apoyo: 'h-5 text-[9px] px-2' };
 const surfaces: { id: string; label: string }[] = [{ id: 'evento', label: 'Páginas de evento' }, { id: 'corporativo', label: 'Home corporativa' }, { id: 'contenido', label: 'Contenidos' }];
 
 export function BannerAdmin() {
@@ -48,18 +51,22 @@ export function BannerAdmin() {
   const [participations, setParticipations] = useState<Participation[]>([]);
   const [preview, setPreview] = useState<'movil' | 'escritorio'>('movil');
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [newSlotMode, setNewSlotMode] = useState<'empresa' | 'abierto'>('empresa');
   const [newSlotCompanyId, setNewSlotCompanyId] = useState('');
   const [newSlotTier, setNewSlotTier] = useState<Slot['tier']>('apoyo');
+  const [newStandaloneName, setNewStandaloneName] = useState('');
+  const [newStandaloneFile, setNewStandaloneFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [trashTarget, setTrashTarget] = useState<Slot | null>(null);
   const [trashing, setTrashing] = useState(false);
+  const [logoUploadingId, setLogoUploadingId] = useState<string | null>(null);
 
   const load = async () => {
     const [{ data: configRow }, { data: slotRows }, { data: companyRows }, { data: participationRows }] = await Promise.all([
       supabase.from('sponsor_banner_configs').select('*').eq('edition_id', activeEditionId).maybeSingle(),
       supabase.from('banner_slots').select('*').eq('edition_id', activeEditionId).order('order_num'),
-      supabase.from('companies').select('id, trade_name'),
+      supabase.from('companies').select('id, trade_name, logo_url'),
       supabase.from('participations').select('company_id, status').eq('edition_id', activeEditionId)
     ]);
     setConfig(configRow ?? { edition_id: activeEditionId, enabled: true, heading_label: 'Con el apoyo de', surfaces: [], desktop_speed_seconds: 30, mobile_speed_seconds: 20, mobile_enabled: true, collapsible: true });
@@ -103,17 +110,40 @@ export function BannerAdmin() {
     saveConfig({ surfaces: next });
   };
 
-  const openAddSlot = () => { setNewSlotCompanyId(''); setNewSlotTier('apoyo'); setError(null); setAddModalOpen(true); };
+  const openAddSlot = () => { setNewSlotMode('empresa'); setNewSlotCompanyId(''); setNewSlotTier('apoyo'); setNewStandaloneName(''); setNewStandaloneFile(null); setError(null); setAddModalOpen(true); };
   const submitAddSlot = async () => {
-    if (!newSlotCompanyId) { setError('Selecciona una empresa.'); return; }
     setSaving(true);
     setError(null);
-    const { error: submitError } = await supabase.from('banner_slots').insert({
-      edition_id: activeEditionId, company_id: newSlotCompanyId, tier: newSlotTier, order_num: slots.length + 1, active: false, logo_ready: false
-    });
-    setSaving(false);
-    if (submitError) { setError(submitError.message); return; }
+    if (newSlotMode === 'empresa') {
+      if (!newSlotCompanyId) { setSaving(false); setError('Selecciona una empresa.'); return; }
+      const { error: submitError } = await supabase.from('banner_slots').insert({
+        edition_id: activeEditionId, company_id: newSlotCompanyId, tier: newSlotTier, order_num: slots.length + 1, active: false, logo_ready: false
+      });
+      setSaving(false);
+      if (submitError) { setError(submitError.message); return; }
+    } else {
+      if (!newStandaloneName.trim() || !newStandaloneFile) { setSaving(false); setError('Nombre y logo son obligatorios.'); return; }
+      const { url, error: uploadError } = await uploadPublicAsset(newStandaloneFile);
+      if (uploadError || !url) { setSaving(false); setError(uploadError ?? 'Error subiendo el logo'); return; }
+      const { error: submitError } = await supabase.from('banner_slots').insert({
+        edition_id: activeEditionId, company_id: null, standalone_name: newStandaloneName.trim(), standalone_logo_url: url, tier: newSlotTier, order_num: slots.length + 1, active: false, logo_ready: true
+      });
+      setSaving(false);
+      if (submitError) { setError(submitError.message); return; }
+    }
     setAddModalOpen(false);
+    load();
+  };
+
+  const reuploadLogo = async (slot: Slot, file: File) => {
+    setLogoUploadingId(slot.id);
+    if (slot.company_id) {
+      await setCompanyLogo(slot.company_id, file);
+    } else {
+      const { url } = await uploadPublicAsset(file);
+      if (url) await supabase.from('banner_slots').update({ standalone_logo_url: url }).eq('id', slot.id);
+    }
+    setLogoUploadingId(null);
     load();
   };
 
@@ -135,6 +165,14 @@ export function BannerAdmin() {
   const impressions = ordered.reduce((total, slot) => total + slot.impressions, 0);
   const clicks = ordered.reduce((total, slot) => total + slot.clicks, 0);
   const availableCompanies = companies.filter((company) => !slots.some((slot) => slot.company_id === company.id));
+
+  function slotPreviewDisplay(slot: Slot): { name: string; logoUrl: string | null; hasLogo: boolean } {
+    if (slot.company_id) {
+      const company = companies.find((c) => c.id === slot.company_id);
+      return { name: company?.trade_name ?? '—', logoUrl: company?.logo_url ?? null, hasLogo: slot.logo_ready && Boolean(company?.logo_url) };
+    }
+    return { name: slot.standalone_name ?? '—', logoUrl: slot.standalone_logo_url, hasLogo: Boolean(slot.standalone_logo_url) };
+  }
 
   return <>
       <ModuleHeader eyebrow="Comercial" title="Banner de patrocinadores" description="Controla qué marcas aparecen, con qué peso y en qué superficies." actions={<div className="flex items-center gap-2">
@@ -167,8 +205,9 @@ export function BannerAdmin() {
                 </thead>
                 <tbody className="divide-y divide-line">
                   {ordered.map((slot, index) => {
-                  const company = companies.find((c) => c.id === slot.company_id);
-                  const isPublished = published.has(slot.company_id);
+                  const company = slot.company_id ? companies.find((c) => c.id === slot.company_id) : undefined;
+                  const displayName = company?.trade_name ?? slot.standalone_name ?? '—';
+                  const isPublished = slot.company_id ? published.has(slot.company_id) : true;
                   return <tr key={slot.id} className="transition-colors duration-150 hover:bg-canvas">
                         <td className={tdClass}>
                           <div className="flex items-center gap-1">
@@ -182,8 +221,9 @@ export function BannerAdmin() {
                           </div>
                         </td>
                         <td className={`${tdClass} font-medium text-brand`}>
-                          {company?.trade_name ?? slot.company_id}
-                          {!isPublished ? <span className="ml-2 align-middle"><StatusBadge label="No publicada" tone="warning" /></span> : null}
+                          {displayName}
+                          {!slot.company_id ? <span className="ml-2 align-middle"><StatusBadge label="Logo abierto" tone="neutral" /></span> : null}
+                          {slot.company_id && !isPublished ? <span className="ml-2 align-middle"><StatusBadge label="No publicada" tone="warning" /></span> : null}
                         </td>
                         <td className={tdClass}>
                           <select value={slot.tier} onChange={(event) => updateSlot(slot.id, { tier: event.target.value as Slot['tier'] })} className="rounded-lg border border-line bg-white px-2 py-1 text-xs text-ink">
@@ -191,15 +231,24 @@ export function BannerAdmin() {
                           </select>
                         </td>
                         <td className={tdClass}>
-                          {slot.logo_ready ? <StatusBadge label="SVG listo" tone="success" /> : <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-700">
-                              <ImageOffIcon size={13} /> Falta SVG
-                            </span>}
+                          <div className="flex items-center gap-2">
+                            {slot.logo_ready ? <StatusBadge label="Logo listo" tone="success" /> : <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-700">
+                                <ImageOffIcon size={13} /> Falta logo
+                              </span>}
+                            <label className="inline-flex cursor-pointer items-center gap-1 rounded p-1 text-ink-muted hover:bg-brand-soft hover:text-brand" title="Subir/corregir logo">
+                              {logoUploadingId === slot.id ? <span className="text-[10px]">…</span> : <UploadIcon size={13} />}
+                              <input type="file" accept="image/*" className="hidden" disabled={logoUploadingId === slot.id} onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              if (file) reuploadLogo(slot, file);
+                            }} />
+                            </label>
+                          </div>
                         </td>
                         <td className={tdClass}>{formatNumber(slot.impressions)}</td>
                         <td className={tdClass}>{formatNumber(slot.clicks)}</td>
                         <td className={tdClass}>{slot.impressions > 0 ? formatPercent(slot.clicks / slot.impressions) : '—'}</td>
                         <td className={tdClass}>
-                          <input type="checkbox" className="h-4 w-4 accent-[color:var(--brand)]" checked={slot.active} disabled={!slot.logo_ready || !isPublished} onChange={(event) => updateSlot(slot.id, { active: event.target.checked })} aria-label={`Activar ${company?.trade_name ?? slot.company_id}`} />
+                          <input type="checkbox" className="h-4 w-4 accent-[color:var(--brand)]" checked={slot.active} disabled={!slot.logo_ready || !isPublished} onChange={(event) => updateSlot(slot.id, { active: event.target.checked })} aria-label={`Activar ${displayName}`} />
                         </td>
                         <td className={tdClass}>
                           <RowActions onDelete={() => setTrashTarget(slot)} />
@@ -210,7 +259,7 @@ export function BannerAdmin() {
               </table>
             </div>
             <p className="border-t border-line bg-canvas px-5 py-3 text-xs text-ink-muted">
-              Una marca solo puede activarse si su participación está publicada y su logo vectorial está aprobado.
+              Una empresa solo puede activarse si su participación está publicada y tiene logo. Un logo abierto solo necesita tener logo cargado.
             </p>
           </Panel>
 
@@ -266,44 +315,38 @@ export function BannerAdmin() {
                     <span className="relative">{mode}</span>
                   </button>)}
               </div>}>
-            <div className="flex justify-center bg-canvas px-5 py-7">
-              {preview === 'movil' ? <div className="w-[248px] overflow-hidden rounded-[26px] border-[6px] border-brand-deep bg-white shadow-lift">
-                  <div className="h-5 bg-brand-deep" />
-                  <div className="space-y-2 px-3 py-4">
-                    <div className="skeleton h-3 w-4/5" />
-                    <div className="skeleton h-3 w-3/5" />
-                    <div className="skeleton h-20 w-full" />
+            <div className="bg-canvas px-5 py-7">
+              {activeSlots.length === 0 ? <p className="rounded-xl border border-dashed border-line bg-white px-6 py-10 text-center text-sm text-ink-muted">
+                  Ninguna marca activa todavía — actívalas en la tabla de la izquierda para verlas aquí.
+                </p> : preview === 'movil' ? <div className="mx-auto w-[280px] overflow-hidden rounded-2xl border border-line bg-canvas/95 shadow-lift">
+                  <div className="flex items-center justify-between px-3 pt-2">
+                    <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-ink-muted">{config.heading_label}</span>
                   </div>
-                  {config.enabled && config.mobile_enabled ? <div className="overflow-hidden border-t border-line bg-canvas px-2 py-1.5" style={{ ['--marquee-duration' as string]: `${config.mobile_speed_seconds}s` }}>
-                      <p className="text-[7px] font-semibold uppercase tracking-[0.14em] text-ink-muted">{config.heading_label}</p>
-                      <div className="mt-1 overflow-hidden">
-                        <div className="marquee-track flex w-max items-center gap-2">
-                          {[...activeSlots, ...activeSlots].map((slot, index) => <span key={`${slot.id}-${index}`} className={`grid shrink-0 place-items-center rounded bg-brand font-semibold text-white ${tierSize[slot.tier]}`}>
-                              {companies.find((c) => c.id === slot.company_id)?.trade_name ?? '—'}
-                            </span>)}
-                        </div>
-                      </div>
-                    </div> : <div className="border-t border-line bg-canvas px-3 py-2 text-center text-[8px] text-ink-muted">Franja desactivada</div>}
-                </div> : <div className="w-full max-w-sm overflow-hidden rounded-xl border border-line bg-white">
-                  <div className="space-y-2 px-4 py-4">
-                    <div className="skeleton h-3 w-1/2" />
-                    <div className="skeleton h-16 w-full" />
+                  <div className="no-scrollbar overflow-x-auto px-3 pb-3 pt-2">
+                    <div className="flex items-center gap-3">
+                      {activeSlots.map((slot) => {
+                      const display = slotPreviewDisplay(slot);
+                      return <SponsorLogoTile key={slot.id} name={display.name} logoUrl={display.logoUrl} hasLogo={display.hasLogo} size="mobile" />;
+                    })}
+                    </div>
                   </div>
-                  {config.enabled ? <div className="flex items-center gap-3 border-t border-line bg-canvas px-4 py-3" style={{ ['--marquee-duration' as string]: `${config.desktop_speed_seconds}s` }}>
-                      <span className="shrink-0 text-[8px] font-semibold uppercase tracking-[0.14em] text-ink-muted">{config.heading_label}</span>
-                      <div className="overflow-hidden">
-                        <div className="marquee-track flex w-max items-center gap-2.5">
-                          {[...activeSlots, ...activeSlots].map((slot, index) => <span key={`${slot.id}-${index}`} className={`grid shrink-0 place-items-center rounded bg-brand font-semibold text-white ${tierSize[slot.tier]}`}>
-                              {companies.find((c) => c.id === slot.company_id)?.trade_name ?? '—'}
-                            </span>)}
-                        </div>
+                </div> : <div className="overflow-hidden rounded-2xl border border-line bg-[#1a1a3d] px-6 py-6">
+                  <div className="flex items-center gap-6">
+                    <p className="w-24 shrink-0 text-[11px] font-semibold uppercase leading-tight tracking-[0.18em] text-white/60">
+                      {config.heading_label}
+                    </p>
+                    <div className="no-scrollbar min-w-0 flex-1 overflow-x-auto">
+                      <div className="flex items-center gap-5 py-1">
+                        {activeSlots.map((slot) => {
+                        const display = slotPreviewDisplay(slot);
+                        return <SponsorLogoTile key={slot.id} name={display.name} logoUrl={display.logoUrl} hasLogo={display.hasLogo} size="desktop" />;
+                      })}
                       </div>
-                    </div> : <div className="border-t border-line bg-canvas px-4 py-3 text-center text-[10px] text-ink-muted">Banner desactivado</div>}
+                    </div>
+                  </div>
                 </div>}
+              {!config.enabled ? <p className="mt-3 text-center text-xs font-medium text-amber-700">Banner desactivado — esto es solo un preview.</p> : null}
             </div>
-            <p className="flex items-center gap-2 border-t border-line px-5 py-3 text-xs text-ink-muted">
-              <SmartphoneIcon size={14} /> En móvil la franja vive bajo la barra de inscripción.
-            </p>
           </Panel>
 
           <Panel title="Retorno del banner">
@@ -331,12 +374,26 @@ export function BannerAdmin() {
 
       <AdminModal open={addModalOpen} onClose={() => setAddModalOpen(false)} title="Agregar marca al banner" onSubmit={submitAddSlot} submitting={saving} error={error}>
         <div className="space-y-4">
-          <ModalField label="Empresa">
-            <select className={modalFieldClass} value={newSlotCompanyId} onChange={(event) => setNewSlotCompanyId(event.target.value)}>
-              <option value="">Selecciona una empresa</option>
-              {availableCompanies.map((company) => <option key={company.id} value={company.id}>{company.trade_name}</option>)}
-            </select>
+          <ModalField label="Tipo">
+            <div className="flex rounded-lg border border-line p-0.5">
+              {([{ id: 'empresa', label: 'Empresa registrada' }, { id: 'abierto', label: 'Logo abierto' }] as const).map((option) => <button key={option.id} type="button" onClick={() => setNewSlotMode(option.id)} className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors duration-150 ease-emphasis ${newSlotMode === option.id ? 'bg-brand text-white' : 'text-ink-muted'}`}>
+                  {option.label}
+                </button>)}
+            </div>
           </ModalField>
+          {newSlotMode === 'empresa' ? <ModalField label="Empresa">
+              <select className={modalFieldClass} value={newSlotCompanyId} onChange={(event) => setNewSlotCompanyId(event.target.value)}>
+                <option value="">Selecciona una empresa</option>
+                {availableCompanies.map((company) => <option key={company.id} value={company.id}>{company.trade_name}</option>)}
+              </select>
+            </ModalField> : <>
+              <ModalField label="Nombre a mostrar">
+                <input className={modalFieldClass} value={newStandaloneName} onChange={(event) => setNewStandaloneName(event.target.value)} placeholder="Ej. Medio aliado / Institución" />
+              </ModalField>
+              <ModalField label="Logo">
+                <input type="file" accept="image/*" className={modalFieldClass} onChange={(event) => setNewStandaloneFile(event.target.files?.[0] ?? null)} />
+              </ModalField>
+            </>}
           <ModalField label="Nivel">
             <select className={modalFieldClass} value={newSlotTier} onChange={(event) => setNewSlotTier(event.target.value as Slot['tier'])}>
               {Object.entries(tierLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -345,6 +402,6 @@ export function BannerAdmin() {
         </div>
       </AdminModal>
 
-      <ConfirmDialog open={Boolean(trashTarget)} title="¿Quitar esta marca del banner?" description={companies.find((c) => c.id === trashTarget?.company_id)?.trade_name} onConfirm={confirmTrash} onCancel={() => setTrashTarget(null)} loading={trashing} confirmLabel="Mover a la papelera" />
+      <ConfirmDialog open={Boolean(trashTarget)} title="¿Quitar esta marca del banner?" description={trashTarget?.company_id ? companies.find((c) => c.id === trashTarget.company_id)?.trade_name : trashTarget?.standalone_name ?? undefined} onConfirm={confirmTrash} onCancel={() => setTrashTarget(null)} loading={trashing} confirmLabel="Mover a la papelera" />
     </>;
 }

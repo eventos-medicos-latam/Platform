@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRightIcon, DownloadIcon, FileTextIcon, PlayCircleIcon, SparklesIcon } from 'lucide-react';
 import type { InfoProduct } from '../../types/product';
-import { publicInfoProducts } from '../../data/products';
+import { supabase } from '../../lib/supabaseClient';
 import { formatCop, withVat } from '../../utils/format';
 import { Pending } from '../ui/Pending';
 import { EASE_EMPHASIS } from '../../utils/motion';
@@ -26,7 +26,27 @@ const kindLabels: Record<InfoProduct['kind'], string> = {
  * destacados ocupan el doble de superficie, el resto acompaña en fila.
  */
 export function StoreSection() {
-  const products = publicInfoProducts();
+  const [products, setProducts] = useState<InfoProduct[]>([]);
+  useEffect(() => {
+    supabase
+      .from('info_products')
+      .select('id, name, kind, format, claim, description, price, vat_rate, volume_label, includes, status, featured')
+      .in('status', ['aprobado', 'publicado'])
+      .then(({ data }) => setProducts((data ?? []).map((row) => ({
+        id: row.id,
+        name: row.name,
+        kind: row.kind,
+        format: row.format,
+        claim: row.claim,
+        description: row.description,
+        price: row.price,
+        vatRate: row.vat_rate,
+        volumeLabel: row.volume_label,
+        includes: row.includes,
+        status: row.status,
+        featured: row.featured
+      }))));
+  }, []);
   const featured = products.filter((product) => product.featured);
   const rest = products.filter((product) => !product.featured);
   if (products.length === 0) return null;

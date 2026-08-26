@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowRightIcon, CalendarPlusIcon, MessagesSquareIcon, MonitorPlayIcon, UsersRoundIcon } from 'lucide-react';
-import { secondaryEvents } from '../../data/content';
+import { fetchSecondaryEvents } from '../../lib/publicData';
 import type { SecondaryEvent } from '../../types/content';
 import { formatFullDate } from '../../utils/format';
 import { Pending } from '../ui/Pending';
@@ -54,13 +54,17 @@ function daysUntil(date: string): number {
  */
 export function DigitalSessionsStrip() {
   const [filter, setFilter] = useState('todos');
-  const published = useMemo(() => secondaryEvents.filter((event) => event.status === 'aprobado' || event.status === 'publicado').sort((a, b) => a.date.localeCompare(b.date)), []);
+  const [allEvents, setAllEvents] = useState<SecondaryEvent[]>([]);
+  useEffect(() => {
+    fetchSecondaryEvents().then(setAllEvents);
+  }, []);
+  const published = useMemo(() => allEvents.filter((event) => event.status === 'aprobado' || event.status === 'publicado').sort((a, b) => a.date.localeCompare(b.date)), [allEvents]);
   const kinds = useMemo(() => {
     const set = new Set(published.map((event) => event.kind.toLowerCase()));
     return ['todos', ...set];
   }, [published]);
   const list = filter === 'todos' ? published : published.filter((e) => e.kind.toLowerCase() === filter);
-  const hidden = secondaryEvents.length - published.length;
+  const hidden = allEvents.length - published.length;
   return <section className="surface-deep relative isolate overflow-hidden py-20 text-white lg:py-24">
       <div className="grid-texture absolute inset-0" aria-hidden="true" />
 

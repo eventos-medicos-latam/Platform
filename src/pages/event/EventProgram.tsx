@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BedDoubleIcon, CarIcon, CheckIcon, MapPinIcon, PlaneIcon, UserRoundIcon } from 'lucide-react';
@@ -13,11 +13,53 @@ import { OrbitCarousel } from '../../components/ui/OrbitCarousel';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { Reveal, RevealItem } from '../../components/motion/Reveal';
 import { editionMedia } from '../../data/media';
-import { agendaDays, agendaTypeLabels } from '../../data/agenda';
-import { speakersByEdition } from '../../data/speakers';
-import { publicTickets, ticketAvailability } from '../../data/tickets';
+import { agendaTypeLabels } from '../../data/agenda';
+import { supabase } from '../../lib/supabaseClient';
+import { DownloadAgendaButton } from '../../components/pdf/DownloadAgendaButton';
 import { formatCop, formatTimeRange, withVat } from '../../utils/format';
 import { DURATION, EASE_EMPHASIS } from '../../utils/motion';
+
+interface PublicTicket {
+  id: string;
+  name: string;
+  modality: string;
+  price: number | null;
+  vat_rate: number;
+  quota: number;
+  sold: number;
+  benefits: string[];
+}
+
+interface PublicSpeaker {
+  id: string;
+  slot_label: string;
+  name: string;
+  specialty: string;
+  bio: string;
+  talks: string[];
+  track_id: string | null;
+  status: string;
+}
+
+interface PublicAgendaItem {
+  id: string;
+  day: number;
+  start_time: string;
+  end_time: string;
+  title: string;
+  description: string;
+  type: keyof typeof agendaTypeLabels;
+  track_id: string | null;
+  room: string;
+  speakerIds: string[];
+}
+
+interface PublicDay {
+  day: number;
+  label: string;
+  concept: string;
+  items: PublicAgendaItem[];
+}
 
 const quietTypes = ['break', 'almuerzo', 'coctel', 'registro', 'networking'];
 
@@ -65,15 +107,65 @@ export function EventProgram() {
     edition
   } = useOutletContext<{edition: Edition;}>();
 
-  const days = agendaDays(edition.id);
-  const [activeDay, setActiveDay] = useState(days[0]?.day ?? 1);
+  const [days, setDays] = useState<PublicDay[]>([]);
+  const [activeDay, setActiveDay] = useState(1);
   const day = days.find((item) => item.day === activeDay) ?? days[0];
 
-  const speakerSlots = speakersByEdition(edition.id);
+  useEffect(() => {
+    Promise.all([
+      supabase.from('agenda_items').select('*').eq('edition_id', edition.id).eq('visible', true).eq('status', 'publicado').order('day').order('order_num'),
+      supabase.from('agenda_item_speakers').select('agenda_item_id, speaker_id')
+    ]).then(([{ data: itemRows }, { data: linkRows }]) => {
+      const speakerIdsByItem: Record<string, string[]> = {};
+      (linkRows ?? []).forEach((row) => {
+        speakerIdsByItem[row.agenda_item_id] = [...(speakerIdsByItem[row.agenda_item_id] ?? []), row.speaker_id];
+      });
+      const items: PublicAgendaItem[] = (itemRows ?? []).map((item) => ({
+        id: item.id,
+        day: item.day,
+        start_time: item.start_time,
+        end_time: item.end_time,
+        title: item.title,
+        description: item.description,
+        type: item.type,
+        track_id: item.track_id,
+        room: item.room,
+        speakerIds: speakerIdsByItem[item.id] ?? []
+      }));
+      const dayNumbers = [...new Set(items.map((item) => item.day))];
+      const grouped: PublicDay[] = dayNumbers.map((dayNumber) => {
+        const dayItems = items.filter((item) => item.day === dayNumber);
+        const source = (itemRows ?? []).find((row) => row.day === dayNumber);
+        return { day: dayNumber, label: source?.day_label ?? `Día ${dayNumber}`, concept: source?.day_concept ?? '', items: dayItems };
+      });
+      setDays(grouped);
+      setActiveDay((current) => grouped.some((entry) => entry.day === current) ? current : (grouped[0]?.day ?? 1));
+    });
+  }, [edition.id]);
+
+  const [speakerSlots, setSpeakerSlots] = useState<PublicSpeaker[]>([]);
+  useEffect(() => {
+    supabase
+      .from('speakers')
+      .select('id, slot_label, name, specialty, bio, talks, track_id, status')
+      .eq('edition_id', edition.id)
+      .order('order_num')
+      .then(({ data }) => setSpeakerSlots(data ?? []));
+  }, [edition.id]);
   const publishedSpeakers = speakerSlots.filter((speaker) => speaker.status === 'publicado');
   const [proposalTopic, setProposalTopic] = useState<string | null>(null);
 
-  const tickets = publicTickets(edition.id);
+  const [tickets, setTickets] = useState<PublicTicket[]>([]);
+  useEffect(() => {
+    supabase
+      .from('tickets')
+      .select('id, name, modality, price, vat_rate, quota, sold, benefits')
+      .eq('edition_id', edition.id)
+      .eq('visible', true)
+      .eq('status', 'publicado')
+      .order('start_date')
+      .then(({ data }) => setTickets(data ?? []));
+  }, [edition.id]);
 
   const availableJumps = jumpLinks.filter((link) => edition.sections.includes(link.id as 'agenda' | 'speakers' | 'ubicacion' | 'tickets'));
 
@@ -85,10 +177,11 @@ export function EventProgram() {
       text: 'para vivir el evento',
       tone: 'light'
     }]} lead="Agenda, speakers, ubicación y tickets — en un solo lugar, sin ir y venir entre pestañas.">
-        {availableJumps.length > 0 ? <div className="flex flex-wrap gap-2">
+        {availableJumps.length > 0 ? <div className="flex flex-wrap items-center gap-2">
             {availableJumps.map((link) => <a key={link.id} href={`#${link.id}`} className="rounded-full border border-white/30 px-4 py-2 text-xs font-semibold text-white/85 transition-colors duration-150 ease-emphasis hover:border-white hover:text-white">
                 {link.label}
               </a>)}
+            <DownloadAgendaButton edition={edition} />
           </div> : null}
       </EventPageHeader>
 
@@ -134,7 +227,7 @@ export function EventProgram() {
                 ease: EASE_EMPHASIS
               }} className="mt-5 space-y-2.5">
                     {day.items.map((item, index) => {
-                  const track = edition.trackAxis.tracks.find((entry) => entry.id === item.trackId);
+                  const track = edition.trackAxis.tracks.find((entry) => entry.id === item.track_id);
                   const itemSpeakers = speakerSlots.filter((speaker) => item.speakerIds.includes(speaker.id));
                   const isQuiet = quietTypes.includes(item.type);
                   return <motion.li key={item.id} initial={{
@@ -153,7 +246,7 @@ export function EventProgram() {
                           <span className={`absolute inset-y-0 left-0 w-1 ${isQuiet ? 'bg-line' : 'grad-futuro'}`} aria-hidden="true" />
                           <div className="w-[112px] shrink-0 pl-1">
                             <p className="text-sm font-semibold text-brand">
-                              {item.start === 'PENDIENTE' ? <Pending /> : formatTimeRange(item.start, item.end)}
+                              {item.start_time === 'PENDIENTE' ? <Pending /> : formatTimeRange(item.start_time, item.end_time)}
                             </p>
                             <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
                               {agendaTypeLabels[item.type]}
@@ -172,7 +265,7 @@ export function EventProgram() {
                                 </p>
                                 {itemSpeakers.length > 0 ? <ul className="mt-2.5 space-y-1">
                                     {itemSpeakers.map((speaker) => <li key={speaker.id} className="flex items-center gap-2 text-sm">
-                                        <span className="text-ink-muted">{speaker.slotLabel}:</span>
+                                        <span className="text-ink-muted">{speaker.slot_label}:</span>
                                         {speaker.status === 'confirmado' || speaker.status === 'publicado' ? <span className="font-medium text-brand">{speaker.name}</span> : <Pending note="speaker por confirmar" />}
                                       </li>)}
                                   </ul> : null}
@@ -231,8 +324,8 @@ export function EventProgram() {
                   <Reveal>
                     <ul className="grid gap-3 md:grid-cols-2">
                       {speakerSlots.map((slot) => {
-                  const track = edition.trackAxis.tracks.find((entry) => entry.id === slot.trackId);
-                  const topic = slot.talks[0] === 'PENDIENTE' ? slot.slotLabel : slot.talks[0];
+                  const track = edition.trackAxis.tracks.find((entry) => entry.id === slot.track_id);
+                  const topic = slot.talks[0] === 'PENDIENTE' ? slot.slot_label : slot.talks[0];
                   return <RevealItem key={slot.id}>
                             <button type="button" onClick={() => setProposalTopic(topic)} className="flex h-full w-full items-start gap-4 rounded-2xl border border-white/15 bg-white/[0.05] px-5 py-5 text-left transition-colors duration-150 ease-emphasis hover:border-hb-violet/50">
                               {track ? <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-white/10 text-hb-violet">
@@ -242,7 +335,7 @@ export function EventProgram() {
                                 </span>}
                               <div>
                                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/55">
-                                  {slot.slotLabel}
+                                  {slot.slot_label}
                                 </p>
                                 <p className="mt-1.5 text-base font-semibold leading-snug text-white">
                                   {slot.talks[0] === 'PENDIENTE' ? 'Tema por definir' : slot.talks[0]}
@@ -348,8 +441,8 @@ export function EventProgram() {
             <Reveal className="mt-9">
               <ul className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                 {tickets.map((ticket) => {
-              const available = ticketAvailability(ticket);
-              const finalPrice = withVat(ticket.price, ticket.vatRate);
+              const available = Math.max(0, ticket.quota - ticket.sold);
+              const finalPrice = withVat(ticket.price, ticket.vat_rate);
               const soldOut = available === 0;
               return <RevealItem key={ticket.id} className="h-full">
                       <div className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-white/15 bg-white/[0.06] p-7 backdrop-blur">

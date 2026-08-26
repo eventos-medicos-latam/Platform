@@ -9,6 +9,7 @@ import { Pending } from '../../components/ui/Pending';
 import { DURATION, EASE_EMPHASIS, popVariants } from '../../utils/motion';
 import { PageHero } from '../../components/public/PageHero';
 import { media } from '../../data/media';
+import { supabase } from '../../lib/supabaseClient';
 const reasons: {
   id: ContactReason;
   label: string;
@@ -55,19 +56,53 @@ export function Contact() {
   });
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [contact, setContact] = useState<{ email: string; whatsapp: string } | null>(null);
+  useEffect(() => {
+    supabase
+      .from('public_settings')
+      .select('key, value')
+      .in('key', ['contact_email', 'contact_whatsapp_dial_code', 'contact_whatsapp_number'])
+      .then(({ data }) => {
+        const values = Object.fromEntries((data ?? []).map((row) => [row.key, row.value ?? '']));
+        const email = values.contact_email;
+        const dial = values.contact_whatsapp_dial_code;
+        const number = values.contact_whatsapp_number;
+        if (email || (dial && number)) {
+          setContact({
+            email: email || '',
+            whatsapp: dial && number ? `+${dial} ${number}` : ''
+          });
+        }
+      });
+  }, []);
   useEffect(() => {
     if (!sent) return;
     const timer = window.setTimeout(() => setSent(false), 6000);
     return () => window.clearTimeout(timer);
   }, [sent]);
   const commercial = reason === 'patrocinar' || reason === 'stand' || reason === 'comercial';
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!form.name.trim() || !form.email.trim()) {
       setError('Nombre y correo son obligatorios.');
       return;
     }
     setError(null);
+    setSending(true);
+    const { error: submitError } = await supabase.rpc('submit_contact_message', {
+      p_reason: reason,
+      p_name: form.name,
+      p_email: form.email,
+      p_whatsapp: form.whatsapp || null,
+      p_company: form.company || null,
+      p_message: form.message || null
+    });
+    setSending(false);
+    if (submitError) {
+      setError('No pudimos enviar tu solicitud. Intenta de nuevo en un momento.');
+      return;
+    }
     setSent(true);
     setForm({
       name: '',
@@ -107,16 +142,16 @@ export function Contact() {
                   <dt className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
                     Correo
                   </dt>
-                  <dd className="mt-1.5 text-sm">
-                    <Pending />
+                  <dd className="mt-1.5 text-sm font-medium text-brand">
+                    {contact === null ? null : contact.email ? <a href={`mailto:${contact.email}`} className="hover:underline">{contact.email}</a> : <Pending />}
                   </dd>
                 </div>
                 <div className="bg-white px-5 py-4">
                   <dt className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
                     WhatsApp
                   </dt>
-                  <dd className="mt-1.5 text-sm">
-                    <Pending />
+                  <dd className="mt-1.5 text-sm font-medium text-brand">
+                    {contact === null ? null : contact.whatsapp ? <a href={`https://wa.me/${contact.whatsapp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="hover:underline">{contact.whatsapp}</a> : <Pending />}
                   </dd>
                 </div>
                 <div className="bg-white px-5 py-4">
@@ -190,13 +225,13 @@ export function Contact() {
                 </p> : null}
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
-                <motion.button type="submit" whileTap={{
+                <motion.button type="submit" disabled={sending} whileTap={{
                 scale: 0.985
               }} transition={{
                 duration: DURATION.press,
                 ease: EASE_EMPHASIS
-              }} className="rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 ease-emphasis hover:bg-brand-deep">
-                  Enviar solicitud
+              }} className="rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 ease-emphasis hover:bg-brand-deep disabled:opacity-60">
+                  {sending ? 'Enviando…' : 'Enviar solicitud'}
                 </motion.button>
                 <AnimatePresence>
                   {sent ? <motion.p variants={popVariants} initial="initial" animate="enter" exit="exit" className="inline-flex items-center gap-2 text-sm font-medium text-emerald-700">

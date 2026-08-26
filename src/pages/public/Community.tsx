@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PageTransition } from '../../components/motion/PageTransition';
 import { CommunitySignup } from '../../components/public/CommunitySignup';
-import { secondaryEvents } from '../../data/content';
+import { fetchSecondaryEvents } from '../../lib/publicData';
+import type { SecondaryEvent } from '../../types/content';
 import { editions, featuredEditionId } from '../../data/editions';
 import { formatFullDate } from '../../utils/format';
 import { TrackIcon } from '../../components/ui/TrackIcon';
@@ -11,7 +12,10 @@ import { PageHero } from '../../components/public/PageHero';
 import { media } from '../../data/media';
 export function Community() {
   const edition = editions.find((item) => item.id === featuredEditionId);
-  const upcoming = secondaryEvents.filter((event) => event.status === 'aprobado' || event.status === 'publicado');
+  const [upcoming, setUpcoming] = useState<SecondaryEvent[]>([]);
+  useEffect(() => {
+    fetchSecondaryEvents().then((events) => setUpcoming(events.filter((event) => event.status === 'aprobado' || event.status === 'publicado')));
+  }, []);
   return <PageTransition>
       <PageHero eyebrow="Comunidad médica" title={[{
       text: 'Un solo registro',

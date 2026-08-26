@@ -71,6 +71,8 @@ export function AgendaAdmin() {
   const [error, setError] = useState<string | null>(null);
   const [trashTarget, setTrashTarget] = useState<AgendaItem | null>(null);
   const [trashing, setTrashing] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [statusMenuId, setStatusMenuId] = useState<string | null>(null);
 
   const load = async () => {
     const [{ data: itemRows }, { data: trackRows }, { data: speakerRows }, { data: linkRows }] = await Promise.all([
@@ -160,6 +162,20 @@ export function AgendaAdmin() {
     load();
   };
 
+  const changeStatus = async (item: AgendaItem, nextStatus: AgendaItem['status']) => {
+    setStatusMenuId(null);
+    if (nextStatus === item.status) return;
+    setTogglingId(item.id);
+    setItems((current) => current.map((row) => row.id === item.id ? { ...row, status: nextStatus } : row));
+    const { error: toggleError } = await supabase.from('agenda_items').update({ status: nextStatus }).eq('id', item.id);
+    setTogglingId(null);
+    if (toggleError) {
+      setItems((current) => current.map((row) => row.id === item.id ? { ...row, status: item.status } : row));
+    }
+  };
+
+  const quickStatusOptions = statusOptions.filter(([value]) => value !== 'borrador');
+
   const confirmTrash = async () => {
     if (!trashTarget) return;
     setTrashing(true);
@@ -223,8 +239,24 @@ export function AgendaAdmin() {
                         <td className={tdClass}>
                           {item.room === 'PENDIENTE' || !item.room ? <Pending /> : item.room}
                         </td>
-                        <td className={tdClass}>
-                          <StatusBadge label={meta.label} tone={meta.tone} />
+                        <td className={`${tdClass} relative`}>
+                          {item.status !== 'borrador' ? <>
+                              <button type="button" onClick={() => setStatusMenuId(statusMenuId === item.id ? null : item.id)} disabled={togglingId === item.id} title="Cambiar estado" className="rounded-full transition-opacity duration-150 ease-emphasis hover:opacity-70 disabled:opacity-40">
+                                <StatusBadge label={meta.label} tone={meta.tone} />
+                              </button>
+                              <AnimatePresence>
+                                {statusMenuId === item.id ? <>
+                                    <div className="fixed inset-0 z-10" onClick={() => setStatusMenuId(null)} />
+                                    <motion.ul initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: DURATION.dropdown, ease: EASE_EMPHASIS }} className="absolute left-0 top-full z-20 mt-1.5 w-40 overflow-hidden rounded-lg border border-line bg-white shadow-panel">
+                                      {quickStatusOptions.map(([value, optionMeta]) => <li key={value}>
+                                          <button type="button" onClick={() => changeStatus(item, value)} className={`flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left text-sm transition-colors duration-150 ease-emphasis hover:bg-canvas ${value === item.status ? 'font-semibold text-brand' : 'text-ink'}`}>
+                                            {optionMeta.label}
+                                          </button>
+                                        </li>)}
+                                    </motion.ul>
+                                  </> : null}
+                              </AnimatePresence>
+                            </> : <StatusBadge label={meta.label} tone={meta.tone} />}
                         </td>
                         <td className={tdClass}>
                           <RowActions onEdit={() => openEdit(item)} onDuplicate={() => openDuplicate(item)} onDelete={() => setTrashTarget(item)} />
@@ -269,10 +301,10 @@ export function AgendaAdmin() {
               <input className={modalFieldClass} value={form.room} onChange={(event) => setForm({ ...form, room: event.target.value })} />
             </ModalField>
             <ModalField label="Inicio">
-              <input className={modalFieldClass} value={form.start_time} onChange={(event) => setForm({ ...form, start_time: event.target.value })} />
+              <input type="time" className={modalFieldClass} value={form.start_time === 'PENDIENTE' ? '' : form.start_time} onChange={(event) => setForm({ ...form, start_time: event.target.value || 'PENDIENTE' })} />
             </ModalField>
             <ModalField label="Fin">
-              <input className={modalFieldClass} value={form.end_time} onChange={(event) => setForm({ ...form, end_time: event.target.value })} />
+              <input type="time" className={modalFieldClass} value={form.end_time === 'PENDIENTE' ? '' : form.end_time} onChange={(event) => setForm({ ...form, end_time: event.target.value || 'PENDIENTE' })} />
             </ModalField>
             <ModalField label="Tipo">
               <select className={modalFieldClass} value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as AgendaItem['type'] })}>

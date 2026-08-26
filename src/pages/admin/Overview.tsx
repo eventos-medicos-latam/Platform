@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { AlertTriangleIcon, ArrowUpRightIcon } from 'lucide-react';
+import { AlertTriangleIcon, ArrowUpRightIcon, CreditCardIcon, TicketIcon, UsersIcon } from 'lucide-react';
 import { ModuleHeader, Panel, tdClass, thClass } from '../../components/admin/Panel';
 import { usePlatform } from '../../contexts/PlatformContext';
 import { getEdition } from '../../data/editions';
@@ -39,37 +39,40 @@ export function Overview() {
             Banner de patrocinadores <ArrowUpRightIcon size={13} />
           </Link>} />
 
-      <div className="grid gap-5 xl:grid-cols-[1.6fr_1fr]">
+      {/* Fila de estadísticas con color */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[{
+        label: 'Registros',
+        value: `${formatNumber(registrations.length)} de ${formatNumber(quota)}`,
+        icon: UsersIcon,
+        bg: 'bg-[#e8eef6]',
+        fg: 'text-[#1c5f8c]'
+      }, {
+        label: 'Pagos aprobados',
+        value: formatNumber(approved),
+        icon: CreditCardIcon,
+        bg: 'bg-[#e9f7f0]',
+        fg: 'text-[#159a63]'
+      }, {
+        label: 'Tickets vendidos',
+        value: formatNumber(sold),
+        icon: TicketIcon,
+        bg: 'bg-[#fdeef4]',
+        fg: 'text-[#d6338c]'
+      }].map((stat) => <div key={stat.label} className="card-lift rounded-2xl border border-line bg-white p-5">
+            <span className={`grid h-10 w-10 place-items-center rounded-xl ${stat.bg} ${stat.fg}`}>
+              <stat.icon size={19} />
+            </span>
+            <p className="mt-3.5 text-[11px] font-bold uppercase tracking-[0.08em] text-ink-muted">{stat.label}</p>
+            <p className="mt-0.5 text-xl font-extrabold text-brand">{stat.value}</p>
+          </div>)}
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[1.6fr_1fr]">
         {/* Panel principal */}
         <Panel emphasis title="Audiencia frente a cupo" description="Registros acumulados sobre el cupo total configurado en tickets.">
           <div className="px-5 py-6">
-            <div className="flex flex-wrap items-end gap-x-10 gap-y-5">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                  Registros
-                </p>
-                <p className="mt-1 text-4xl font-bold tracking-tight text-brand">
-                  {formatNumber(registrations.length)}
-                  <span className="ml-2 text-base font-medium text-ink-muted">
-                    de {formatNumber(quota)}
-                  </span>
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                  Pagos aprobados
-                </p>
-                <p className="mt-1 text-2xl font-semibold text-brand">{approved}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                  Tickets vendidos
-                </p>
-                <p className="mt-1 text-2xl font-semibold text-brand">{sold}</p>
-              </div>
-            </div>
-
-            <div className="mt-6 h-2.5 overflow-hidden rounded-full bg-brand-soft">
+            <div className="h-2.5 overflow-hidden rounded-full bg-brand-soft">
               <motion.div className="h-full rounded-full bg-accent" initial={{
               scaleX: 0
             }} animate={{

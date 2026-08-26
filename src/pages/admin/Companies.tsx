@@ -11,7 +11,7 @@ import { AdminModal, modalFieldClass, ModalField } from '../../components/admin/
 import { ConfirmDialog } from '../../components/admin/ConfirmDialog';
 import { RowActions } from '../../components/admin/RowActions';
 import { moveToTrash } from '../../lib/trash';
-import { getCompanyFileUrl } from '../../lib/storage';
+import { getCompanyFileUrl, publishCompanyLogoFromAsset } from '../../lib/storage';
 
 interface Company {
   id: string;
@@ -115,6 +115,12 @@ export function Companies() {
 
   const updateAssetStatus = async (assetId: string, status: string) => {
     await supabase.from('brand_assets').update({ status }).eq('id', assetId);
+    if (status === 'aprobado' && company) {
+      const asset = detail.assets.find((item) => item.id === assetId);
+      if (asset && (asset.kind === 'logo-png' || asset.kind === 'logo-svg') && asset.file_path) {
+        await publishCompanyLogoFromAsset(company.id, asset.file_path);
+      }
+    }
     loadDetail();
   };
 

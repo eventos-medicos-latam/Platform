@@ -6,7 +6,7 @@ import { PageTransition } from '../../components/motion/PageTransition';
 import { ScrollScene } from '../../components/motion/ScrollScene';
 import { FlipCountdown } from '../../components/event/FlipCountdown';
 import { LegacyOrbit } from '../../components/public/LegacyOrbit';
-import { BridgesDeck } from '../../components/public/BridgesDeck';
+import { PinnedBridges } from '../../components/public/PinnedBridges';
 import { NextEventPanel } from '../../components/public/NextEventPanel';
 import { RotatingWord } from '../../components/ui/RotatingWord';
 import { editions, featuredEditionId, getFamily } from '../../data/editions';
@@ -183,27 +183,8 @@ export function Hormobiota() {
         </div>
       </section>
 
-      {/* Los seis puentes, en baraja 3D */}
-      {edition ? <section className="surface-deep relative isolate overflow-hidden py-20 text-white lg:py-28" style={{
-      ['--accent-rgb' as string]: 'var(--tone-hormobiota)'
-    }}>
-          <div className="relative mx-auto max-w-shell px-6">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-hb-violet">
-              {edition.trackAxis.pluralLabel}
-            </p>
-            <h2 className="mt-4 max-w-2xl text-[clamp(1.9rem,3.8vw,3rem)] font-bold leading-[1.03] tracking-tight">
-              El cuerpo leído
-              <span className="block font-normal text-white/55">como una sola red</span>
-            </h2>
-
-            <BridgesDeck tracks={edition.trackAxis.tracks} label={edition.trackAxis.pluralLabel} />
-
-            <Link to={`${eventPath}/agenda`} className="group mt-12 inline-flex items-center gap-2 rounded-full border border-white/25 px-6 py-3.5 text-sm font-semibold text-white transition-colors duration-200 ease-emphasis hover:border-white">
-              Ver el programa completo
-              <ArrowRightIcon size={16} className="transition-transform duration-200 ease-emphasis group-hover:translate-x-1" />
-            </Link>
-          </div>
-        </section> : null}
+      {/* Los seis puentes: recorrido anclado, uno por uno */}
+      <PinnedBridges />
 
       {/* Trayectoria completa */}
       <LegacyOrbit />

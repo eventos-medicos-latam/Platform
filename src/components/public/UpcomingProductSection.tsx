@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2Icon, FlaskConicalIcon } from 'lucide-react';
-import { launchStageLabels, launchStages, upcomingProduct } from '../../data/products';
+import { launchStageLabels, launchStages, upcomingProduct as staticUpcomingProduct } from '../../data/products';
 import { TrackIcon } from '../ui/TrackIcon';
 import { Pending } from '../ui/Pending';
 import { ParallaxLayer } from '../motion/ScrollScene';
 import { media } from '../../data/media';
+import { supabase } from '../../lib/supabaseClient';
 import { EASE_EMPHASIS } from '../../utils/motion';
 
 /**
@@ -14,13 +15,32 @@ import { EASE_EMPHASIS } from '../../utils/motion';
  * y el registro sanitario no estén cerrados.
  */
 export function UpcomingProductSection() {
-  const product = upcomingProduct;
+  const [product, setProduct] = useState(staticUpcomingProduct);
+  useEffect(() => {
+    supabase
+      .from('upcoming_products')
+      .select('name, category, claim, launch_window, pioneers, status')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        setProduct((current) => ({
+          ...current,
+          name: data.name,
+          category: data.category,
+          claim: data.claim,
+          launchWindow: data.launch_window ?? 'PENDIENTE',
+          pioneers: data.pioneers,
+          status: data.status
+        }));
+      });
+  }, []);
   const [sent, setSent] = useState(false);
   const [form, setForm] = useState({
     name: '',
     email: '',
     profile: 'profesional'
   });
+  if (product.status !== 'publicado' && product.status !== 'aprobado') return null;
   const stageIndex = launchStages.indexOf(product.stage);
   const fieldClass = 'w-full rounded-xl border border-white/15 bg-white/8 px-3.5 py-2.5 text-sm text-white placeholder:text-white/45 outline-none transition-colors duration-150 ease-emphasis focus:border-accent';
   return <section id="hormobiota-formula" className="surface-deep relative isolate overflow-hidden py-20 text-white lg:py-28">

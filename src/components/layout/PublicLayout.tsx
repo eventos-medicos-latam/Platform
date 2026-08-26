@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { PublicHeader } from './PublicHeader';
 import { PublicFooter } from './PublicFooter';
 import { SponsorBanner } from '../public/SponsorBanner';
+import { ChatWidget } from '../public/ChatWidget';
 
 /**
  * Capa pública corporativa. La franja móvil de patrocinadores desaparece
@@ -19,5 +20,6 @@ export function PublicLayout() {
       <PublicFooter />
       {!isConversionFlow ? <SponsorBanner surface="corporativo" mode="fixed" /> : null}
       {!isConversionFlow ? <div className="h-16 md:hidden" aria-hidden="true" /> : null}
+      <ChatWidget />
     </div>;
 }

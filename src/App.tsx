@@ -47,6 +47,7 @@ import { LiveSessionsAdmin } from './pages/admin/LiveSessionsAdmin';
 import { StoreAdmin } from './pages/admin/StoreAdmin';
 import { SupportAdmin } from './pages/admin/SupportAdmin';
 import { ResourcesAdmin } from './pages/admin/ResourcesAdmin';
+import { OrganizationAdmin } from './pages/admin/OrganizationAdmin';
 import { PortalHome } from './pages/portal/PortalHome';
 import { PortalParticipation } from './pages/portal/PortalParticipation';
 import { PortalRequirements } from './pages/portal/PortalRequirements';
@@ -103,6 +104,7 @@ function AnimatedRoutes() {
         <Route element={<RequireRole role="admin" />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Overview />} />
+            <Route path="organizacion" element={<OrganizationAdmin />} />
             <Route path="agenda" element={<AgendaAdmin />} />
             <Route path="speakers" element={<SpeakersAdmin />} />
             <Route path="tickets" element={<TicketsAdmin />} />

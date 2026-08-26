@@ -36,16 +36,24 @@ const dayMonth = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'long
 const fullDate = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
 const shortDate = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: '2-digit' });
 
+/** Fechas puras ("2027-04-23") necesitan mediodía fijo para no saltar de
+ * día por la zona horaria; un timestamptz ("...T14:32:10+00:00") ya trae
+ * su propia hora, así que agregarle otro "T12:00:00" encima lo vuelve un
+ * string inválido. */
+function toDate(iso: string): Date {
+  return new Date(iso.includes('T') ? iso : `${iso}T12:00:00`);
+}
+
 export function formatDayMonth(iso: string): string {
-  return dayMonth.format(new Date(`${iso}T12:00:00`));
+  return dayMonth.format(toDate(iso));
 }
 
 export function formatFullDate(iso: string): string {
-  return fullDate.format(new Date(`${iso}T12:00:00`));
+  return fullDate.format(toDate(iso));
 }
 
 export function formatShortDate(iso: string): string {
-  return shortDate.format(new Date(`${iso}T12:00:00`));
+  return shortDate.format(toDate(iso));
 }
 
 export function daysUntil(iso: string): number {

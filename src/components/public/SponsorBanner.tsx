@@ -5,6 +5,7 @@ import { usePlatform } from '../../contexts/PlatformContext';
 import { supabase } from '../../lib/supabaseClient';
 import { popVariants, DURATION, EASE_EMPHASIS } from '../../utils/motion';
 import { Pending } from '../ui/Pending';
+import { SponsorLogoTile, monogram } from './SponsorLogoTile';
 
 interface BannerConfig {
   enabled: boolean;
@@ -17,7 +18,9 @@ interface BannerConfig {
 }
 interface Slot {
   id: string;
-  company_id: string;
+  company_id: string | null;
+  standalone_name: string | null;
+  standalone_logo_url: string | null;
   tier: 'principal' | 'destacado' | 'apoyo';
   order_num: number;
   active: boolean;
@@ -45,15 +48,6 @@ interface SponsorBannerProps {
   blendBottom?: string;
 }
 
-const TILE_DESKTOP = 'h-[132px] w-[132px]';
-const TILE_MOBILE = 'h-[76px] w-[76px]';
-
-function monogram(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
 /** Cinta de patrocinadores: lee sponsor_banner_configs + banner_slots reales de la edición activa. */
 export function SponsorBanner({
   surface,
@@ -75,7 +69,7 @@ export function SponsorBanner({
     (async () => {
       const [{ data: configRow }, { data: slotRows }, { data: participationRows }, { data: standRows }] = await Promise.all([
         supabase.from('sponsor_banner_configs').select('*').eq('edition_id', activeEditionId).maybeSingle(),
-        supabase.from('banner_slots').select('id, company_id, tier, order_num, active, logo_ready').eq('edition_id', activeEditionId).eq('active', true),
+        supabase.from('banner_slots').select('id, company_id, standalone_name, standalone_logo_url, tier, order_num, active, logo_ready').eq('edition_id', activeEditionId).eq('active', true),
         supabase.from('participations').select('company_id, status, stand_id, plan_id').eq('edition_id', activeEditionId),
         supabase.from('stands').select('id, number, location').eq('edition_id', activeEditionId)
       ]);
@@ -84,7 +78,7 @@ export function SponsorBanner({
       setSlots(slotRows ?? []);
       setParticipations(participationRows ?? []);
       setStands(standRows ?? []);
-      const companyIds = [...new Set((slotRows ?? []).map((slot) => slot.company_id))];
+      const companyIds = [...new Set((slotRows ?? []).map((slot) => slot.company_id).filter((id): id is string => Boolean(id)))];
       if (companyIds.length > 0) {
         const { data: companyRows } = await supabase.from('companies').select('id, trade_name, description, web, logo_url').in('id', companyIds);
         if (active) setCompanies(Object.fromEntries((companyRows ?? []).map((row) => [row.id, row])));
@@ -97,15 +91,23 @@ export function SponsorBanner({
 
   const slotsToShow = useMemo(() => {
     const publishedCompanyIds = new Set(participations.filter((p) => p.status === 'publicado').map((p) => p.company_id));
-    return slots.filter((slot) => publishedCompanyIds.has(slot.company_id)).sort((a, b) => a.order_num - b.order_num);
+    return slots.filter((slot) => slot.company_id === null || publishedCompanyIds.has(slot.company_id)).sort((a, b) => a.order_num - b.order_num);
   }, [slots, participations]);
 
   if (!config || !config.enabled || !config.surfaces.includes(surface) || slotsToShow.length === 0) return null;
   if (mode === 'fixed' && !config.mobile_enabled) return null;
 
+  function slotDisplay(slot: Slot) {
+    if (slot.company_id) {
+      const company = companies[slot.company_id];
+      return company ? { name: company.trade_name, logoUrl: company.logo_url, hasLogo: slot.logo_ready && Boolean(company.logo_url) } : null;
+    }
+    return { name: slot.standalone_name ?? '', logoUrl: slot.standalone_logo_url, hasLogo: Boolean(slot.standalone_logo_url) };
+  }
+
   const openSlot = slotsToShow.find((slot) => slot.id === openSlotId) ?? null;
-  const openCompany = openSlot ? companies[openSlot.company_id] : null;
-  const openParticipation = openSlot ? participations.find((item) => item.company_id === openSlot.company_id) : null;
+  const openCompany = openSlot?.company_id ? companies[openSlot.company_id] : null;
+  const openParticipation = openSlot?.company_id ? participations.find((item) => item.company_id === openSlot.company_id) : null;
   const openStand = openParticipation?.stand_id ? stands.find((stand) => stand.id === openParticipation.stand_id) : null;
   const duration = mode === 'fixed' ? config.mobile_speed_seconds : config.desktop_speed_seconds;
 
@@ -115,20 +117,9 @@ export function SponsorBanner({
   }
 
   const logos = [...slotsToShow, ...slotsToShow, ...slotsToShow, ...slotsToShow].map((slot, index) => {
-    const company = companies[slot.company_id];
-    if (!company) return null;
-    const sizing = mode === 'fixed' ? TILE_MOBILE : TILE_DESKTOP;
-    const hasLogo = slot.logo_ready && Boolean(company.logo_url);
-    return <button key={`${slot.id}-${index}`} type="button" onClick={() => handleLogoClick(slot)} aria-label={`Ver información de ${company.trade_name}`} className={`group grid ${sizing} shrink-0 place-items-center overflow-hidden rounded-2xl border bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 ease-emphasis ${hasLogo ? 'border-line/70 shadow-elev1 hover:scale-[1.09] hover:border-brand/30 hover:shadow-elev4' : 'border-dashed border-line'}`}>
-        {hasLogo ? <img src={company.logo_url ?? undefined} alt={company.trade_name} className="h-full w-full object-contain" draggable={false} loading="lazy" /> : <span className="flex flex-col items-center gap-1.5 px-1 text-center">
-            <span aria-hidden="true" className="grid h-8 w-8 place-items-center rounded-md bg-brand-soft text-[11px] font-bold text-brand">
-              {monogram(company.trade_name)}
-            </span>
-            <span className="truncate text-[10px] font-medium text-ink-muted">
-              {company.trade_name}
-            </span>
-          </span>}
-      </button>;
+    const display = slotDisplay(slot);
+    if (!display) return null;
+    return <SponsorLogoTile key={`${slot.id}-${index}`} name={display.name} logoUrl={display.logoUrl} hasLogo={display.hasLogo} size={mode === 'fixed' ? 'mobile' : 'desktop'} onClick={() => handleLogoClick(slot)} />;
   });
   const track = <div className={`marquee-fade overflow-hidden ${paused ? 'marquee-paused' : ''}`} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onTouchStart={() => setPaused(true)} onTouchEnd={() => setPaused(false)}>
       <div className="marquee-track flex w-max items-center gap-5 py-3" style={{
@@ -137,8 +128,9 @@ export function SponsorBanner({
         {logos}
       </div>
     </div>;
+  const openDisplay = openSlot ? slotDisplay(openSlot) : null;
   const sheet = <AnimatePresence>
-      {openSlot && openCompany ? <>
+      {openSlot && openDisplay ? <>
           <motion.div className="fixed inset-0 z-40 bg-brand-deep/40" initial={{
         opacity: 0
       }} animate={{
@@ -149,14 +141,14 @@ export function SponsorBanner({
         duration: DURATION.dropdown,
         ease: EASE_EMPHASIS
       }} onClick={() => setOpenSlotId(null)} />
-          <motion.div role="dialog" aria-label={`Patrocinador ${openCompany.trade_name}`} className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md rounded-2xl border border-line bg-white p-5 shadow-lift sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2" variants={popVariants} initial="initial" animate="enter" exit="exit">
+          <motion.div role="dialog" aria-label={`Patrocinador ${openDisplay.name}`} className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md rounded-2xl border border-line bg-white p-5 shadow-lift sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2" variants={popVariants} initial="initial" animate="enter" exit="exit">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
                 <span className="grid h-11 w-11 place-items-center rounded-lg bg-brand text-sm font-bold text-white">
-                  {monogram(openCompany.trade_name)}
+                  {monogram(openDisplay.name)}
                 </span>
                 <div>
-                  <p className="text-base font-semibold text-brand">{openCompany.trade_name}</p>
+                  <p className="text-base font-semibold text-brand">{openDisplay.name}</p>
                   <p className="text-xs uppercase tracking-wide text-ink-muted">
                     Nivel {openSlot.tier}
                   </p>
@@ -166,29 +158,31 @@ export function SponsorBanner({
                 <XIcon size={18} />
               </button>
             </div>
-            <p className="mt-4 text-sm leading-relaxed text-ink">{openCompany.description}</p>
-            <dl className="mt-4 space-y-2 text-sm">
-              <div className="flex items-center justify-between gap-4">
-                <dt className="text-ink-muted">Plan</dt>
-                <dd className="text-right font-medium text-brand capitalize">
-                  {openParticipation?.plan_id ?? <Pending />}
-                </dd>
-              </div>
-              {openStand ? <div className="flex items-center justify-between gap-4">
-                  <dt className="text-ink-muted">Stand</dt>
-                  <dd className="text-right font-medium text-brand">
-                    {openStand.number} · {openStand.location}
-                  </dd>
-                </div> : null}
-              <div className="flex items-center justify-between gap-4">
-                <dt className="text-ink-muted">Sitio web</dt>
-                <dd className="text-right font-medium text-brand">
-                  {!openCompany.web ? <Pending /> : <a className="inline-flex items-center gap-1 underline" href={openCompany.web}>
-                      Visitar <ExternalLinkIcon size={13} />
-                    </a>}
-                </dd>
-              </div>
-            </dl>
+            {openCompany ? <>
+                <p className="mt-4 text-sm leading-relaxed text-ink">{openCompany.description}</p>
+                <dl className="mt-4 space-y-2 text-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-ink-muted">Plan</dt>
+                    <dd className="text-right font-medium text-brand capitalize">
+                      {openParticipation?.plan_id ?? <Pending />}
+                    </dd>
+                  </div>
+                  {openStand ? <div className="flex items-center justify-between gap-4">
+                      <dt className="text-ink-muted">Stand</dt>
+                      <dd className="text-right font-medium text-brand">
+                        {openStand.number} · {openStand.location}
+                      </dd>
+                    </div> : null}
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-ink-muted">Sitio web</dt>
+                    <dd className="text-right font-medium text-brand">
+                      {!openCompany.web ? <Pending /> : <a className="inline-flex items-center gap-1 underline" href={openCompany.web}>
+                          Visitar <ExternalLinkIcon size={13} />
+                        </a>}
+                    </dd>
+                  </div>
+                </dl>
+              </> : null}
           </motion.div>
         </> : null}
     </AnimatePresence>;

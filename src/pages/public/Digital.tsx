@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CheckCircle2Icon, ClockIcon, MonitorPlayIcon, RadioIcon, UsersIcon } from 'lucide-react';
@@ -6,7 +6,7 @@ import type { SecondaryEvent, SecondaryEventKind } from '../../types/content';
 import { PageTransition } from '../../components/motion/PageTransition';
 import { DisplayTitle } from '../../components/ui/DisplayTitle';
 import { DigitalCalendar } from '../../components/public/DigitalCalendar';
-import { publicSecondaryEvents } from '../../data/content';
+import { fetchSecondaryEvents } from '../../lib/publicData';
 import { getEdition } from '../../data/editions';
 import { Pending } from '../../components/ui/Pending';
 import { media } from '../../data/media';
@@ -29,14 +29,20 @@ function formatDate(iso: string): string {
   });
 }
 export function Digital() {
-  const events = publicSecondaryEvents();
+  const [events, setEvents] = useState<SecondaryEvent[]>([]);
   const [params] = useSearchParams();
   const [filter, setFilter] = useState<'todos' | SecondaryEventKind>('todos');
   // Se puede llegar con una sesión ya elegida desde la Home: ?sesion=<id>
-  const [selected, setSelected] = useState<SecondaryEvent | undefined>(() => {
-    const requested = params.get('sesion');
-    return events.find((event) => event.id === requested) ?? events[0];
-  });
+  const [selected, setSelected] = useState<SecondaryEvent | undefined>(undefined);
+  useEffect(() => {
+    fetchSecondaryEvents().then((data) => {
+      const published = data.filter((event) => event.status === 'aprobado' || event.status === 'publicado').sort((a, b) => a.date.localeCompare(b.date));
+      setEvents(published);
+      const requested = params.get('sesion');
+      setSelected(published.find((event) => event.id === requested) ?? published[0]);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [sent, setSent] = useState(false);
   const [form, setForm] = useState({
     name: '',

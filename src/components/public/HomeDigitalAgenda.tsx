@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowRightIcon, CalendarPlusIcon, ClockIcon, InfoIcon, MessagesSquareIcon, MonitorPlayIcon, UsersIcon, UsersRoundIcon } from 'lucide-react';
-import { secondaryEvents } from '../../data/content';
+import { fetchSecondaryEvents } from '../../lib/publicData';
 import type { SecondaryEvent } from '../../types/content';
 import { formatFullDate } from '../../utils/format';
 import { DigitalCalendar } from './DigitalCalendar';
@@ -64,12 +64,23 @@ function monthLabel(key: string): string {
  */
 export function HomeDigitalAgenda() {
   const reduce = useReducedMotion();
-  const published = useMemo(() => secondaryEvents.filter((event) => event.status === 'aprobado' || event.status === 'publicado').sort((a, b) => a.date.localeCompare(b.date)), []);
+  const [allEvents, setAllEvents] = useState<SecondaryEvent[]>([]);
+  useEffect(() => {
+    fetchSecondaryEvents().then(setAllEvents);
+  }, []);
+  const published = useMemo(() => allEvents.filter((event) => event.status === 'aprobado' || event.status === 'publicado').sort((a, b) => a.date.localeCompare(b.date)), [allEvents]);
   const firstMonth = published[0]?.date.slice(0, 7) ?? new Date().toISOString().slice(0, 7);
   const [month, setMonth] = useState(firstMonth);
-  const [openId, setOpenId] = useState<string | undefined>(published[0]?.id);
+  const [openId, setOpenId] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (published.length > 0 && !openId) {
+      setMonth(published[0].date.slice(0, 7));
+      setOpenId(published[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [published]);
   const monthEvents = useMemo(() => published.filter((event) => event.date.startsWith(month)), [published, month]);
-  const hidden = secondaryEvents.length - published.length;
+  const hidden = allEvents.length - published.length;
   if (published.length === 0) return null;
   return <section className="tint-aurora relative isolate overflow-hidden py-20 lg:py-28" aria-labelledby="agenda-digital-home">
       {/* Fondo: una médica dictando una charla virtual a varios colegas.

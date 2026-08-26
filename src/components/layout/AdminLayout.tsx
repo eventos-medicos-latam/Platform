@@ -1,11 +1,19 @@
 import React, { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BarChart3Icon, BuildingIcon, CalendarRangeIcon, ChevronDownIcon, FileTextIcon, FolderIcon, GalleryHorizontalIcon, HelpCircleIcon, LayoutDashboardIcon, LayoutPanelLeftIcon, LogOutIcon, MicIcon, QrCodeIcon, RadioIcon, SettingsIcon, ShoppingBagIcon, TicketIcon, Trash2Icon, UsersIcon, WalletIcon } from 'lucide-react';
+import { BarChart3Icon, BuildingIcon, CalendarRangeIcon, ChevronDownIcon, FileTextIcon, FolderIcon, GalleryHorizontalIcon, Globe2Icon, HelpCircleIcon, LayoutDashboardIcon, LayoutPanelLeftIcon, LogOutIcon, MicIcon, QrCodeIcon, RadioIcon, SettingsIcon, ShoppingBagIcon, TicketIcon, Trash2Icon, UsersIcon, WalletIcon } from 'lucide-react';
 import { Logo } from '../ui/Logo';
 import { editions } from '../../data/editions';
 import { usePlatform } from '../../contexts/PlatformContext';
 import { DURATION, EASE_EMPHASIS } from '../../utils/motion';
+const groupIconColors: Record<string, string> = {
+  'Operación': 'text-[#7fb3d9]',
+  'Sitio web': 'text-[#f2a3c9]',
+  'Contenido': 'text-[#c4b3ef]',
+  'Comercial': 'text-[#8fe0bc]',
+  'Sistema': 'text-white/50'
+};
+
 const groups = [{
   label: 'Operación',
   items: [{
@@ -14,17 +22,9 @@ const groups = [{
     icon: LayoutDashboardIcon,
     end: true
   }, {
-    to: '/admin/agenda',
-    label: 'Agenda',
-    icon: CalendarRangeIcon
-  }, {
     to: '/admin/speakers',
     label: 'Speakers',
     icon: MicIcon
-  }, {
-    to: '/admin/tickets',
-    label: 'Tickets',
-    icon: TicketIcon
   }, {
     to: '/admin/registros',
     label: 'Registros',
@@ -33,6 +33,25 @@ const groups = [{
     to: '/admin/checkin',
     label: 'Check-in',
     icon: QrCodeIcon
+  }]
+}, {
+  label: 'Sitio web',
+  items: [{
+    to: '/admin/organizacion',
+    label: 'Organización y contacto',
+    icon: Globe2Icon
+  }, {
+    to: '/admin/agenda',
+    label: 'Agenda',
+    icon: CalendarRangeIcon
+  }, {
+    to: '/admin/tickets',
+    label: 'Tickets',
+    icon: TicketIcon
+  }, {
+    to: '/admin/banner',
+    label: 'Banner de patrocinadores',
+    icon: GalleryHorizontalIcon
   }]
 }, {
   label: 'Contenido',
@@ -55,10 +74,6 @@ const groups = [{
     to: '/admin/patrocinio',
     label: 'Patrocinio',
     icon: BarChart3Icon
-  }, {
-    to: '/admin/banner',
-    label: 'Banner de patrocinadores',
-    icon: GalleryHorizontalIcon
   }, {
     to: '/admin/stands',
     label: 'Stands',
@@ -133,7 +148,7 @@ export function AdminLayout() {
                     duration: DURATION.dropdown,
                     ease: EASE_EMPHASIS
                   }} /> : null}
-                          <item.icon size={16} className="shrink-0" />
+                          <item.icon size={16} className={`shrink-0 ${isActive ? '' : groupIconColors[group.label] ?? ''}`} />
                           <span className="truncate">{item.label}</span>
                         </>}
                     </NavLink>

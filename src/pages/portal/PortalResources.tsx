@@ -5,6 +5,8 @@ import { ModuleHeader, Panel } from '../../components/admin/Panel';
 import { usePlatform } from '../../contexts/PlatformContext';
 import { supabase } from '../../lib/supabaseClient';
 import { getCompanyFileUrl } from '../../lib/storage';
+import { getEdition } from '../../data/editions';
+import { DownloadAgendaButton } from '../../components/pdf/DownloadAgendaButton';
 import { EASE_EMPHASIS } from '../../utils/motion';
 
 interface Resource { id: string; category: 'agenda' | 'presskit' | 'tematico' | 'otro'; title: string; description: string | null; file_path: string | null; external_url: string | null; }
@@ -110,6 +112,10 @@ export function PortalResources() {
           </div>} />
 
       {tab === 'descargables' ? <div className="space-y-5">
+          {(() => {
+          const edition = getEdition(activeEditionId);
+          return edition ? <DownloadAgendaButton edition={edition} label="Descargar agenda actualizada en PDF" className="inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2.5 text-xs font-bold text-white transition-colors duration-150 ease-emphasis hover:bg-brand-deep disabled:opacity-60" /> : null;
+        })()}
           {grouped.map((group) => <Panel key={group.category} title={categoryLabels[group.category]}>
               <ul className="divide-y divide-line">
                 {group.items.map((resource) => <li key={resource.id} className="flex items-center gap-3 px-5 py-3.5">

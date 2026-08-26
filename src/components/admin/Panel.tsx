@@ -9,7 +9,9 @@ interface PanelProps {
   emphasis?: boolean;
 }
 
-/** Contenedor estándar de los módulos del panel. Denso, sin decoración. */
+/** Contenedor estándar de los módulos del panel. Denso, con un acento de
+ * color en los paneles principales (`emphasis`) para que no todo se vea
+ * igual de plano. */
 export function Panel({
   title,
   description,
@@ -18,7 +20,8 @@ export function Panel({
   className = '',
   emphasis = false
 }: PanelProps) {
-  return <section className={`overflow-hidden rounded-xl border bg-white ${emphasis ? 'border-brand/25 shadow-panel' : 'border-line'} ${className}`}>
+  return <section className={`relative overflow-hidden rounded-xl border bg-white ${emphasis ? 'border-brand/25 shadow-panel' : 'border-line'} ${className}`}>
+      {emphasis ? <span className="grad-futuro absolute inset-x-0 top-0 h-1" aria-hidden="true" /> : null}
       <header className="flex flex-wrap items-start gap-3 border-b border-line px-5 py-4">
         <div className="min-w-0 flex-1">
           <h2 className={`font-semibold text-brand ${emphasis ? 'text-lg' : 'text-base'}`}>{title}</h2>
@@ -44,7 +47,8 @@ export function ModuleHeader({
 }: {eyebrow: string;title: string;description?: string;actions?: React.ReactNode;}) {
   return <header className="mb-6 flex flex-wrap items-end gap-4">
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted">
+        <span className="grad-futuro inline-block h-0.5 w-8 rounded-full" aria-hidden="true" />
+        <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted">
           {eyebrow}
         </p>
         <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-brand">{title}</h1>
