@@ -50,7 +50,6 @@ import { ResourcesAdmin } from './pages/admin/ResourcesAdmin';
 import { OrganizationAdmin } from './pages/admin/OrganizationAdmin';
 import { PortalHome } from './pages/portal/PortalHome';
 import { PortalParticipation } from './pages/portal/PortalParticipation';
-import { PortalRequirements } from './pages/portal/PortalRequirements';
 import { PortalTeam } from './pages/portal/PortalTeam';
 import { PortalDocuments } from './pages/portal/PortalDocuments';
 import { PortalPayments } from './pages/portal/PortalPayments';
@@ -131,7 +130,7 @@ function AnimatedRoutes() {
             <Route index element={<PortalHome />} />
             <Route path="participacion" element={<PortalParticipation />} />
             <Route path="equipo" element={<PortalTeam />} />
-            <Route path="requerimientos" element={<PortalRequirements />} />
+            <Route path="requerimientos" element={<Navigate to="/portal/perfil#requerimientos" replace />} />
             <Route path="documentos" element={<PortalDocuments />} />
             <Route path="pagos" element={<PortalPayments />} />
             <Route path="ayuda" element={<PortalHelp />} />

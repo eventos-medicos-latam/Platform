@@ -89,6 +89,7 @@ export interface BrandStaffMember {
   name: string;
   role: string;
   email: string;
+  whatsapp: string;
   document: string;
   accreditationStatus: 'pendiente' | 'acreditado';
 }
@@ -100,6 +101,7 @@ export interface BrandGuest {
   name: string;
   specialty: string;
   email: string;
+  whatsapp: string;
   city: string;
   status: 'invitado' | 'registrado' | 'asistio';
 }

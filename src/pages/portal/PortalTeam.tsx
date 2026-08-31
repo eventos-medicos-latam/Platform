@@ -6,13 +6,14 @@ import { getEdition } from '../../data/editions';
 import { StatusBadge, type BadgeTone } from '../../components/ui/StatusBadge';
 import { supabase } from '../../lib/supabaseClient';
 import { AdminModal, modalFieldClass, ModalField } from '../../components/admin/AdminModal';
+import { ExtraTicketsPanel } from '../../components/portal/ExtraTicketsPanel';
 
 const field = 'w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition-colors duration-150 ease-emphasis focus:border-brand';
 
-interface StaffMember { id: string; name: string; role: string; email: string; document: string | null; accreditation_status: 'pendiente' | 'acreditado' | 'rechazado'; responded_at: string | null; reconfirmed_at: string | null; invitation_token: string; }
+interface StaffMember { id: string; name: string; role: string; email: string; whatsapp: string | null; document: string | null; accreditation_status: 'pendiente' | 'acreditado' | 'rechazado'; responded_at: string | null; reconfirmed_at: string | null; invitation_token: string; }
 // Un invitado profesional es una fila más de `registrations` (source = 'invitado-patrocinio'),
 // no una tabla aparte: así hay una sola lista de asistentes al evento con etiquetas por caso.
-interface Guest { id: string; full_name: string; specialty: string | null; email: string; city: string | null; qr_status: 'active' | 'used' | 'cancelled' | 'invalid'; qr_code: string; responded_at: string | null; reconfirmed_at: string | null; invitation_token: string; }
+interface Guest { id: string; full_name: string; specialty: string | null; email: string; whatsapp: string | null; city: string | null; qr_status: 'active' | 'used' | 'cancelled' | 'invalid'; qr_code: string; responded_at: string | null; reconfirmed_at: string | null; invitation_token: string; }
 interface Plan { name: string; max_staff: number; guest_passes: number; }
 interface StaffTicket { staff_id: string; qr_code: string; }
 
@@ -57,8 +58,8 @@ export function PortalTeam() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [staffTickets, setStaffTickets] = useState<StaffTicket[]>([]);
-  const [staffForm, setStaffForm] = useState({ name: '', role: '', email: '' });
-  const [guestForm, setGuestForm] = useState({ name: '', specialty: '', email: '', city: '' });
+  const [staffForm, setStaffForm] = useState({ name: '', role: '', email: '', whatsapp: '' });
+  const [guestForm, setGuestForm] = useState({ name: '', specialty: '', email: '', whatsapp: '', city: '' });
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
   const [saving, setSaving] = useState(false);
@@ -69,8 +70,8 @@ export function PortalTeam() {
     if (!companyId) return;
     const [{ data: participation }, { data: staffRows }, { data: guestRows }] = await Promise.all([
       supabase.from('participations').select('plan_id').eq('company_id', companyId).eq('edition_id', activeEditionId).maybeSingle(),
-      supabase.from('brand_staff_members').select('id, name, role, email, document, accreditation_status, responded_at, reconfirmed_at, invitation_token').eq('company_id', companyId).order('created_at'),
-      supabase.from('registrations').select('id, full_name, specialty, email, city, qr_status, qr_code, responded_at, reconfirmed_at, invitation_token').eq('company_id', companyId).eq('source', 'invitado-patrocinio').order('created_at')
+      supabase.from('brand_staff_members').select('id, name, role, email, whatsapp, document, accreditation_status, responded_at, reconfirmed_at, invitation_token').eq('company_id', companyId).order('created_at'),
+      supabase.from('registrations').select('id, full_name, specialty, email, whatsapp, city, qr_status, qr_code, responded_at, reconfirmed_at, invitation_token').eq('company_id', companyId).eq('source', 'invitado-patrocinio').order('created_at')
     ]);
     setStaff(staffRows ?? []);
     setGuests(guestRows ?? []);
@@ -100,8 +101,8 @@ export function PortalTeam() {
   const addStaff = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!companyId || staffFull) return;
-    await supabase.from('brand_staff_members').insert({ company_id: companyId, ...staffForm });
-    setStaffForm({ name: '', role: '', email: '' });
+    await supabase.from('brand_staff_members').insert({ company_id: companyId, ...staffForm, whatsapp: staffForm.whatsapp || null });
+    setStaffForm({ name: '', role: '', email: '', whatsapp: '' });
     load();
   };
   const removeStaff = async (id: string) => {
@@ -117,10 +118,11 @@ export function PortalTeam() {
       p_full_name: guestForm.name,
       p_email: guestForm.email,
       p_specialty: guestForm.specialty,
-      p_city: guestForm.city || null
+      p_city: guestForm.city || null,
+      p_whatsapp: guestForm.whatsapp || null
     });
     if (rpcError) { setError(rpcError.message); return; }
-    setGuestForm({ name: '', specialty: '', email: '', city: '' });
+    setGuestForm({ name: '', specialty: '', email: '', whatsapp: '', city: '' });
     load();
   };
   const removeGuest = async (id: string) => {
@@ -144,6 +146,7 @@ export function PortalTeam() {
       full_name: editingGuest.full_name,
       specialty: editingGuest.specialty,
       email: editingGuest.email,
+      whatsapp: editingGuest.whatsapp,
       city: editingGuest.city
     }).eq('id', editingGuest.id);
     setSaving(false);
@@ -186,15 +189,21 @@ export function PortalTeam() {
   }
 
   if (!plan) {
-    return <Panel title="Sin participación">
+    return <>
+      <ModuleHeader eyebrow="Portal" title="Equipo e invitados" description="Compra tiquetes extra para el evento. Para registrar colaboradores e invitados del plan, primero debe existir una participación en esta edición." />
+      <Panel title="Sin participación">
         <p className="px-5 py-10 text-center text-sm text-ink-muted">
           No hay participación registrada en esta edición.
         </p>
-      </Panel>;
+      </Panel>
+      <div className="mt-5">
+        <ExtraTicketsPanel />
+      </div>
+    </>;
   }
 
   return <>
-      <ModuleHeader eyebrow={`${edition ? `${edition.name} · ` : ''}${plan.name}`} title="Equipo e invitados" description="Registra a quienes atienden tu espacio y a los profesionales de la salud que invitas. Cada persona recibe un enlace para aceptar o rechazar, y su boleto se activa 2 semanas antes del evento." />
+      <ModuleHeader eyebrow={`${edition ? `${edition.name} · ` : ''}${plan.name}`} title="Equipo e invitados" description="Registra a quienes atienden tu espacio, invita profesionales de la salud y compra tiquetes extra cuando el plan no alcance." />
 
       <div className="mb-5 grid gap-5 sm:grid-cols-2">
         <Panel title="Colaboradores de marca" description="Personal acreditado para atender el espacio.">
@@ -214,12 +223,13 @@ export function PortalTeam() {
       <div className="space-y-5">
         <Panel emphasis title="Colaboradores" description={`Máximo ${plan.max_staff} personas según el plan ${plan.name}.`}>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px]">
+            <table className="w-full min-w-[980px]">
               <thead className="bg-canvas">
                 <tr>
                   <th className={thClass}>Nombre</th>
                   <th className={thClass}>Rol en el espacio</th>
                   <th className={thClass}>Correo</th>
+                  <th className={thClass}>Teléfono</th>
                   <th className={thClass}>Invitación</th>
                   <th className={thClass}>
                     <span className="sr-only">Acciones</span>
@@ -242,6 +252,7 @@ export function PortalTeam() {
                     </td>
                     <td className={tdClass}>{member.role}</td>
                     <td className={tdClass}>{member.email}</td>
+                    <td className={tdClass}>{member.whatsapp || '—'}</td>
                     <td className={tdClass}>
                       <StatusBadge label={meta.label} tone={meta.tone} />
                     </td>
@@ -264,19 +275,20 @@ export function PortalTeam() {
                     </td>
                   </tr>;
               })}
-                {staff.length === 0 ? <tr><td colSpan={5} className="px-5 py-6 text-center text-sm text-ink-muted">Sin colaboradores registrados.</td></tr> : null}
+                {staff.length === 0 ? <tr><td colSpan={6} className="px-5 py-6 text-center text-sm text-ink-muted">Sin colaboradores registrados.</td></tr> : null}
               </tbody>
             </table>
           </div>
 
-          <form className="grid gap-3 border-t border-line bg-canvas px-5 py-4 sm:grid-cols-[1fr_1fr_1fr_auto]" onSubmit={addStaff}>
+          <form className="grid gap-3 border-t border-line bg-canvas px-5 py-4 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_auto]" onSubmit={addStaff}>
             <input required className={field} placeholder="Nombre completo" value={staffForm.name} onChange={(event) => setStaffForm({ ...staffForm, name: event.target.value })} />
             <input required className={field} placeholder="Rol en el espacio" value={staffForm.role} onChange={(event) => setStaffForm({ ...staffForm, role: event.target.value })} />
             <input required type="email" className={field} placeholder="Correo" value={staffForm.email} onChange={(event) => setStaffForm({ ...staffForm, email: event.target.value })} />
+            <input required type="tel" className={field} placeholder="Teléfono" value={staffForm.whatsapp} onChange={(event) => setStaffForm({ ...staffForm, whatsapp: event.target.value })} />
             <button type="submit" disabled={staffFull} className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors duration-150 ease-emphasis hover:bg-brand-deep disabled:cursor-not-allowed disabled:opacity-40">
               <PlusIcon size={15} /> Agregar
             </button>
-            {staffFull ? <p className="text-xs text-amber-700 sm:col-span-4">
+            {staffFull ? <p className="text-xs text-amber-700 sm:col-span-2 xl:col-span-5">
                 Alcanzaste el máximo de {plan.max_staff} colaboradores de tu plan. Para ampliarlo,
                 escribe al equipo comercial.
               </p> : null}
@@ -285,12 +297,13 @@ export function PortalTeam() {
 
         {plan.guest_passes > 0 ? <Panel title="Invitados profesionales de la salud" description={`${plan.guest_passes} invitaciones incluidas en el plan ${plan.name}. Cada invitado recibe su enlace de aceptación y, más cerca del evento, su código QR.`}>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[860px]">
+              <table className="w-full min-w-[980px]">
                 <thead className="bg-canvas">
                   <tr>
                     <th className={thClass}>Nombre</th>
                     <th className={thClass}>Especialidad</th>
                     <th className={thClass}>Correo</th>
+                    <th className={thClass}>Teléfono</th>
                     <th className={thClass}>Invitación</th>
                     <th className={thClass}>
                       <span className="sr-only">Acciones</span>
@@ -305,6 +318,7 @@ export function PortalTeam() {
                       <td className={`${tdClass} font-medium text-brand`}>{guest.full_name}</td>
                       <td className={tdClass}>{guest.specialty}</td>
                       <td className={tdClass}>{guest.email}</td>
+                      <td className={tdClass}>{guest.whatsapp || '—'}</td>
                       <td className={tdClass}>
                         <StatusBadge label={meta.label} tone={meta.tone} />
                       </td>
@@ -327,26 +341,29 @@ export function PortalTeam() {
                       </td>
                     </tr>;
                 })}
-                  {guests.length === 0 ? <tr><td colSpan={5} className="px-5 py-6 text-center text-sm text-ink-muted">Sin invitados registrados.</td></tr> : null}
+                  {guests.length === 0 ? <tr><td colSpan={6} className="px-5 py-6 text-center text-sm text-ink-muted">Sin invitados registrados.</td></tr> : null}
                 </tbody>
               </table>
             </div>
 
-            <form className="grid gap-3 border-t border-line bg-canvas px-5 py-4 sm:grid-cols-[1fr_1fr_1fr_auto]" onSubmit={addGuest}>
+            <form className="grid gap-3 border-t border-line bg-canvas px-5 py-4 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_auto]" onSubmit={addGuest}>
               <input required className={field} placeholder="Nombre del profesional" value={guestForm.name} onChange={(event) => setGuestForm({ ...guestForm, name: event.target.value })} />
               <input required className={field} placeholder="Especialidad" value={guestForm.specialty} onChange={(event) => setGuestForm({ ...guestForm, specialty: event.target.value })} />
               <input required type="email" className={field} placeholder="Correo" value={guestForm.email} onChange={(event) => setGuestForm({ ...guestForm, email: event.target.value })} />
+              <input required type="tel" className={field} placeholder="Teléfono" value={guestForm.whatsapp} onChange={(event) => setGuestForm({ ...guestForm, whatsapp: event.target.value })} />
               <button type="submit" disabled={guestsFull} className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors duration-150 ease-emphasis hover:bg-brand-deep disabled:cursor-not-allowed disabled:opacity-40">
                 <PlusIcon size={15} /> Invitar
               </button>
-              {guestsFull ? <p className="text-xs text-amber-700 sm:col-span-4">
+              {guestsFull ? <p className="text-xs text-amber-700 sm:col-span-2 xl:col-span-5">
                   Usaste las {plan.guest_passes} invitaciones de tu plan.
-                </p> : <p className="text-xs text-ink-muted sm:col-span-4">
+                </p> : <p className="text-xs text-ink-muted sm:col-span-2 xl:col-span-5">
                   Copia el enlace con "Reenviar" para mandarlo por WhatsApp o correo.
                 </p>}
-              {error ? <p role="alert" className="text-sm font-medium text-rose-700 sm:col-span-4">{error}</p> : null}
+              {error ? <p role="alert" className="text-sm font-medium text-rose-700 sm:col-span-2 xl:col-span-5">{error}</p> : null}
             </form>
           </Panel> : null}
+
+        <ExtraTicketsPanel />
       </div>
 
       {editingStaff ? <AdminModal open title="Editar colaborador" onClose={() => setEditingStaff(null)} onSubmit={saveStaff} submitting={saving}>
@@ -359,6 +376,9 @@ export function PortalTeam() {
             </ModalField>
             <ModalField label="Correo">
               <input type="email" className={modalFieldClass} value={editingStaff.email} onChange={(event) => setEditingStaff({ ...editingStaff, email: event.target.value })} />
+            </ModalField>
+            <ModalField label="Teléfono">
+              <input type="tel" required className={modalFieldClass} value={editingStaff.whatsapp ?? ''} onChange={(event) => setEditingStaff({ ...editingStaff, whatsapp: event.target.value })} />
             </ModalField>
           </div>
         </AdminModal> : null}
@@ -373,6 +393,9 @@ export function PortalTeam() {
             </ModalField>
             <ModalField label="Correo">
               <input type="email" className={modalFieldClass} value={editingGuest.email} onChange={(event) => setEditingGuest({ ...editingGuest, email: event.target.value })} />
+            </ModalField>
+            <ModalField label="Teléfono">
+              <input type="tel" required className={modalFieldClass} value={editingGuest.whatsapp ?? ''} onChange={(event) => setEditingGuest({ ...editingGuest, whatsapp: event.target.value })} />
             </ModalField>
             <ModalField label="Ciudad">
               <input className={modalFieldClass} value={editingGuest.city ?? ''} onChange={(event) => setEditingGuest({ ...editingGuest, city: event.target.value })} />

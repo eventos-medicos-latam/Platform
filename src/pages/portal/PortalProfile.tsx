@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ModuleHeader, Panel } from '../../components/admin/Panel';
+import { RequirementsPanel } from '../../components/portal/RequirementsPanel';
 import { usePlatform } from '../../contexts/PlatformContext';
 import { Pending } from '../../components/ui/Pending';
 import { supabase } from '../../lib/supabaseClient';
@@ -62,6 +63,12 @@ export function PortalProfile() {
     setSaved(true);
   };
 
+  useEffect(() => {
+    if (!profile) return;
+    if (window.location.hash !== '#requerimientos') return;
+    document.getElementById('requerimientos')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [profile]);
+
   if (!companyId) {
     return <ModuleHeader eyebrow="Portal" title="Perfil de la empresa" description="Tu usuario todavía no está vinculado a una empresa. Contacta al equipo organizador." />;
   }
@@ -69,7 +76,7 @@ export function PortalProfile() {
   if (!profile) return null;
 
   return <>
-      <ModuleHeader eyebrow="Portal" title="Perfil de la empresa" description="Estos datos alimentan contratos, facturación y la ficha pública de tu marca." />
+      <ModuleHeader eyebrow="Portal" title="Perfil de la empresa" description="Datos de tu marca, y lo que necesitamos de tu lado para operar la participación." />
 
       <div className="grid gap-5 xl:grid-cols-[1.3fr_1fr]">
         <Panel emphasis title="Datos de la empresa" actions={<button type="button" disabled={saving} onClick={save} className="rounded-lg bg-brand px-3.5 py-2 text-xs font-semibold text-white transition-colors duration-200 ease-emphasis hover:bg-brand-deep disabled:opacity-60">
@@ -102,6 +109,10 @@ export function PortalProfile() {
             Los campos vacíos bloquean la emisión de contratos y facturas.
           </p>
         </Panel>
+      </div>
+
+      <div className="mt-5">
+        <RequirementsPanel />
       </div>
     </>;
 }

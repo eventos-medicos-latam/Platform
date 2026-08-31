@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDownIcon, UploadCloudIcon } from 'lucide-react';
-import { ModuleHeader, Panel } from '../../components/admin/Panel';
+import { Panel } from '../admin/Panel';
 import { usePlatform } from '../../contexts/PlatformContext';
-import { requirementStatusMeta, StatusBadge } from '../../components/ui/StatusBadge';
+import { requirementStatusMeta, StatusBadge } from '../ui/StatusBadge';
 import { DURATION, EASE_EMPHASIS } from '../../utils/motion';
 import { supabase } from '../../lib/supabaseClient';
 import { uploadCompanyFile } from '../../lib/storage';
@@ -29,7 +29,7 @@ interface Requirement {
 }
 interface Comment { id: string; requirement_id: string; author: string; date: string; text: string; }
 
-export function PortalRequirements() {
+export function RequirementsPanel() {
   const { session, activeEditionId } = usePlatform();
   const companyId = session?.companyId;
   const [list, setList] = useState<Requirement[]>([]);
@@ -84,14 +84,15 @@ export function PortalRequirements() {
     load();
   };
 
-  if (!companyId) {
-    return <ModuleHeader eyebrow="Portal" title="Requerimientos" description="Tu usuario todavía no está vinculado a una empresa. Contacta al equipo organizador." />;
-  }
+  if (!companyId) return null;
 
-  return <>
-      <ModuleHeader eyebrow="Portal" title="Requerimientos" description="Todo lo que necesitamos de tu lado, con fecha límite y estado. Al resolver uno, el equipo lo revisa y te confirma." />
-
-      <Panel emphasis title={`${list.length} requerimientos`}>
+  return (
+    <div id="requerimientos">
+      <Panel
+        emphasis
+        title="Requerimientos"
+        description={`${list.length} ${list.length === 1 ? 'requerimiento' : 'requerimientos'} · al resolver uno, el equipo lo revisa y te confirma.`}
+      >
         <ul className="divide-y divide-line">
           {list.map((requirement) => {
           const meta = requirementStatusMeta[requirement.status];
@@ -161,5 +162,6 @@ export function PortalRequirements() {
           {list.length === 0 ? <li className="px-5 py-10 text-center text-sm text-ink-muted">Sin requerimientos por ahora.</li> : null}
         </ul>
       </Panel>
-    </>;
+    </div>
+  );
 }

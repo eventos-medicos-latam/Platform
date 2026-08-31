@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { CreditCardIcon, DownloadIcon, FileTextIcon, TicketIcon } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { CreditCardIcon, DownloadIcon, FileTextIcon, LoaderIcon, TicketIcon } from 'lucide-react';
+import { getEdition } from '../../data/editions';
 import { ModuleHeader, Panel, tdClass, thClass } from '../../components/admin/Panel';
 import { usePlatform } from '../../contexts/PlatformContext';
-import { formatCop, withVat } from '../../utils/format';
+import { formatCop } from '../../utils/format';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { supabase } from '../../lib/supabaseClient';
 import { getCompanyFileUrl } from '../../lib/storage';
@@ -14,12 +16,50 @@ interface Payment {
   due_date: string | null;
   status: 'pendiente' | 'pagado' | 'vencido';
   payment_method: string | null;
+  paid_at: string | null;
+  wompi_reference: string | null;
+  paid_reference: string | null;
 }
 interface Activity { id: string; date: string; actor: string; action: string; comment: string | null; }
-interface Participation { plan_id: string; status: string; agreed_amount: number | null; paid_amount: number; included_tickets: number; activations: string[] | null; }
+interface Participation {
+  id: string;
+  plan_id: string;
+  status: string;
+  agreed_amount: number | null;
+  paid_amount: number;
+  included_tickets: number;
+  activations: string[] | null;
+}
 interface Plan { name: string; }
 interface Invoice { id: string; name: string; date: string; status: string; file_path: string | null; }
-interface EventTicket { id: string; name: string; price: number | null; vat_rate: number; }
+interface CompanyProfile {
+  trade_name: string;
+  legal_name: string | null;
+  nit: string | null;
+}
+
+async function launchWompiCheckout(reference: string, amount: number): Promise<string | null> {
+  const [{ data: signatureData }, { data: publicSettings }] = await Promise.all([
+    supabase.functions.invoke('wompi-create-signature', {
+      body: { reference, amount_in_cents: Math.round(amount * 100), currency: 'COP' }
+    }),
+    supabase.from('public_settings').select('key, value').eq('key', 'wompi_public_key')
+  ]);
+  const publicKey = publicSettings?.[0]?.value;
+  const signature = (signatureData as { signature?: string } | null)?.signature;
+  if (!signature || !publicKey) {
+    return 'El cobro por Wompi todavía no está configurado. Contacta al equipo organizador.';
+  }
+  const checkoutUrl = new URL('https://checkout.wompi.co/p/');
+  checkoutUrl.searchParams.set('public-key', publicKey);
+  checkoutUrl.searchParams.set('currency', 'COP');
+  checkoutUrl.searchParams.set('amount-in-cents', String(Math.round(amount * 100)));
+  checkoutUrl.searchParams.set('reference', reference);
+  checkoutUrl.searchParams.set('signature:integrity', signature);
+  checkoutUrl.searchParams.set('redirect-url', window.location.href);
+  window.location.href = checkoutUrl.toString();
+  return null;
+}
 
 export function PortalPayments() {
   const { session, activeEditionId } = usePlatform();
@@ -29,30 +69,25 @@ export function PortalPayments() {
   const [participation, setParticipation] = useState<Participation | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [company, setCompany] = useState<CompanyProfile | null>(null);
   const [payingId, setPayingId] = useState<string | null>(null);
-
-  const [eventTickets, setEventTickets] = useState<EventTicket[]>([]);
-  const [ticketId, setTicketId] = useState('');
-  const [attendeeName, setAttendeeName] = useState('');
-  const [attendeeEmail, setAttendeeEmail] = useState('');
-  const [buyingTicket, setBuyingTicket] = useState(false);
-  const [buyError, setBuyError] = useState<string | null>(null);
+  const [payError, setPayError] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const load = async () => {
     if (!companyId) return;
-    const [{ data: paymentRows }, { data: activityRows }, { data: participationRow }, { data: invoiceRows }, { data: ticketRows }] = await Promise.all([
-      supabase.from('company_payments').select('id, concept, amount, due_date, status, payment_method').eq('company_id', companyId).eq('edition_id', activeEditionId).order('due_date'),
+    const [{ data: paymentRows }, { data: activityRows }, { data: participationRow }, { data: invoiceRows }, { data: companyRow }] = await Promise.all([
+      supabase.from('company_payments').select('id, concept, amount, due_date, status, payment_method, paid_at, wompi_reference, paid_reference').eq('company_id', companyId).eq('edition_id', activeEditionId).order('due_date', { ascending: true, nullsFirst: false }),
       supabase.from('activity_log').select('id, date, actor, action, comment').eq('company_id', companyId).order('date', { ascending: false }).limit(20),
-      supabase.from('participations').select('plan_id, status, agreed_amount, paid_amount, included_tickets, activations').eq('company_id', companyId).eq('edition_id', activeEditionId).maybeSingle(),
+      supabase.from('participations').select('id, plan_id, status, agreed_amount, paid_amount, included_tickets, activations').eq('company_id', companyId).eq('edition_id', activeEditionId).maybeSingle(),
       supabase.from('company_documents').select('id, name, date, status, file_path').eq('company_id', companyId).eq('edition_id', activeEditionId).eq('kind', 'factura').order('date', { ascending: false }),
-      supabase.from('tickets').select('id, name, price, vat_rate').eq('edition_id', activeEditionId).eq('visible', true).eq('status', 'publicado')
+      supabase.from('companies').select('trade_name, legal_name, nit').eq('id', companyId).single()
     ]);
     setPayments(paymentRows ?? []);
     setActivity(activityRows ?? []);
     setParticipation(participationRow ?? null);
     setInvoices(invoiceRows ?? []);
-    setEventTickets(ticketRows ?? []);
-    if (!ticketId && ticketRows && ticketRows.length > 0) setTicketId(ticketRows[0].id);
+    setCompany(companyRow ?? null);
     if (participationRow?.plan_id) {
       const { data: planRow } = await supabase.from('participation_plan_types').select('name').eq('id', participationRow.plan_id).single();
       setPlan(planRow);
@@ -70,96 +105,50 @@ export function PortalPayments() {
     if (url) window.open(url, '_blank', 'noopener');
   };
 
-  const next = payments.find((payment) => payment.status !== 'pagado');
+  const pendingPayments = payments.filter((payment) => payment.status !== 'pagado');
+  const paidPayments = payments.filter((payment) => payment.status === 'pagado');
+  const next = pendingPayments[0];
+  const remaining = Math.max((participation?.agreed_amount ?? 0) - (participation?.paid_amount ?? 0), 0);
+  const outstanding = pendingPayments.reduce((total, payment) => total + payment.amount, 0) || remaining;
 
   const payWithWompi = async (payment: Payment) => {
     setPayingId(payment.id);
-    const reference = `HB-PAY-${payment.id}`;
-    const [{ data: signatureData }, { data: publicSettings }] = await Promise.all([
-      supabase.functions.invoke('wompi-create-signature', {
-        body: { reference, amount_in_cents: Math.round(payment.amount * 100), currency: 'COP' }
-      }),
-      supabase.from('public_settings').select('key, value').eq('key', 'wompi_public_key')
-    ]);
-    const publicKey = publicSettings?.[0]?.value;
-    const signature = (signatureData as { signature?: string } | null)?.signature;
+    setPayError(null);
+    const error = await launchWompiCheckout(`HB-PAY-${payment.id}`, payment.amount);
     setPayingId(null);
-    if (!signature || !publicKey) {
-      alert('El cobro por Wompi todavía no está configurado. Contacta al equipo organizador.');
-      return;
-    }
-    const checkoutUrl = new URL('https://checkout.wompi.co/p/');
-    checkoutUrl.searchParams.set('public-key', publicKey);
-    checkoutUrl.searchParams.set('currency', 'COP');
-    checkoutUrl.searchParams.set('amount-in-cents', String(Math.round(payment.amount * 100)));
-    checkoutUrl.searchParams.set('reference', reference);
-    checkoutUrl.searchParams.set('signature:integrity', signature);
-    checkoutUrl.searchParams.set('redirect-url', window.location.href);
-    window.location.href = checkoutUrl.toString();
+    if (error) setPayError(error);
   };
 
-  const selectedTicket = eventTickets.find((item) => item.id === ticketId);
-  const extraTicketAmount = selectedTicket ? withVat(selectedTicket.price, selectedTicket.vat_rate) : null;
+  const payRemaining = async () => {
+    if (!participation || outstanding <= 0) return;
+    setPayingId('balance');
+    setPayError(null);
+    const error = await launchWompiCheckout(`HB-BAL-${participation.id}`, outstanding);
+    setPayingId(null);
+    if (error) setPayError(error);
+  };
 
-  const buyExtraTicket = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!companyId || !selectedTicket) return;
-    if (!attendeeName.trim() || !attendeeEmail.trim()) { setBuyError('Indica nombre y correo del asistente.'); return; }
-    setBuyingTicket(true);
-    setBuyError(null);
-    const reference = `HB-REG-${crypto.randomUUID()}`;
-    const { data, error: insertError } = await supabase
-      .from('registrations')
-      .insert({
-        edition_id: activeEditionId,
-        ticket_id: selectedTicket.id,
-        full_name: attendeeName,
-        email: attendeeEmail,
-        modality: 'presencial',
-        amount: extraTicketAmount,
-        payment_status: extraTicketAmount === null ? 'approved' : 'pending',
-        wompi_reference: extraTicketAmount === null ? null : reference,
-        source: 'compra-empresa',
-        company_id: companyId
-      })
-      .select('id')
-      .single();
+  const receiptContext = () => ({
+    companyName: company?.trade_name ?? session?.name ?? 'Empresa',
+    companyLegalName: company?.legal_name ?? null,
+    companyNit: company?.nit ?? null,
+    editionName: getEdition(activeEditionId)?.name ?? 'Edición activa',
+    planName: plan?.name ?? null,
+    agreedAmount: participation?.agreed_amount ?? null,
+    paidAmount: participation?.paid_amount ?? 0
+  });
 
-    if (insertError || !data) {
-      setBuyingTicket(false);
-      setBuyError('No pudimos registrar la compra. Intenta de nuevo.');
-      return;
+  const downloadReceipt = async (items: Payment[], id: string) => {
+    setDownloadingId(id);
+    setPayError(null);
+    try {
+      const { generatePaymentReceiptPdf } = await import('../../lib/pdf/generatePaymentReceiptPdf');
+      await generatePaymentReceiptPdf(items, receiptContext());
+    } catch {
+      setPayError('No se pudo generar el recibo. Intenta de nuevo.');
+    } finally {
+      setDownloadingId(null);
     }
-
-    if (extraTicketAmount === null) {
-      setBuyingTicket(false);
-      setAttendeeName('');
-      setAttendeeEmail('');
-      alert('Tiquete adicional registrado.');
-      return;
-    }
-
-    const [{ data: signatureData }, { data: publicSettings }] = await Promise.all([
-      supabase.functions.invoke('wompi-create-signature', {
-        body: { reference, amount_in_cents: Math.round(extraTicketAmount * 100), currency: 'COP' }
-      }),
-      supabase.from('public_settings').select('key, value').eq('key', 'wompi_public_key')
-    ]);
-    const publicKey = publicSettings?.[0]?.value;
-    const signature = (signatureData as { signature?: string } | null)?.signature;
-    setBuyingTicket(false);
-    if (!signature || !publicKey) {
-      setBuyError('El cobro por Wompi todavía no está configurado. Contacta al equipo organizador.');
-      return;
-    }
-    const checkoutUrl = new URL('https://checkout.wompi.co/p/');
-    checkoutUrl.searchParams.set('public-key', publicKey);
-    checkoutUrl.searchParams.set('currency', 'COP');
-    checkoutUrl.searchParams.set('amount-in-cents', String(Math.round(extraTicketAmount * 100)));
-    checkoutUrl.searchParams.set('reference', reference);
-    checkoutUrl.searchParams.set('signature:integrity', signature);
-    checkoutUrl.searchParams.set('redirect-url', window.location.href);
-    window.location.href = checkoutUrl.toString();
   };
 
   if (!companyId) {
@@ -167,13 +156,15 @@ export function PortalPayments() {
   }
 
   return <>
-      <ModuleHeader eyebrow="Portal" title="Pagos y actividad" description="Tu convenio, tus pagos, tus facturas y la compra de tiquetes adicionales, todo en un solo lugar." />
+      <ModuleHeader eyebrow="Portal" title="Pagos y facturación" description="El valor pactado, lo que ya pagaste y lo que falta. Cada pago pagado (anticipo, abono o liquidación) tiene un recibo descargable. La factura electrónica la carga el organizador cuando la emite." />
 
       <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
         <div className="space-y-5">
-          {participation ? <Panel emphasis title="Convenio pactado" description={plan?.name}>
+          {participation ? <Panel emphasis title="Convenio pactado" description={plan?.name} actions={outstanding > 0 ? <button type="button" disabled={payingId === 'balance'} onClick={payRemaining} className="rounded-lg bg-brand px-3.5 py-2 text-xs font-semibold text-white transition-colors duration-200 ease-emphasis hover:bg-brand-deep disabled:opacity-60">
+                {payingId === 'balance' ? 'Redirigiendo…' : 'Pagar saldo restante'}
+              </button> : null}>
               <dl className="grid gap-x-8 gap-y-5 px-5 py-5 sm:grid-cols-3">
-                {[{ label: 'Valor acordado', value: formatCop(participation.agreed_amount) }, { label: 'Pagado', value: formatCop(participation.paid_amount) }, { label: 'Pendiente', value: formatCop((participation.agreed_amount ?? 0) - participation.paid_amount) }, { label: 'Entradas incluidas', value: String(participation.included_tickets) }].map((row) => <div key={row.label}>
+                {[{ label: 'Valor acordado', value: formatCop(participation.agreed_amount) }, { label: 'Pagado', value: formatCop(participation.paid_amount) }, { label: 'Pendiente', value: formatCop(remaining) }, { label: 'Entradas incluidas', value: String(participation.included_tickets) }].map((row) => <div key={row.label}>
                     <dt className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">{row.label}</dt>
                     <dd className="mt-1 text-xl font-bold text-brand">{row.value}</dd>
                   </div>)}
@@ -183,10 +174,16 @@ export function PortalPayments() {
                 </div> : null}
               {next ? <p className="border-t border-line bg-canvas px-5 py-3 text-sm text-ink">
                   Próximo vencimiento: <strong>{next.concept}</strong> por {formatCop(next.amount)} el {next.due_date ?? '—'}.
+                </p> : remaining <= 0 ? <p className="border-t border-line bg-emerald-50 px-5 py-3 text-sm font-medium text-emerald-700">
+                  Convenio al día. No hay saldo pendiente.
                 </p> : null}
+              {payError ? <p role="alert" className="border-t border-line px-5 py-3 text-sm font-medium text-rose-700">{payError}</p> : null}
             </Panel> : null}
 
-          <Panel title="Historial de pagos">
+          <Panel title="Cuotas del convenio" description="Adelanto y saldo se generan al pactar el valor. Paga una cuota o el total pendiente, y descarga el recibo de lo ya pagado." actions={paidPayments.length > 0 ? <button type="button" disabled={downloadingId !== null} onClick={() => downloadReceipt(paidPayments, 'all')} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-brand transition-colors duration-150 ease-emphasis hover:border-brand hover:bg-canvas disabled:opacity-60">
+                {downloadingId === 'all' ? <LoaderIcon size={13} className="animate-spin" /> : <DownloadIcon size={13} />}
+                {downloadingId === 'all' ? 'Generando…' : 'Descargar todos los recibos'}
+              </button> : null}>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[620px]">
                 <thead className="bg-canvas">
@@ -207,47 +204,34 @@ export function PortalPayments() {
                         <StatusBadge label={payment.status} tone={payment.status === 'pagado' ? 'success' : payment.status === 'vencido' ? 'danger' : 'warning'} />
                       </td>
                       <td className={tdClass}>
-                        {payment.status !== 'pagado' ? <button type="button" disabled={payingId === payment.id} onClick={() => payWithWompi(payment)} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white transition-colors duration-200 ease-emphasis hover:bg-brand-deep disabled:opacity-60">
-                            <CreditCardIcon size={13} /> {payingId === payment.id ? 'Redirigiendo…' : 'Pagar con Wompi'}
-                          </button> : null}
+                        {payment.status === 'pagado' ? <button type="button" disabled={downloadingId !== null} aria-label={`Descargar recibo de ${payment.concept}`} onClick={() => downloadReceipt([payment], payment.id)} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-brand transition-colors duration-150 ease-emphasis hover:border-brand hover:bg-canvas disabled:opacity-60">
+                            {downloadingId === payment.id ? <LoaderIcon size={13} className="animate-spin" /> : <DownloadIcon size={13} />}
+                            {downloadingId === payment.id ? 'Generando…' : 'Descargar recibo'}
+                          </button> : <button type="button" disabled={payingId === payment.id} onClick={() => payWithWompi(payment)} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white transition-colors duration-200 ease-emphasis hover:bg-brand-deep disabled:opacity-60">
+                            <CreditCardIcon size={13} /> {payingId === payment.id ? 'Redirigiendo…' : 'Pagar cuota'}
+                          </button>}
                       </td>
                     </tr>)}
-                  {payments.length === 0 ? <tr><td colSpan={5} className="px-5 py-8 text-center text-sm text-ink-muted">Sin pagos registrados.</td></tr> : null}
+                  {payments.length === 0 ? <tr><td colSpan={5} className="px-5 py-8 text-center text-sm text-ink-muted">Aún no hay cuotas. Se crean al registrar el valor pactado de la participación.</td></tr> : null}
                 </tbody>
               </table>
             </div>
           </Panel>
-
-          <Panel title="Comprar tiquetes adicionales" description="Además de lo que incluye tu plan, puedes comprar entradas extra para el evento.">
-            <form className="grid gap-3 px-5 py-5 sm:grid-cols-2" onSubmit={buyExtraTicket}>
-              <label className="block sm:col-span-2">
-                <span className="mb-1.5 block text-xs font-medium text-ink-muted">Tipo de tiquete</span>
-                <select className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand" value={ticketId} onChange={(event) => setTicketId(event.target.value)}>
-                  {eventTickets.map((item) => <option key={item.id} value={item.id}>{item.name} · {formatCop(withVat(item.price, item.vat_rate))}</option>)}
-                </select>
-              </label>
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-medium text-ink-muted">Nombre del asistente</span>
-                <input required value={attendeeName} onChange={(event) => setAttendeeName(event.target.value)} className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand" />
-              </label>
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-medium text-ink-muted">Correo del asistente</span>
-                <input required type="email" value={attendeeEmail} onChange={(event) => setAttendeeEmail(event.target.value)} className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand" />
-              </label>
-              <div className="flex items-center justify-between gap-3 sm:col-span-2">
-                <span className="text-sm text-ink-muted">Total: <strong className="text-brand">{formatCop(extraTicketAmount)}</strong></span>
-                <button type="submit" disabled={buyingTicket || eventTickets.length === 0} className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 ease-emphasis hover:bg-brand-deep disabled:opacity-60">
-                  <TicketIcon size={15} /> {buyingTicket ? 'Procesando…' : 'Comprar con Wompi'}
-                </button>
-              </div>
-              {eventTickets.length === 0 ? <p className="text-xs text-ink-muted sm:col-span-2">Todavía no hay tiquetes publicados para esta edición.</p> : null}
-              {buyError ? <p role="alert" className="text-sm font-medium text-rose-700 sm:col-span-2">{buyError}</p> : null}
-            </form>
-          </Panel>
         </div>
 
         <div className="space-y-5">
-          <Panel title="Facturas" description="Facturas emitidas para esta edición.">
+          <Panel title="Tiquetes extra" description="Las entradas adicionales para invitados se compran en Equipo.">
+            <div className="px-5 py-5">
+              <p className="text-sm text-ink-muted">
+                El convenio ya incluye {participation ? participation.included_tickets : 0} entradas. Si necesitas más, cómpralas con Wompi junto al registro de tu equipo.
+              </p>
+              <Link to="/portal/equipo" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 ease-emphasis hover:bg-brand-deep">
+                <TicketIcon size={15} /> Ir a Equipo e invitados
+              </Link>
+            </div>
+          </Panel>
+
+          <Panel title="Facturas" description="Factura electrónica de venta, cuando el organizador la emite y la carga. No es el recibo de cada pago.">
             <ul className="divide-y divide-line">
               {invoices.map((invoice) => <li key={invoice.id} className="flex items-center gap-3 px-5 py-3">
                     <FileTextIcon size={16} className="shrink-0 text-ink-muted" />
@@ -260,7 +244,7 @@ export function PortalPayments() {
                       <DownloadIcon size={15} />
                     </button>
                   </li>)}
-              {invoices.length === 0 ? <li className="px-5 py-4 text-sm text-ink-muted">Sin facturas emitidas todavía.</li> : null}
+              {invoices.length === 0 ? <li className="px-5 py-4 text-sm text-ink-muted">Aún no hay factura electrónica. El recibo de cada pago pagado se descarga en las cuotas del convenio.</li> : null}
             </ul>
           </Panel>
 
