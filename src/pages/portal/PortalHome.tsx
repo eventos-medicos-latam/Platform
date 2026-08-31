@@ -134,7 +134,7 @@ export function PortalHome() {
           {balance > 0 ? <Link to="/portal/pagos" className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-brand-deep shadow-elev2 transition-transform duration-200 ease-emphasis hover:-translate-y-0.5">
               <CreditCardIcon size={15} /> Pagar ahora
             </Link> : null}
-          {pending.length > 0 ? <Link to="/portal/requerimientos" className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white transition-transform duration-200 ease-emphasis hover:-translate-y-0.5 hover:bg-white/15">
+          {pending.length > 0 ? <Link to="/portal/perfil#requerimientos" className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white transition-transform duration-200 ease-emphasis hover:-translate-y-0.5 hover:bg-white/15">
               <ClipboardListIcon size={15} /> Resolver {pending.length} requerimiento{pending.length === 1 ? '' : 's'}
             </Link> : null}
           <Link to="/portal/documentos" className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white transition-transform duration-200 ease-emphasis hover:-translate-y-0.5 hover:bg-white/15">
@@ -170,7 +170,7 @@ export function PortalHome() {
         </Panel>
 
         <div className="space-y-5">
-          <Panel title="Lo que falta de tu lado" description={`${pending.length} requerimientos abiertos`} actions={<Link to="/portal/requerimientos" className="text-xs font-semibold text-brand-support">
+          <Panel title="Lo que falta de tu lado" description={`${pending.length} requerimientos abiertos`} actions={<Link to="/portal/perfil#requerimientos" className="text-xs font-semibold text-brand-support">
                 Resolver
               </Link>}>
             <ul className="divide-y divide-line">

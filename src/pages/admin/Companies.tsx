@@ -141,9 +141,10 @@ export function Companies() {
     if (!form.company_id) { setError('Selecciona una empresa.'); return; }
     setSaving(true);
     setError(null);
+    const { paid_amount: _paid, ...payload } = form;
     const { error: submitError } = editingId
-      ? await supabase.from('participations').update(form).eq('id', editingId)
-      : await supabase.from('participations').insert(form);
+      ? await supabase.from('participations').update(payload).eq('id', editingId)
+      : await supabase.from('participations').insert(payload);
     setSaving(false);
     if (submitError) { setError(submitError.message); return; }
     setModalOpen(false);
@@ -357,7 +358,8 @@ export function Companies() {
               <input type="number" className={modalFieldClass} value={form.agreed_amount ?? ''} onChange={(event) => setForm({ ...form, agreed_amount: event.target.value === '' ? null : Number(event.target.value) })} />
             </ModalField>
             <ModalField label="Pagado (COP)">
-              <input type="number" className={modalFieldClass} value={form.paid_amount} onChange={(event) => setForm({ ...form, paid_amount: Number(event.target.value) })} />
+              <input type="number" readOnly className={`${modalFieldClass} bg-canvas text-ink-muted`} value={form.paid_amount} />
+              <p className="mt-1.5 text-[11px] text-ink-muted">Se calcula solo: suma de las cuotas marcadas como pagadas en Pagos.</p>
             </ModalField>
             <ModalField label="Entradas incluidas">
               <input type="number" className={modalFieldClass} value={form.included_tickets} onChange={(event) => setForm({ ...form, included_tickets: Number(event.target.value) })} />

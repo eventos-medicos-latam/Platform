@@ -51,7 +51,10 @@ const faqs = [{
   a: 'Desde "Equipo e invitados", agrégalo con su nombre y correo — se genera un enlace único para que acepte o rechace la invitación.'
 }, {
   q: '¿Puedo comprar tiquetes adicionales?',
-  a: 'Sí, desde "Pagos y facturación" puedes comprar tiquetes extra a los que ya incluye tu plan, pagando con Wompi.'
+  a: 'Sí, desde "Equipo e invitados" puedes comprar tiquetes extra a los que ya incluye tu plan, pagando con Wompi.'
+}, {
+  q: '¿Puedo descargar un recibo de lo que ya pagué?',
+  a: 'Sí. En Pagos y facturación, cada cuota pagada (anticipo, abono parcial o liquidación) tiene un recibo en PDF. Ese comprobante acredita el pago; la factura electrónica la carga el organizador cuando la emite.'
 }];
 
 export function PortalHelp() {

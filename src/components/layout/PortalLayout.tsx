@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ClipboardListIcon, FileTextIcon, FolderIcon, HelpCircleIcon, LayoutDashboardIcon, LogOutIcon, PackageIcon, UserRoundIcon, UsersIcon, WalletIcon } from 'lucide-react';
+import { FileTextIcon, FolderIcon, HelpCircleIcon, LayoutDashboardIcon, LogOutIcon, PackageIcon, UserRoundIcon, UsersIcon, WalletIcon } from 'lucide-react';
 import { Logo } from '../ui/Logo';
 import { getEdition } from '../../data/editions';
 import { usePlatform } from '../../contexts/PlatformContext';
@@ -20,10 +20,6 @@ const items = [{
   to: '/portal/equipo',
   label: 'Equipo e invitados',
   icon: UsersIcon
-}, {
-  to: '/portal/requerimientos',
-  label: 'Requerimientos',
-  icon: ClipboardListIcon
 }, {
   to: '/portal/documentos',
   label: 'Documentos y marca',
@@ -97,7 +93,7 @@ export function PortalLayout() {
                   {isActive ? <span className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-[#ffd166]" aria-hidden="true" /> : null}
                   <item.icon size={16} className="relative shrink-0" />
                   <span className="relative truncate">{item.label}</span>
-                  {item.to === '/portal/requerimientos' && pending > 0 ? <span className="relative ml-auto rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-brand-deep">
+                  {item.to === '/portal/perfil' && pending > 0 ? <span className="relative ml-auto rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-brand-deep">
                       {pending}
                     </span> : null}
                 </>}
@@ -145,7 +141,7 @@ export function PortalLayout() {
           }) => `relative flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors duration-150 ease-emphasis ${isActive ? 'bg-brand text-white' : 'text-ink-muted hover:text-brand'}`}>
                 <item.icon size={13} />
                 {item.label}
-                {item.to === '/portal/requerimientos' && pending > 0 ? <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-brand-deep">
+                {item.to === '/portal/perfil' && pending > 0 ? <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-brand-deep">
                     {pending}
                   </span> : null}
               </NavLink>)}

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { PlusIcon } from 'lucide-react';
+import { DownloadIcon, LoaderIcon, PlusIcon } from 'lucide-react';
 import { ModuleHeader, Panel, tdClass, thClass } from '../../components/admin/Panel';
 import { usePlatform } from '../../contexts/PlatformContext';
 import { formatCompactCop, formatCop } from '../../utils/format';
@@ -9,6 +9,7 @@ import { AdminModal, modalFieldClass, ModalField } from '../../components/admin/
 import { ConfirmDialog } from '../../components/admin/ConfirmDialog';
 import { RowActions } from '../../components/admin/RowActions';
 import { moveToTrash } from '../../lib/trash';
+import { getEdition } from '../../data/editions';
 
 interface CompanyPayment {
   id: string;
@@ -21,9 +22,12 @@ interface CompanyPayment {
   paid_at: string | null;
   payment_method: string | null;
   paid_reference: string | null;
+  wompi_reference: string | null;
 }
 
-interface Company { id: string; trade_name: string; }
+interface Company { id: string; trade_name: string; legal_name: string | null; nit: string | null; }
+interface Participation { company_id: string; agreed_amount: number | null; paid_amount: number; plan_id: string | null; }
+interface Plan { id: string; name: string; }
 interface Registration { payment_status: string; }
 
 const statusMeta: Record<CompanyPayment['status'], { label: string; tone: 'success' | 'danger' | 'warning' }> = {
@@ -42,13 +46,16 @@ const emptyForm = (editionId: string): Omit<CompanyPayment, 'id'> => ({
   status: 'pendiente',
   paid_at: null,
   payment_method: null,
-  paid_reference: null
+  paid_reference: null,
+  wompi_reference: null
 });
 
 export function PaymentsAdmin() {
   const { activeEditionId } = usePlatform();
   const [payments, setPayments] = useState<CompanyPayment[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [participations, setParticipations] = useState<Participation[]>([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -57,15 +64,20 @@ export function PaymentsAdmin() {
   const [error, setError] = useState<string | null>(null);
   const [trashTarget, setTrashTarget] = useState<CompanyPayment | null>(null);
   const [trashing, setTrashing] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const load = async () => {
-    const [{ data: paymentRows }, { data: companyRows }, { data: regRows }] = await Promise.all([
+    const [{ data: paymentRows }, { data: companyRows }, { data: participationRows }, { data: planRows }, { data: regRows }] = await Promise.all([
       supabase.from('company_payments').select('*').eq('edition_id', activeEditionId).order('due_date'),
-      supabase.from('companies').select('id, trade_name'),
+      supabase.from('companies').select('id, trade_name, legal_name, nit'),
+      supabase.from('participations').select('company_id, agreed_amount, paid_amount, plan_id').eq('edition_id', activeEditionId),
+      supabase.from('participation_plan_types').select('id, name'),
       supabase.from('registrations').select('payment_status').eq('edition_id', activeEditionId)
     ]);
     setPayments(paymentRows ?? []);
     setCompanies(companyRows ?? []);
+    setParticipations(participationRows ?? []);
+    setPlans(planRows ?? []);
     setRegistrations(regRows ?? []);
   };
 
@@ -98,7 +110,7 @@ export function PaymentsAdmin() {
   const openDuplicate = (payment: CompanyPayment) => {
     setEditingId(null);
     const { id: _id, ...rest } = payment;
-    setForm({ ...rest, status: 'pendiente', paid_at: null, payment_method: null, paid_reference: null });
+    setForm({ ...rest, status: 'pendiente', paid_at: null, payment_method: null, paid_reference: null, wompi_reference: null });
     setError(null);
     setModalOpen(true);
   };
@@ -110,8 +122,9 @@ export function PaymentsAdmin() {
     }
     setSaving(true);
     setError(null);
+    const { wompi_reference: _wompi, ...formWithoutWompi } = form;
     const payload = {
-      ...form,
+      ...formWithoutWompi,
       paid_at: form.status === 'pagado' && !form.paid_at ? new Date().toISOString() : form.paid_at
     };
     const { error: submitError } = editingId
@@ -139,8 +152,32 @@ export function PaymentsAdmin() {
     load();
   };
 
+  const downloadReceipt = async (payment: CompanyPayment) => {
+    const company = companies.find((item) => item.id === payment.company_id);
+    const participation = participations.find((item) => item.company_id === payment.company_id);
+    const planName = plans.find((item) => item.id === participation?.plan_id)?.name ?? null;
+    setDownloadingId(payment.id);
+    setError(null);
+    try {
+      const { generatePaymentReceiptPdf } = await import('../../lib/pdf/generatePaymentReceiptPdf');
+      await generatePaymentReceiptPdf([payment], {
+        companyName: company?.trade_name ?? payment.company_id,
+        companyLegalName: company?.legal_name ?? null,
+        companyNit: company?.nit ?? null,
+        editionName: getEdition(activeEditionId)?.name ?? 'Edición activa',
+        planName,
+        agreedAmount: participation?.agreed_amount ?? null,
+        paidAmount: participation?.paid_amount ?? 0
+      });
+    } catch {
+      setError('No se pudo generar el recibo. Intenta de nuevo.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   return <>
-      <ModuleHeader eyebrow="Comercial" title="Pagos" description="Cobros de patrocinio (Wompi desde el Portal o registrados a mano) y estado de las transacciones de tickets." actions={<button type="button" onClick={openCreate} className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 ease-emphasis hover:bg-brand-deep">
+      <ModuleHeader eyebrow="Comercial" title="Pagos" description="Cuotas del convenio (adelanto y saldo). Lo pagado en cada participación se calcula desde estos cobros. En cada cobro pagado puedes descargar el recibo." actions={<button type="button" onClick={openCreate} className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 ease-emphasis hover:bg-brand-deep">
             <PlusIcon size={15} /> Nuevo cobro
           </button>} />
 
@@ -172,7 +209,12 @@ export function PaymentsAdmin() {
                       <StatusBadge label={statusMeta[payment.status].label} tone={statusMeta[payment.status].tone} />
                     </td>
                     <td className={tdClass}>
-                      <RowActions onEdit={() => openEdit(payment)} onDuplicate={() => openDuplicate(payment)} onDelete={() => setTrashTarget(payment)} />
+                      <div className="flex items-center justify-end gap-1">
+                        {payment.status === 'pagado' ? <button type="button" disabled={downloadingId !== null} aria-label={`Descargar recibo de ${payment.concept}`} onClick={() => downloadReceipt(payment)} className="rounded-lg p-1.5 text-ink-muted transition-colors duration-150 ease-emphasis hover:bg-brand-soft hover:text-brand disabled:opacity-50">
+                            {downloadingId === payment.id ? <LoaderIcon size={15} className="animate-spin" /> : <DownloadIcon size={15} />}
+                          </button> : null}
+                        <RowActions onEdit={() => openEdit(payment)} onDuplicate={() => openDuplicate(payment)} onDelete={() => setTrashTarget(payment)} />
+                      </div>
                     </td>
                   </tr>)}
               </tbody>

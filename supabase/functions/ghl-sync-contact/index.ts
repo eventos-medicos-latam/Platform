@@ -69,7 +69,7 @@ function mapBrandStaff(row: Record<string, unknown>): GhlContact {
   return {
     email: (row.email as string) ?? null,
     name: (row.name as string) ?? null,
-    phone: null,
+    phone: (row.whatsapp as string) ?? null,
     tags,
   };
 }

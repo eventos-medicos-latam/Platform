@@ -82,9 +82,9 @@ Deno.serve(async (req) => {
     const reference: string = transaction.reference;
 
     // Esquema de referencia: HB-REG-<registration.id> para tickets,
-    // HB-PAY-<company_payment.id> para cobros de patrocinio (Portal),
-    // HB-SPONSOR-<plan_request.id> para quien paga de una vez al
-    // registrarse como patrocinador desde el sitio público.
+    // HB-PAY-<company_payment.id> para una cuota, HB-BAL-<participation.id>
+    // para liquidar el saldo restante, HB-SPONSOR-<plan_request.id> para
+    // quien paga de una vez al registrarse como patrocinador.
     if (reference.startsWith('HB-PAY-')) {
       if (mappedStatus !== 'approved') {
         // company_payments no tiene un estado "rechazado" equivalente;
@@ -106,6 +106,90 @@ Deno.serve(async (req) => {
       if (error) {
         console.error('wompi-webhook: error actualizando company_payment', error);
         return new Response('Error interno', { status: 500 });
+      }
+      return new Response('ok', { headers: corsHeaders });
+    }
+
+    // Pago del saldo restante del contrato (todas las cuotas pendientes).
+    // HB-BAL-<participation_id>
+    if (reference.startsWith('HB-BAL-')) {
+      if (mappedStatus !== 'approved') {
+        return new Response('ok', { headers: corsHeaders });
+      }
+      const participationId = reference.slice('HB-BAL-'.length);
+      const { data: participation, error: partError } = await admin
+        .from('participations')
+        .select('id, company_id, edition_id, agreed_amount, paid_amount')
+        .eq('id', participationId)
+        .single();
+
+      if (partError || !participation) {
+        console.error('wompi-webhook: participación no encontrada para HB-BAL', partError);
+        return new Response('Error interno', { status: 500 });
+      }
+
+      const paidAt = new Date().toISOString();
+      const { data: pendingRows, error: pendingError } = await admin
+        .from('company_payments')
+        .select('id')
+        .eq('company_id', participation.company_id)
+        .eq('edition_id', participation.edition_id)
+        .neq('status', 'pagado');
+
+      if (pendingError) {
+        console.error('wompi-webhook: error listando cuotas pendientes', pendingError);
+        return new Response('Error interno', { status: 500 });
+      }
+
+      if (pendingRows && pendingRows.length > 0) {
+        const { error: markError } = await admin
+          .from('company_payments')
+          .update({
+            status: 'pagado',
+            payment_method: 'wompi',
+            paid_at: paidAt,
+            wompi_transaction_id: transaction.id ?? null,
+            paid_reference: reference,
+          })
+          .eq('company_id', participation.company_id)
+          .eq('edition_id', participation.edition_id)
+          .neq('status', 'pagado');
+
+        if (markError) {
+          console.error('wompi-webhook: error marcando cuotas del saldo', markError);
+          return new Response('Error interno', { status: 500 });
+        }
+
+        const { error: refError } = await admin
+          .from('company_payments')
+          .update({ wompi_reference: reference })
+          .eq('id', pendingRows[0].id);
+
+        if (refError) {
+          console.error('wompi-webhook: error guardando referencia HB-BAL', refError);
+        }
+      } else {
+        const amountInCents = Number(transaction.amount_in_cents ?? 0);
+        const amount = amountInCents > 0
+          ? amountInCents / 100
+          : Math.max((participation.agreed_amount ?? 0) - (participation.paid_amount ?? 0), 0);
+        if (amount > 0) {
+          const { error: insertError } = await admin.from('company_payments').insert({
+            company_id: participation.company_id,
+            edition_id: participation.edition_id,
+            concept: 'Pago de saldo',
+            amount,
+            status: 'pagado',
+            payment_method: 'wompi',
+            paid_at: paidAt,
+            wompi_reference: reference,
+            wompi_transaction_id: transaction.id ?? null,
+          });
+          if (insertError) {
+            console.error('wompi-webhook: error insertando pago de saldo', insertError);
+            return new Response('Error interno', { status: 500 });
+          }
+        }
       }
       return new Response('ok', { headers: corsHeaders });
     }
