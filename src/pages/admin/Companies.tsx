@@ -52,10 +52,26 @@ const roleOptions = ['patrocinador', 'expositor', 'aliado-comercial', 'marca', '
 const bannerTierOptions = ['principal', 'destacado', 'apoyo'];
 const statusOptions = Object.entries(participationStatusMeta) as [Participation['status'], { label: string }][];
 
-const emptyParticipation = (editionId: string): Omit<Participation, 'id'> => ({
-  company_id: '', edition_id: editionId, roles: [], plan_id: 'pop-up', stand_id: null, included_tickets: 0, agreed_amount: null, paid_amount: 0, status: 'en-negociacion', banner_tier: null
+const emptyParticipation = (editionId: string, planId = 'pop-up'): Omit<Participation, 'id'> => ({
+  company_id: '', edition_id: editionId, roles: [], plan_id: planId, stand_id: null, included_tickets: 0, agreed_amount: null, paid_amount: 0, status: 'en-negociacion', banner_tier: null
 });
 const emptyCompany: Omit<Company, 'id'> = { trade_name: '', legal_name: '', nit: '', city: '', country: '', contact_name: '', contact_email: '', contact_whatsapp: '' };
+
+function blankToNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? '';
+  return trimmed === '' ? null : trimmed;
+}
+
+function friendlyCompanyError(message: string): string {
+  if (message.includes('companies_nit_unique')) return 'Ya existe una empresa con ese NIT.';
+  return message;
+}
+
+function friendlyParticipationError(message: string): string {
+  if (message.includes('participations_company_id_edition_id')) return 'Esta empresa ya tiene una participación en esta edición.';
+  if (message.includes('participation_plan_editions') || message.includes('plan_id_edition_id')) return 'Ese plan no está disponible en la edición activa.';
+  return message;
+}
 
 export function Companies() {
   const { activeEditionId } = usePlatform();
@@ -76,6 +92,8 @@ export function Companies() {
   const [companyModalOpen, setCompanyModalOpen] = useState(false);
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
   const [companyForm, setCompanyForm] = useState<Omit<Company, 'id'>>(emptyCompany);
+  const [companySaving, setCompanySaving] = useState(false);
+  const [companyError, setCompanyError] = useState<string | null>(null);
 
   const load = async () => {
     const [{ data: participationRows }, { data: companyRows }, { data: planRows }] = await Promise.all([
@@ -130,7 +148,19 @@ export function Companies() {
     if (url) window.open(url, '_blank', 'noopener');
   };
 
-  const openCreate = () => { setEditingId(null); setForm(emptyParticipation(activeEditionId)); setError(null); setModalOpen(true); };
+  const defaultPlanId = plans[0]?.id ?? 'pop-up';
+  const companiesWithoutParticipation = companies.filter((item) => !participations.some((participation) => participation.company_id === item.id));
+  const companyChoices = editingId
+    ? companies
+    : companies.filter((item) => item.id === form.company_id || !participations.some((participation) => participation.company_id === item.id));
+
+  const openCreate = () => { setEditingId(null); setForm(emptyParticipation(activeEditionId, defaultPlanId)); setError(null); setModalOpen(true); };
+  const openCreateForCompany = (companyId: string) => {
+    setEditingId(null);
+    setForm({ ...emptyParticipation(activeEditionId, defaultPlanId), company_id: companyId });
+    setError(null);
+    setModalOpen(true);
+  };
   const openEdit = (participation: Participation) => { setEditingId(participation.id); const { id: _id, ...rest } = participation; setForm(rest); setError(null); setModalOpen(true); };
 
   const toggleRole = (role: string) => {
@@ -146,7 +176,7 @@ export function Companies() {
       ? await supabase.from('participations').update(payload).eq('id', editingId)
       : await supabase.from('participations').insert(payload);
     setSaving(false);
-    if (submitError) { setError(submitError.message); return; }
+    if (submitError) { setError(friendlyParticipationError(submitError.message)); return; }
     setModalOpen(false);
     load();
   };
@@ -162,29 +192,54 @@ export function Companies() {
     load();
   };
 
-  const openCreateCompany = () => { setEditingCompanyId(null); setCompanyForm(emptyCompany); setError(null); setCompanyModalOpen(true); };
-  const openEditCompany = () => {
-    if (!company) return;
-    setEditingCompanyId(company.id);
-    const { id: _id, ...rest } = company;
+  const openCreateCompany = () => { setEditingCompanyId(null); setCompanyForm(emptyCompany); setCompanyError(null); setCompanyModalOpen(true); };
+  const openEditCompanyRecord = (item: Company) => {
+    setEditingCompanyId(item.id);
+    const { id: _id, ...rest } = item;
     setCompanyForm(rest);
-    setError(null);
+    setCompanyError(null);
     setCompanyModalOpen(true);
   };
+  const openEditCompany = () => {
+    if (!company) return;
+    openEditCompanyRecord(company);
+  };
   const submitCompany = async () => {
-    setSaving(true);
-    setError(null);
-    const { error: submitError } = editingCompanyId
-      ? await supabase.from('companies').update(companyForm).eq('id', editingCompanyId)
-      : await supabase.from('companies').insert(companyForm);
-    setSaving(false);
-    if (submitError) { setError(submitError.message); return; }
+    const tradeName = companyForm.trade_name.trim();
+    if (!tradeName) {
+      setCompanyError('El nombre comercial es obligatorio.');
+      return;
+    }
+    setCompanySaving(true);
+    setCompanyError(null);
+    const payload = {
+      trade_name: tradeName,
+      legal_name: blankToNull(companyForm.legal_name),
+      nit: blankToNull(companyForm.nit),
+      city: blankToNull(companyForm.city),
+      country: blankToNull(companyForm.country),
+      contact_name: blankToNull(companyForm.contact_name),
+      contact_email: blankToNull(companyForm.contact_email),
+      contact_whatsapp: blankToNull(companyForm.contact_whatsapp)
+    };
+    if (editingCompanyId) {
+      const { error: submitError } = await supabase.from('companies').update(payload).eq('id', editingCompanyId);
+      setCompanySaving(false);
+      if (submitError) { setCompanyError(friendlyCompanyError(submitError.message)); return; }
+      setCompanyModalOpen(false);
+      load();
+      return;
+    }
+    const { data: created, error: submitError } = await supabase.from('companies').insert(payload).select('id').single();
+    setCompanySaving(false);
+    if (submitError) { setCompanyError(friendlyCompanyError(submitError.message)); return; }
     setCompanyModalOpen(false);
-    load();
+    await load();
+    if (created?.id) openCreateForCompany(created.id);
   };
 
   return <>
-      <ModuleHeader eyebrow="Comercial" title="Empresas y participaciones" description="Una empresa, muchas participaciones. Los valores acordados no se publican en la web." actions={<div className="flex gap-2">
+      <ModuleHeader eyebrow="Comercial" title="Empresas y participaciones" description="Primero la ficha de la empresa, después el plan de esta edición. Una empresa no aparece en la tabla hasta que tiene participación." actions={<div className="flex gap-2">
             <button type="button" onClick={openCreateCompany} className="inline-flex items-center gap-2 rounded-lg border border-line px-4 py-2 text-sm font-semibold text-brand transition-colors duration-150 ease-emphasis hover:border-brand/40">
               <PlusIcon size={15} /> Nueva empresa
             </button>
@@ -193,6 +248,7 @@ export function Companies() {
             </button>
           </div>} />
 
+      <div className="space-y-5">
       <Panel emphasis title={`${participations.length} participaciones en esta edición`} description="Selecciona una fila para ver el detalle completo.">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px]">
@@ -228,10 +284,29 @@ export function Companies() {
                     </td>
                   </tr>;
             })}
+              {participations.length === 0 ? <tr><td colSpan={8} className="px-5 py-8 text-center text-sm text-ink-muted">Aún no hay participaciones en esta edición. Crea una empresa o asígnale un plan a una existente.</td></tr> : null}
             </tbody>
           </table>
         </div>
       </Panel>
+
+      {companiesWithoutParticipation.length > 0 ? <Panel title="Empresas sin participación en esta edición" description="Quedaron creadas como ficha comercial. Asígnales un plan para operarlas aquí.">
+          <ul className="divide-y divide-line">
+            {companiesWithoutParticipation.map((item) => <li key={item.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-brand">{item.trade_name}</p>
+                  <p className="text-xs text-ink-muted">{item.contact_email || item.nit || 'Sin NIT ni correo'}</p>
+                </div>
+                <button type="button" onClick={() => openEditCompanyRecord(item)} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-brand transition-colors duration-150 ease-emphasis hover:border-brand/40">
+                  <PencilIcon size={13} /> Editar ficha
+                </button>
+                <button type="button" onClick={() => openCreateForCompany(item.id)} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white transition-colors duration-200 ease-emphasis hover:bg-brand-deep">
+                  Asignar plan
+                </button>
+              </li>)}
+          </ul>
+        </Panel> : null}
+      </div>
 
       <Drawer open={Boolean(selected)} onClose={() => setOpenId(null)} title={company?.trade_name ?? ''} subtitle={plans.find((p) => p.id === selected?.plan_id)?.name}>
         {selected && company ? <div className="space-y-7">
@@ -340,8 +415,9 @@ export function Companies() {
           <ModalField label="Empresa">
             <select className={modalFieldClass} value={form.company_id} onChange={(event) => setForm({ ...form, company_id: event.target.value })}>
               <option value="">Selecciona una empresa</option>
-              {companies.map((item) => <option key={item.id} value={item.id}>{item.trade_name}</option>)}
+              {companyChoices.map((item) => <option key={item.id} value={item.id}>{item.trade_name}</option>)}
             </select>
+            {!editingId && companyChoices.length === 0 ? <span className="mt-1.5 block text-[11px] text-ink-muted">No hay empresas libres en esta edición. Crea una con «Nueva empresa».</span> : null}
           </ModalField>
           <div className="grid gap-4 sm:grid-cols-2">
             <ModalField label="Plan">
@@ -359,7 +435,7 @@ export function Companies() {
             </ModalField>
             <ModalField label="Pagado (COP)">
               <input type="number" readOnly className={`${modalFieldClass} bg-canvas text-ink-muted`} value={form.paid_amount} />
-              <p className="mt-1.5 text-[11px] text-ink-muted">Se calcula solo: suma de las cuotas marcadas como pagadas en Pagos.</p>
+              <span className="mt-1.5 block text-[11px] text-ink-muted">Se calcula solo: suma de las cuotas marcadas como pagadas en Pagos.</span>
             </ModalField>
             <ModalField label="Entradas incluidas">
               <input type="number" className={modalFieldClass} value={form.included_tickets} onChange={(event) => setForm({ ...form, included_tickets: Number(event.target.value) })} />
@@ -381,10 +457,10 @@ export function Companies() {
         </div>
       </AdminModal>
 
-      <AdminModal open={companyModalOpen} onClose={() => setCompanyModalOpen(false)} title={editingCompanyId ? 'Editar empresa' : 'Nueva empresa'} onSubmit={submitCompany} submitting={saving} error={error}>
+      <AdminModal open={companyModalOpen} onClose={() => setCompanyModalOpen(false)} title={editingCompanyId ? 'Editar empresa' : 'Nueva empresa'} onSubmit={submitCompany} submitting={companySaving} error={companyError} submitLabel={editingCompanyId ? 'Guardar' : 'Crear y asignar plan'}>
         <div className="space-y-4">
           <ModalField label="Nombre comercial">
-            <input className={modalFieldClass} value={companyForm.trade_name} onChange={(event) => setCompanyForm({ ...companyForm, trade_name: event.target.value })} />
+            <input required className={modalFieldClass} value={companyForm.trade_name} onChange={(event) => setCompanyForm({ ...companyForm, trade_name: event.target.value })} />
           </ModalField>
           <div className="grid gap-4 sm:grid-cols-2">
             <ModalField label="Razón social">
