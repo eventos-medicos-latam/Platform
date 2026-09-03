@@ -368,7 +368,6 @@ export function NovoSpeakers() {
           </FormSection>
 
         </div>
-        </div>
       </NovoModal>
     </div>
   );
