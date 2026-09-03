@@ -1,7 +1,9 @@
 import React, { useRef } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
-import { AwardIcon, CalendarDaysIcon, CheckIcon, ImageIcon, MapPinIcon, RouteIcon, UsersIcon } from 'lucide-react';
+import { AwardIcon, BuildingIcon, CalendarDaysIcon, CheckIcon, ImageIcon, MapPinIcon, MicIcon, NavigationIcon, PhoneIcon, RouteIcon, StarIcon, UsersIcon } from 'lucide-react';
+import { speakers as allSpeakers } from '../../data/speakers';
+import { sponsorPackages } from '../../data/sponsors';
 import type { Edition } from '../../types/event';
 import { PageTransition } from '../../components/motion/PageTransition';
 import { Reveal, RevealItem } from '../../components/motion/Reveal';
@@ -439,6 +441,195 @@ export function EventHome() {
             </Reveal>
           </div>
         </section> : null}
+
+      {/* ── SPEAKERS preview ────────────────────────────────────────── */}
+      {edition.sections.includes('speakers') ? (() => {
+        const edSpeakers = allSpeakers.filter(s => s.editionId === edition.id && (s.status === 'confirmado' || s.status === 'publicado'));
+        const showSection = edSpeakers.length > 0;
+        return showSection ? (
+          <section className="tint-aurora py-20 lg:py-24" id="speakers">
+            <div className="mx-auto max-w-shell px-6">
+              <Reveal>
+                <RevealItem>
+                  <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent mb-3">
+                        Ponentes
+                      </p>
+                      <DisplayTitle size="lg" parts={[{ text: 'Quiénes', tone: 'bold' }, { text: 'comparten', tone: 'light' }]} />
+                    </div>
+                    <Link to="agenda" className="rounded-full border border-ink/20 px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-brand/40 hover:text-brand">
+                      Ver programa completo →
+                    </Link>
+                  </div>
+                </RevealItem>
+                <RevealItem>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {edSpeakers.slice(0, 8).map((sp, i) => (
+                      <motion.div key={sp.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, margin: '-50px' }}
+                        transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1], delay: Math.min(i, 4) * 0.06 }}
+                        whileHover={{ y: -4 }}
+                        className="group rounded-2xl border border-white bg-white/85 p-6 shadow-elev2 backdrop-blur transition-shadow duration-200 hover:shadow-elev4"
+                      >
+                        {/* Avatar */}
+                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-white text-lg font-bold"
+                          style={{ background: `linear-gradient(135deg, var(--color-accent), #007AFF)` }}>
+                          <MicIcon size={22} />
+                        </div>
+                        <p className="font-bold text-brand leading-tight">
+                          {sp.name === 'PENDIENTE' ? <span className="italic text-ink-muted text-sm">Por confirmar</span> : sp.name}
+                        </p>
+                        <p className="mt-1 text-xs text-ink-muted">{sp.specialty}</p>
+                        {sp.talks[0] && (
+                          <p className="mt-3 text-xs leading-relaxed text-ink border-t border-line pt-3">
+                            {sp.talks[0]}
+                          </p>
+                        )}
+                        <div className="mt-3 flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold text-brand">
+                            <StarIcon size={9} />
+                            {sp.slotLabel.split('·')[0].trim()}
+                          </span>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </RevealItem>
+              </Reveal>
+            </div>
+          </section>
+        ) : null;
+      })() : null}
+
+      {/* ── PATROCINADORES / SPONSORS ────────────────────────────────── */}
+      {edition.sections.includes('patrocinadores') ? (() => {
+        const edPackages = sponsorPackages.filter(p => p.editionId === edition.id);
+        const pubPackages = edPackages.filter(p => p.status === 'publicado' || p.status === 'aprobado');
+        return (
+          <section className="surface-deep py-16 lg:py-20 text-white" id="patrocinadores">
+            <div className="mx-auto max-w-shell px-6">
+              <Reveal>
+                <RevealItem>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-hb-violet mb-3">Patrocinadores</p>
+                  <DisplayTitle size="md" surface="dark" parts={[{ text: 'Empresas que hacen', tone: 'light' }, { text: 'posible este evento', tone: 'bold' }]} />
+                </RevealItem>
+                {pubPackages.length > 0 ? (
+                  <RevealItem>
+                    <div className="mt-8 flex flex-wrap gap-4 items-center">
+                      {pubPackages.map(pkg => (
+                        <motion.div key={pkg.id}
+                          whileHover={{ scale: 1.04 }}
+                          className="flex items-center gap-3 rounded-2xl border border-white/12 bg-white/08 px-5 py-4 backdrop-blur"
+                        >
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
+                            <BuildingIcon size={20} className="text-white/70" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold">{pkg.name}</p>
+                            <p className="text-[10px] text-white/50 capitalize">{pkg.tier}</p>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </RevealItem>
+                ) : (
+                  <RevealItem>
+                    <div className="mt-8 rounded-2xl border border-white/10 bg-white/05 p-8 text-center backdrop-blur">
+                      <BuildingIcon size={32} className="mx-auto mb-3 text-white/30" />
+                      <p className="text-sm font-semibold text-white/60 mb-1">Patrocinadores por confirmar</p>
+                      <p className="text-xs text-white/40 mb-5">Está construyendo el portafolio de patrocinios de este evento.</p>
+                      <Link to="/contacto?motivo=patrocinar"
+                        className="inline-flex items-center gap-2 rounded-full border border-hb-violet/40 px-5 py-2.5 text-sm font-semibold text-hb-violet transition-colors hover:bg-hb-violet/10">
+                        Quiero patrocinar este evento
+                      </Link>
+                    </div>
+                  </RevealItem>
+                )}
+              </Reveal>
+            </div>
+          </section>
+        );
+      })() : null}
+
+      {/* ── UBICACIÓN ────────────────────────────────────────────────── */}
+      {edition.sections.includes('ubicacion') ? (
+        <section className="tint-aurora py-20 lg:py-24" id="ubicacion">
+          <div className="mx-auto max-w-shell px-6">
+            <Reveal>
+              <RevealItem>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent mb-3">Cómo llegar</p>
+                <DisplayTitle size="lg" parts={[{ text: 'Sede del', tone: 'light' }, { text: 'evento', tone: 'bold' }]} />
+              </RevealItem>
+              <RevealItem>
+                <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_1.4fr]">
+                  {/* Info sede */}
+                  <div className="space-y-4">
+                    <motion.div
+                      initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }} transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
+                      className="rounded-2xl border border-white bg-white/85 p-6 shadow-elev3 backdrop-blur"
+                    >
+                      <div className="flex items-start gap-3 mb-4">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft">
+                          <MapPinIcon size={18} className="text-brand" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-brand text-base">{edition.venue.name}</p>
+                          <p className="text-sm text-ink mt-0.5">{edition.venue.address}</p>
+                          <p className="text-sm text-ink-muted">{edition.venue.city}, {edition.venue.country}</p>
+                        </div>
+                      </div>
+                      {edition.venue.notes && (
+                        <p className="text-sm text-ink leading-relaxed border-t border-line pt-4">{edition.venue.notes}</p>
+                      )}
+                    </motion.div>
+
+                    {/* Opciones de transporte */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { icon: NavigationIcon, label: 'Por GPS', hint: edition.venue.address },
+                        { icon: PhoneIcon,      label: 'Contacto', hint: '+57 1 000 0000' },
+                      ].map(({ icon: Icon, label, hint }) => (
+                        <motion.div key={label}
+                          initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
+                          viewport={{ once: true }} transition={{ duration: 0.26, ease: [0.23, 1, 0.32, 1] }}
+                          className="rounded-xl border border-white bg-white/75 p-4 shadow-elev1 backdrop-blur"
+                        >
+                          <Icon size={16} className="text-accent mb-2" />
+                          <p className="text-xs font-semibold text-brand">{label}</p>
+                          <p className="text-[11px] text-ink-muted mt-0.5 truncate">{hint}</p>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Mapa placeholder */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.97 }} whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }} transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+                    className="relative overflow-hidden rounded-2xl border border-white shadow-elev3 min-h-[280px] bg-brand-soft flex items-center justify-center"
+                  >
+                    {/* Google Maps embed — reemplazar con URL real */}
+                    <div className="text-center p-8">
+                      <MapPinIcon size={32} className="mx-auto mb-3 text-brand/40" />
+                      <p className="text-sm font-semibold text-brand/60">{edition.venue.name}</p>
+                      <p className="text-xs text-ink-muted mt-1">{edition.venue.city}</p>
+                      <a href={`https://maps.google.com/?q=${encodeURIComponent(edition.venue.address + ', ' + edition.venue.city)}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-deep">
+                        Abrir en Google Maps
+                      </a>
+                    </div>
+                  </motion.div>
+                </div>
+              </RevealItem>
+            </Reveal>
+          </div>
+        </section>
+      ) : null}
 
       <SponsorBanner surface="evento" />
 
