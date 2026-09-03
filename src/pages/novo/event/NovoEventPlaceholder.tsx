@@ -29,11 +29,11 @@ export function NovoEventPlaceholder({ title, description }: Props) {
 
       <div
         className="flex flex-col items-center justify-center rounded-2xl py-24 gap-4"
-        style={{ border: '1px dashed #1E2D45', background: '#0E1520' }}
+        style={{ border: '1px dashed #1e3450', background: '#112035' }}
       >
         <div
           className="flex h-14 w-14 items-center justify-center rounded-2xl"
-          style={{ background: '#162031', border: '1px solid #1E2D45' }}
+          style={{ background: '#182d47', border: '1px solid #1e3450' }}
         >
           <HammerIcon size={24} strokeWidth={1.5} style={{ color: '#3A5470' }} />
         </div>

@@ -101,7 +101,7 @@ export function NovoPagos() {
         <button
           type="button"
           className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all active:scale-95"
-          style={{ background: '#00C9A0', color: '#080C14' }}
+          style={{ background: '#00C9A0', color: '#0d1829' }}
         >
           <PlusIcon size={15} strokeWidth={2.5} /> Registrar pago
         </button>
@@ -130,7 +130,7 @@ export function NovoPagos() {
       <div className="mb-4">
         <div
           className="inline-flex items-center gap-0.5 p-1 rounded-xl"
-          style={{ background: '#0E1520', border: '1px solid #1E2D45' }}
+          style={{ background: '#112035', border: '1px solid #1e3450' }}
         >
           {FILTERS.map(f => (
             <button
@@ -139,7 +139,7 @@ export function NovoPagos() {
               onClick={() => setFilter(f)}
               className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-150"
               style={{
-                background: filter === f ? '#1E2D45' : 'transparent',
+                background: filter === f ? '#1e3450' : 'transparent',
                 color:      filter === f ? '#E1EAF4'  : '#3A5470',
               }}
             >
@@ -152,15 +152,15 @@ export function NovoPagos() {
       {/* Tabla de cuotas */}
       <div
         className="overflow-hidden rounded-2xl"
-        style={{ border: '1px solid #1E2D45', background: '#0E1520' }}
+        style={{ border: '1px solid #1e3450', background: '#112035' }}
       >
         <div
           className="grid text-[10px] font-bold uppercase tracking-widest px-5 py-3"
           style={{
             gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr 1fr',
             color: '#3A5470',
-            borderBottom: '1px solid #152238',
-            background: '#162031',
+            borderBottom: '1px solid #1a2e45',
+            background: '#182d47',
           }}
         >
           <span>Empresa</span>
@@ -182,9 +182,9 @@ export function NovoPagos() {
               className="grid items-center px-5 py-4 transition-colors duration-150 cursor-pointer"
               style={{
                 gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr 1fr',
-                borderBottom: i < filtered.length - 1 ? '1px solid #152238' : 'none',
+                borderBottom: i < filtered.length - 1 ? '1px solid #1a2e45' : 'none',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#162031')}
+              onMouseEnter={e => (e.currentTarget.style.background = '#182d47')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               <div className="min-w-0 pr-3">

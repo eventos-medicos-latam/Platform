@@ -62,7 +62,7 @@ export function NovoStands() {
         <button
           type="button"
           className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all active:scale-95"
-          style={{ background: '#00C9A0', color: '#080C14' }}
+          style={{ background: '#00C9A0', color: '#0d1829' }}
         >
           <PlusIcon size={15} strokeWidth={2.5} /> Nuevo tipo
         </button>
@@ -83,9 +83,9 @@ export function NovoStands() {
           <p className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#3A5470' }}>
             Tipos de stand — catálogo global
           </p>
-          <div className="overflow-hidden rounded-2xl" style={{ border: '1px solid #1E2D45', background: '#0E1520' }}>
+          <div className="overflow-hidden rounded-2xl" style={{ border: '1px solid #1e3450', background: '#112035' }}>
             <div className="grid text-[10px] font-bold uppercase tracking-widest px-4 py-3"
-              style={{ gridTemplateColumns: 'auto 1fr 1fr', color: '#3A5470', borderBottom: '1px solid #152238', background: '#162031' }}>
+              style={{ gridTemplateColumns: 'auto 1fr 1fr', color: '#3A5470', borderBottom: '1px solid #1a2e45', background: '#182d47' }}>
               <span className="w-8" />
               <span>Tipo</span>
               <span>Precio</span>
@@ -97,12 +97,12 @@ export function NovoStands() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2, delay: i * 0.05 }}
                 className="grid items-center px-4 py-3.5 transition-colors cursor-pointer"
-                style={{ gridTemplateColumns: 'auto 1fr 1fr', borderBottom: i < MOCK_STAND_TYPES.length - 1 ? '1px solid #152238' : 'none' }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#162031')}
+                style={{ gridTemplateColumns: 'auto 1fr 1fr', borderBottom: i < MOCK_STAND_TYPES.length - 1 ? '1px solid #1a2e45' : 'none' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#182d47')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg text-base mr-3"
-                  style={{ background: '#162031', border: '1px solid #1E2D45' }}>
+                  style={{ background: '#182d47', border: '1px solid #1e3450' }}>
                   {t.emoji}
                 </div>
                 <div>
@@ -125,19 +125,19 @@ export function NovoStands() {
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#3A5470' }}>
               Inventario
             </p>
-            <div className="flex gap-0.5 p-0.5 rounded-lg" style={{ background: '#0E1520', border: '1px solid #1E2D45' }}>
+            <div className="flex gap-0.5 p-0.5 rounded-lg" style={{ background: '#112035', border: '1px solid #1e3450' }}>
               {EVENT_FILTERS.map(f => (
                 <button key={f} type="button" onClick={() => setEventFilter(f)}
                   className="rounded-md px-2.5 py-1 text-[10px] font-semibold transition-all"
-                  style={{ background: eventFilter === f ? '#1E2D45' : 'transparent', color: eventFilter === f ? '#E1EAF4' : '#3A5470' }}>
+                  style={{ background: eventFilter === f ? '#1e3450' : 'transparent', color: eventFilter === f ? '#E1EAF4' : '#3A5470' }}>
                   {f === 'Todos' ? 'Todos' : f === 'La Eterna Primavera' ? 'EP 2025' : 'HB VI'}
                 </button>
               ))}
             </div>
           </div>
-          <div className="overflow-hidden rounded-2xl" style={{ border: '1px solid #1E2D45', background: '#0E1520' }}>
+          <div className="overflow-hidden rounded-2xl" style={{ border: '1px solid #1e3450', background: '#112035' }}>
             <div className="grid text-[10px] font-bold uppercase tracking-widest px-4 py-3"
-              style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr', color: '#3A5470', borderBottom: '1px solid #152238', background: '#162031' }}>
+              style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr', color: '#3A5470', borderBottom: '1px solid #1a2e45', background: '#182d47' }}>
               <span>Código</span><span>Tipo</span><span>Empresa</span><span>Estado</span>
             </div>
             {filteredInv.map((s, i) => {
@@ -149,8 +149,8 @@ export function NovoStands() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.2, delay: i * 0.04 }}
                   className="grid items-center px-4 py-3 transition-colors cursor-pointer"
-                  style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr', borderBottom: i < filteredInv.length - 1 ? '1px solid #152238' : 'none' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#162031')}
+                  style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr', borderBottom: i < filteredInv.length - 1 ? '1px solid #1a2e45' : 'none' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#182d47')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   <p className="text-sm font-bold tabular-nums" style={{ color: '#E1EAF4' }}>{s.code}</p>

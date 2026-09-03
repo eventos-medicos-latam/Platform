@@ -47,11 +47,11 @@ export function NovoAnalitica() {
             Métricas clave · comparativo de metas · tendencias
           </p>
         </div>
-        <div className="flex gap-0.5 p-1 rounded-xl" style={{ background: '#0E1520', border: '1px solid #1E2D45' }}>
+        <div className="flex gap-0.5 p-1 rounded-xl" style={{ background: '#112035', border: '1px solid #1e3450' }}>
           {PERIODS.map(p => (
             <button key={p} type="button" onClick={() => setPeriod(p)}
               className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-150"
-              style={{ background: period === p ? '#1E2D45' : 'transparent', color: period === p ? '#E1EAF4' : '#3A5470' }}>
+              style={{ background: period === p ? '#1e3450' : 'transparent', color: period === p ? '#E1EAF4' : '#3A5470' }}>
               {p}
             </button>
           ))}
@@ -73,7 +73,7 @@ export function NovoAnalitica() {
 
       <div className="grid grid-cols-2 gap-5">
         {/* Chart de barras — registros vs meta */}
-        <div className="rounded-2xl p-5" style={{ background: '#0E1520', border: '1px solid #1E2D45' }}>
+        <div className="rounded-2xl p-5" style={{ background: '#112035', border: '1px solid #1e3450' }}>
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm font-bold" style={{ color: '#E1EAF4' }}>Registros vs. Meta</p>
             <div className="flex items-center gap-3 text-[10px]" style={{ color: '#3A5470' }}>
@@ -81,7 +81,7 @@ export function NovoAnalitica() {
                 <span className="inline-block h-2 w-2 rounded-full" style={{ background: '#00C9A0' }} /> Real
               </span>
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-full" style={{ background: '#1E2D45' }} /> Meta
+                <span className="inline-block h-2 w-2 rounded-full" style={{ background: '#1e3450' }} /> Meta
               </span>
             </div>
           </div>
@@ -90,7 +90,7 @@ export function NovoAnalitica() {
               <div key={i} className="flex-1 flex flex-col items-center gap-1">
                 <div className="w-full relative flex items-end gap-0.5" style={{ height: 100 }}>
                   {/* Barra meta */}
-                  <div className="flex-1 rounded-t-sm" style={{ height: `${(d.meta / MAX_REG) * 100}%`, background: '#1E2D45' }} />
+                  <div className="flex-1 rounded-t-sm" style={{ height: `${(d.meta / MAX_REG) * 100}%`, background: '#1e3450' }} />
                   {/* Barra real */}
                   <motion.div
                     className="flex-1 rounded-t-sm"
@@ -117,7 +117,7 @@ export function NovoAnalitica() {
 
         {/* Split modalidad + audiencia */}
         <div className="space-y-4">
-          <div className="rounded-2xl p-5" style={{ background: '#0E1520', border: '1px solid #1E2D45' }}>
+          <div className="rounded-2xl p-5" style={{ background: '#112035', border: '1px solid #1e3450' }}>
             <p className="mb-4 text-sm font-bold" style={{ color: '#E1EAF4' }}>Por modalidad</p>
             <div className="space-y-3">
               {MODALITY_DATA.map((m, i) => (
@@ -126,7 +126,7 @@ export function NovoAnalitica() {
                     <span className="text-xs" style={{ color: '#7A9CB8' }}>{m.label}</span>
                     <span className="text-xs font-bold tabular-nums" style={{ color: '#E1EAF4' }}>{m.pct}%</span>
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: '#1E2D45' }}>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: '#1e3450' }}>
                     <motion.div
                       className="h-full rounded-full"
                       initial={{ width: 0 }}
@@ -140,7 +140,7 @@ export function NovoAnalitica() {
             </div>
           </div>
 
-          <div className="rounded-2xl p-5" style={{ background: '#0E1520', border: '1px solid #1E2D45' }}>
+          <div className="rounded-2xl p-5" style={{ background: '#112035', border: '1px solid #1e3450' }}>
             <p className="mb-4 text-sm font-bold" style={{ color: '#E1EAF4' }}>Perfil del asistente</p>
             <div className="space-y-3">
               {AUDIENCE_DATA.map((a, i) => (
@@ -149,7 +149,7 @@ export function NovoAnalitica() {
                     <span className="text-xs" style={{ color: '#7A9CB8' }}>{a.label}</span>
                     <span className="text-xs font-bold tabular-nums" style={{ color: '#E1EAF4' }}>{a.pct}%</span>
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: '#1E2D45' }}>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: '#1e3450' }}>
                     <motion.div
                       className="h-full rounded-full"
                       initial={{ width: 0 }}
@@ -166,12 +166,12 @@ export function NovoAnalitica() {
       </div>
 
       {/* Tabla resumen por evento */}
-      <div className="mt-5 overflow-hidden rounded-2xl" style={{ border: '1px solid #1E2D45', background: '#0E1520' }}>
-        <div className="px-5 py-3" style={{ borderBottom: '1px solid #152238', background: '#162031' }}>
+      <div className="mt-5 overflow-hidden rounded-2xl" style={{ border: '1px solid #1e3450', background: '#112035' }}>
+        <div className="px-5 py-3" style={{ borderBottom: '1px solid #1a2e45', background: '#182d47' }}>
           <p className="text-sm font-bold" style={{ color: '#E1EAF4' }}>Resumen por evento</p>
         </div>
         <div className="grid text-[10px] font-bold uppercase tracking-widest px-5 py-2.5"
-          style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', color: '#3A5470', borderBottom: '1px solid #152238' }}>
+          style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', color: '#3A5470', borderBottom: '1px solid #1a2e45' }}>
           <span>Evento</span><span>Registros</span><span>Meta</span><span>Ingresos</span><span>Conversión</span>
         </div>
         {MOCK_EVENTS.map((e, i) => {
@@ -179,7 +179,7 @@ export function NovoAnalitica() {
             ? Math.round((e.registrations_count / e.goals.registros) * 100) : null;
           return (
             <div key={e.id} className="grid items-center px-5 py-3.5"
-              style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', borderBottom: i < MOCK_EVENTS.length - 1 ? '1px solid #152238' : 'none' }}>
+              style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', borderBottom: i < MOCK_EVENTS.length - 1 ? '1px solid #1a2e45' : 'none' }}>
               <p className="text-sm font-semibold truncate" style={{ color: '#E1EAF4' }}>{e.name}</p>
               <p className="text-sm tabular-nums font-semibold" style={{ color: '#E1EAF4' }}>
                 {(e.registrations_count ?? 0).toLocaleString('es-CO')}

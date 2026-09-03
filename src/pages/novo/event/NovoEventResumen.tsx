@@ -148,8 +148,8 @@ export function NovoEventResumen() {
                 transition={{ duration: 0.25, delay: alert.id * 0.06 }}
                 className="flex items-start gap-2.5 rounded-xl px-3.5 py-3"
                 style={{
-                  background: '#0E1520',
-                  border: `1px solid ${alert.type === 'warning' ? 'rgba(242,68,99,.25)' : alert.type === 'ok' ? 'rgba(0,201,160,.15)' : '#1E2D45'}`,
+                  background: '#112035',
+                  border: `1px solid ${alert.type === 'warning' ? 'rgba(242,68,99,.25)' : alert.type === 'ok' ? 'rgba(0,201,160,.15)' : '#1e3450'}`,
                 }}
               >
                 {alert.type === 'ok'
@@ -163,7 +163,7 @@ export function NovoEventResumen() {
 
           {/* Descripción */}
           {event.description && (
-            <div className="mt-4 rounded-xl p-4" style={{ background: '#0E1520', border: '1px solid #1E2D45' }}>
+            <div className="mt-4 rounded-xl p-4" style={{ background: '#112035', border: '1px solid #1e3450' }}>
               <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#3A5470' }}>
                 Descripción
               </p>
@@ -177,7 +177,7 @@ export function NovoEventResumen() {
           <p className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#3A5470' }}>
             Agenda del día — vista rápida
           </p>
-          <div className="overflow-hidden rounded-2xl" style={{ background: '#0E1520', border: '1px solid #1E2D45' }}>
+          <div className="overflow-hidden rounded-2xl" style={{ background: '#112035', border: '1px solid #1e3450' }}>
             {MOCK_AGENDA_PREVIEW.map((item, i) => (
               <motion.div
                 key={i}
@@ -185,7 +185,7 @@ export function NovoEventResumen() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2, delay: i * 0.05 }}
                 className="flex items-center gap-4 px-5 py-3.5"
-                style={{ borderBottom: i < MOCK_AGENDA_PREVIEW.length - 1 ? '1px solid #152238' : 'none' }}
+                style={{ borderBottom: i < MOCK_AGENDA_PREVIEW.length - 1 ? '1px solid #1a2e45' : 'none' }}
               >
                 <div className="w-12 shrink-0">
                   <p className="text-xs font-bold tabular-nums" style={{ color: '#3A5470' }}>{item.time}</p>
@@ -207,7 +207,7 @@ export function NovoEventResumen() {
 
           {/* Cover image si existe */}
           {event.cover_image_url && (
-            <div className="mt-4 overflow-hidden rounded-2xl" style={{ border: '1px solid #1E2D45', height: 140 }}>
+            <div className="mt-4 overflow-hidden rounded-2xl" style={{ border: '1px solid #1e3450', height: 140 }}>
               <img
                 src={event.cover_image_url}
                 alt={event.name}

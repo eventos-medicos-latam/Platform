@@ -87,7 +87,7 @@ export function NovoEmpresas() {
         <button
           type="button"
           className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all active:scale-95"
-          style={{ background: '#00C9A0', color: '#080C14' }}
+          style={{ background: '#00C9A0', color: '#0d1829' }}
         >
           <PlusIcon size={15} strokeWidth={2.5} /> Nueva empresa
         </button>
@@ -109,7 +109,7 @@ export function NovoEmpresas() {
       <div className="mb-4">
         <div
           className="relative inline-flex items-center"
-          style={{ background: '#0E1520', border: '1px solid #1E2D45', borderRadius: 12 }}
+          style={{ background: '#112035', border: '1px solid #1e3450', borderRadius: 12 }}
         >
           <SearchIcon size={14} className="absolute left-3" style={{ color: '#3A5470' }} />
           <input
@@ -126,7 +126,7 @@ export function NovoEmpresas() {
       {/* Tabla */}
       <div
         className="overflow-hidden rounded-2xl"
-        style={{ border: '1px solid #1E2D45', background: '#0E1520' }}
+        style={{ border: '1px solid #1e3450', background: '#112035' }}
       >
         {/* Cabecera */}
         <div
@@ -134,8 +134,8 @@ export function NovoEmpresas() {
           style={{
             gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr',
             color: '#3A5470',
-            borderBottom: '1px solid #152238',
-            background: '#162031',
+            borderBottom: '1px solid #1a2e45',
+            background: '#182d47',
           }}
         >
           <span>Empresa</span>
@@ -163,16 +163,16 @@ export function NovoEmpresas() {
               className="group grid items-center px-5 py-4 transition-colors duration-150 cursor-pointer"
               style={{
                 gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr',
-                borderBottom: i < filtered.length - 1 ? '1px solid #152238' : 'none',
+                borderBottom: i < filtered.length - 1 ? '1px solid #1a2e45' : 'none',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#162031')}
+              onMouseEnter={e => (e.currentTarget.style.background = '#182d47')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               {/* Empresa */}
               <div className="flex items-center gap-3 min-w-0 pr-4">
                 <div
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg"
-                  style={{ background: '#162031', border: '1px solid #1E2D45' }}
+                  style={{ background: '#182d47', border: '1px solid #1e3450' }}
                 >
                   {co.emoji}
                 </div>

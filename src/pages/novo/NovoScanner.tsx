@@ -68,11 +68,11 @@ export function NovoScanner() {
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 rounded-xl px-3 py-2"
-            style={{ background: '#0E1520', border: '1px solid #1E2D45' }}>
+            style={{ background: '#112035', border: '1px solid #1e3450' }}>
             <div className="h-2 w-2 rounded-full" style={{ background: '#00C9A0', boxShadow: '0 0 6px #00C9A0' }} />
             <span className="text-sm font-semibold" style={{ color: '#E1EAF4' }}>Hormobiota VI</span>
           </div>
-          <div className="rounded-xl px-3 py-2" style={{ background: '#0E1520', border: '1px solid #1E2D45' }}>
+          <div className="rounded-xl px-3 py-2" style={{ background: '#112035', border: '1px solid #1e3450' }}>
             <span className="text-sm" style={{ color: '#7A9CB8' }}>Stand B-01</span>
           </div>
         </div>
@@ -83,13 +83,13 @@ export function NovoScanner() {
         <div className="space-y-4">
           {/* Frame scanner */}
           <div className="rounded-2xl p-6 flex flex-col items-center gap-5"
-            style={{ background: '#0E1520', border: '1px solid #1E2D45' }}>
+            style={{ background: '#112035', border: '1px solid #1e3450' }}>
             <div
               className="relative flex items-center justify-center"
               style={{
                 width: 200, height: 200, borderRadius: 20,
-                border: `2px solid ${scanning ? '#00C9A0' : '#1E2D45'}`,
-                background: scanning ? 'rgba(0,201,160,.04)' : '#080C14',
+                border: `2px solid ${scanning ? '#00C9A0' : '#1e3450'}`,
+                background: scanning ? 'rgba(0,201,160,.04)' : '#0d1829',
                 transition: 'border-color .3s, background .3s',
               }}
             >
@@ -121,7 +121,7 @@ export function NovoScanner() {
 
               {/* Icono cuando no escanea */}
               {!scanning && (
-                <QrCodeIcon size={48} strokeWidth={1} style={{ color: '#1E2D45' }} />
+                <QrCodeIcon size={48} strokeWidth={1} style={{ color: '#1e3450' }} />
               )}
 
               {/* Resultado overlay */}
@@ -159,7 +159,7 @@ export function NovoScanner() {
               onClick={handleScan}
               disabled={scanning}
               className="w-full rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95"
-              style={{ background: scanning ? '#1E2D45' : '#00C9A0', color: scanning ? '#3A5470' : '#080C14' }}
+              style={{ background: scanning ? '#1e3450' : '#00C9A0', color: scanning ? '#3A5470' : '#0d1829' }}
             >
               {scanning ? 'Procesando...' : 'Escanear QR'}
             </button>
@@ -173,7 +173,7 @@ export function NovoScanner() {
               { label: 'Stands',    value: 34,  color: '#A78BFA' },
             ].map(kpi => (
               <div key={kpi.label} className="rounded-xl p-3 text-center"
-                style={{ background: '#0E1520', border: '1px solid #1E2D45' }}>
+                style={{ background: '#112035', border: '1px solid #1e3450' }}>
                 <p className="text-xl font-bold tabular-nums" style={{ color: kpi.color, fontFamily: "'Sora', sans-serif" }}>
                   {kpi.value}
                 </p>
@@ -200,8 +200,8 @@ export function NovoScanner() {
                   onClick={() => setActiveType(t.id)}
                   className="rounded-xl p-3 text-center transition-all"
                   style={{
-                    background: activeType === t.id ? `${t.color}15` : '#0E1520',
-                    border: `1px solid ${activeType === t.id ? t.color + '55' : '#1E2D45'}`,
+                    background: activeType === t.id ? `${t.color}15` : '#112035',
+                    border: `1px solid ${activeType === t.id ? t.color + '55' : '#1e3450'}`,
                   }}
                 >
                   <div className="text-xl">{t.emoji}</div>
@@ -219,12 +219,12 @@ export function NovoScanner() {
             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#3A5470' }}>
               Últimas capturas
             </p>
-            <div className="overflow-hidden rounded-2xl" style={{ background: '#0E1520', border: '1px solid #1E2D45' }}>
+            <div className="overflow-hidden rounded-2xl" style={{ background: '#112035', border: '1px solid #1e3450' }}>
               {MOCK_LOG.map((entry, i) => (
                 <div
                   key={entry.id}
                   className="flex items-center gap-3 px-4 py-3"
-                  style={{ borderBottom: i < MOCK_LOG.length - 1 ? '1px solid #152238' : 'none' }}
+                  style={{ borderBottom: i < MOCK_LOG.length - 1 ? '1px solid #1a2e45' : 'none' }}
                 >
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
                     style={{ background: GRADIENTS[i % GRADIENTS.length], color: '#fff' }}>

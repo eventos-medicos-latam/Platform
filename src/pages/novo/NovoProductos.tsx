@@ -94,7 +94,7 @@ export function NovoProductos() {
         <button
           type="button"
           className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all active:scale-95"
-          style={{ background: '#00C9A0', color: '#080C14' }}
+          style={{ background: '#00C9A0', color: '#0d1829' }}
         >
           <PlusIcon size={15} strokeWidth={2.5} /> Nuevo producto
         </button>
@@ -112,7 +112,7 @@ export function NovoProductos() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div
           className="relative flex items-center"
-          style={{ background: '#0E1520', border: '1px solid #1E2D45', borderRadius: 12 }}
+          style={{ background: '#112035', border: '1px solid #1e3450', borderRadius: 12 }}
         >
           <SearchIcon size={14} className="absolute left-3" style={{ color: '#3A5470' }} />
           <input
@@ -126,12 +126,12 @@ export function NovoProductos() {
         </div>
         <div
           className="flex items-center gap-0.5 p-1 rounded-xl"
-          style={{ background: '#0E1520', border: '1px solid #1E2D45' }}
+          style={{ background: '#112035', border: '1px solid #1e3450' }}
         >
           {FILTERS.map(f => (
             <button key={f} type="button" onClick={() => setFilter(f)}
               className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-150"
-              style={{ background: filter === f ? '#1E2D45' : 'transparent', color: filter === f ? '#E1EAF4' : '#3A5470' }}
+              style={{ background: filter === f ? '#1e3450' : 'transparent', color: filter === f ? '#E1EAF4' : '#3A5470' }}
             >
               {f}
             </button>
@@ -139,10 +139,10 @@ export function NovoProductos() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl" style={{ border: '1px solid #1E2D45', background: '#0E1520' }}>
+      <div className="overflow-hidden rounded-2xl" style={{ border: '1px solid #1e3450', background: '#112035' }}>
         <div
           className="grid text-[10px] font-bold uppercase tracking-widest px-5 py-3"
-          style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr', color: '#3A5470', borderBottom: '1px solid #152238', background: '#162031' }}
+          style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr', color: '#3A5470', borderBottom: '1px solid #1a2e45', background: '#182d47' }}
         >
           <span>Producto</span><span>Categoría</span><span>Precio lista</span><span>Precio mínimo</span><span>Estado</span>
         </div>
@@ -156,13 +156,13 @@ export function NovoProductos() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1], delay: i * 0.04 }}
               className="grid items-center px-5 py-4 transition-colors duration-150 cursor-pointer"
-              style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr', borderBottom: i < filtered.length - 1 ? '1px solid #152238' : 'none' }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#162031')}
+              style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr', borderBottom: i < filtered.length - 1 ? '1px solid #1a2e45' : 'none' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#182d47')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               <div className="flex items-center gap-3 min-w-0 pr-4">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg"
-                  style={{ background: '#162031', border: '1px solid #1E2D45' }}>
+                  style={{ background: '#182d47', border: '1px solid #1e3450' }}>
                   {p.emoji}
                 </div>
                 <div className="min-w-0">

@@ -58,7 +58,7 @@ export function NovoDocumentos() {
         <button
           type="button"
           className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all active:scale-95"
-          style={{ background: '#00C9A0', color: '#080C14' }}
+          style={{ background: '#00C9A0', color: '#0d1829' }}
         >
           <PlusIcon size={15} strokeWidth={2.5} /> Subir recurso
         </button>
@@ -77,7 +77,7 @@ export function NovoDocumentos() {
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative flex items-center"
-          style={{ background: '#0E1520', border: '1px solid #1E2D45', borderRadius: 12 }}>
+          style={{ background: '#112035', border: '1px solid #1e3450', borderRadius: 12 }}>
           <SearchIcon size={14} className="absolute left-3" style={{ color: '#3A5470' }} />
           <input
             type="text"
@@ -88,20 +88,20 @@ export function NovoDocumentos() {
             style={{ color: '#E1EAF4' }}
           />
         </div>
-        <div className="flex gap-0.5 p-1 rounded-xl" style={{ background: '#0E1520', border: '1px solid #1E2D45' }}>
+        <div className="flex gap-0.5 p-1 rounded-xl" style={{ background: '#112035', border: '1px solid #1e3450' }}>
           {CAT_FILTERS.map(f => (
             <button key={f} type="button" onClick={() => setCatFilter(f)}
               className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-150"
-              style={{ background: catFilter === f ? '#1E2D45' : 'transparent', color: catFilter === f ? '#E1EAF4' : '#3A5470' }}>
+              style={{ background: catFilter === f ? '#1e3450' : 'transparent', color: catFilter === f ? '#E1EAF4' : '#3A5470' }}>
               {f}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl" style={{ border: '1px solid #1E2D45', background: '#0E1520' }}>
+      <div className="overflow-hidden rounded-2xl" style={{ border: '1px solid #1e3450', background: '#112035' }}>
         <div className="grid text-[10px] font-bold uppercase tracking-widest px-5 py-3"
-          style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr', color: '#3A5470', borderBottom: '1px solid #152238', background: '#162031' }}>
+          style={{ gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr', color: '#3A5470', borderBottom: '1px solid #1a2e45', background: '#182d47' }}>
           <span>Documento</span><span>Tipo</span><span>Evento / Empresa</span><span>Acceso</span><span>Actualizado</span>
         </div>
 
@@ -122,14 +122,14 @@ export function NovoDocumentos() {
               className="group grid items-center px-5 py-3.5 transition-colors duration-150 cursor-pointer"
               style={{
                 gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr',
-                borderBottom: i < filtered.length - 1 ? '1px solid #152238' : 'none',
+                borderBottom: i < filtered.length - 1 ? '1px solid #1a2e45' : 'none',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#162031')}
+              onMouseEnter={e => (e.currentTarget.style.background = '#182d47')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               <div className="flex items-center gap-3 min-w-0 pr-4">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base"
-                  style={{ background: '#162031', border: '1px solid #1E2D45' }}>
+                  style={{ background: '#182d47', border: '1px solid #1e3450' }}>
                   {doc.emoji}
                 </div>
                 <div className="min-w-0">
@@ -139,7 +139,7 @@ export function NovoDocumentos() {
               </div>
               <div>
                 <span className="rounded px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
-                  style={{ background: '#162031', color: '#7A9CB8', border: '1px solid #1E2D45' }}>
+                  style={{ background: '#182d47', color: '#7A9CB8', border: '1px solid #1e3450' }}>
                   {doc.type}
                 </span>
               </div>

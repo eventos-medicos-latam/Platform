@@ -49,12 +49,12 @@ export function NovoEventShell() {
   return (
     <div
       className="flex min-h-screen w-full"
-      style={{ background: '#080C14', fontFamily: "'Inter', ui-sans-serif, system-ui, sans-serif" }}
+      style={{ background: '#0d1829', fontFamily: "'Inter', ui-sans-serif, system-ui, sans-serif" }}
     >
       {/* Sidebar contextual del evento */}
       <aside
         className="hidden lg:flex sticky top-0 h-screen w-[220px] shrink-0 flex-col"
-        style={{ background: '#080C14', borderRight: '1px solid #1E2D45' }}
+        style={{ background: '#0d1829', borderRight: '1px solid #1E2D45' }}
       >
         {/* Volver + info del evento */}
         <div className="px-4 py-4" style={{ borderBottom: '1px solid #1E2D45' }}>

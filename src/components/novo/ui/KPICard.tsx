@@ -24,8 +24,8 @@ export function KPICard({
       transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1], delay }}
       className="relative overflow-hidden rounded-2xl p-5"
       style={{
-        background: '#0E1520',
-        border: '1px solid #1E2D45',
+        background: '#112035',
+        border: '1px solid #1e3450',
         boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
       }}
     >
@@ -78,7 +78,7 @@ export function KPICard({
               {Math.round(progress)}%
             </span>
           </div>
-          <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: '#1E2D45' }}>
+          <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: '#1e3450' }}>
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${Math.min(progress, 100)}%` }}

@@ -71,7 +71,7 @@ export function NovoOverview() {
         <Link
           to="/novo/eventos"
           className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-150 hover:opacity-90 active:scale-95"
-          style={{ background: '#162031', color: '#7A9CB8', border: '1px solid #1E2D45' }}
+          style={{ background: '#182d47', color: '#7A9CB8', border: '1px solid #1e3450' }}
         >
           Ver todos los eventos
           <ArrowRightIcon size={14} />
@@ -124,7 +124,7 @@ export function NovoOverview() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.28 }}
             className="xl:col-span-2 relative overflow-hidden rounded-2xl"
-            style={{ border: '1px solid #1E2D45', background: '#0E1520' }}
+            style={{ border: '1px solid #1e3450', background: '#112035' }}
           >
             {featuredEvent.cover_image_url && (
               <div
@@ -182,7 +182,7 @@ export function NovoOverview() {
                   <div
                     key={kpi.label}
                     className="rounded-xl p-3"
-                    style={{ background: '#162031', border: '1px solid #1E2D45' }}
+                    style={{ background: '#182d47', border: '1px solid #1e3450' }}
                   >
                     <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#3A5470' }}>
                       {kpi.label}
@@ -214,7 +214,7 @@ export function NovoOverview() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.32 }}
           className="rounded-2xl p-5"
-          style={{ border: '1px solid #1E2D45', background: '#0E1520' }}
+          style={{ border: '1px solid #1e3450', background: '#112035' }}
         >
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-sm font-bold" style={{ color: '#E1EAF4' }}>
@@ -239,7 +239,7 @@ export function NovoOverview() {
                 <Link
                   to={alert.link}
                   className="flex items-start gap-2.5 rounded-xl p-3 transition-colors duration-150"
-                  style={{ background: '#162031', border: `1px solid ${ALERT_COLOR[alert.level]}20` }}
+                  style={{ background: '#182d47', border: `1px solid ${ALERT_COLOR[alert.level]}20` }}
                 >
                   <AlertTriangleIcon
                     size={13}
@@ -275,9 +275,9 @@ export function NovoOverview() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.38 }}
           className="rounded-2xl"
-          style={{ border: '1px solid #1E2D45', background: '#0E1520' }}
+          style={{ border: '1px solid #1e3450', background: '#112035' }}
         >
-          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #152238' }}>
+          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #1a2e45' }}>
             <h3 className="text-sm font-bold" style={{ color: '#E1EAF4' }}>Próximos eventos</h3>
             <Link to="/novo/eventos" className="text-xs font-semibold" style={{ color: '#00C9A0' }}>
               Ver todos →
@@ -288,11 +288,11 @@ export function NovoOverview() {
               <li
                 key={ev.id}
                 className="flex items-center gap-3 px-5 py-3.5 transition-colors duration-150"
-                style={{ borderBottom: i < upcomingEvents.length - 1 ? '1px solid #152238' : 'none' }}
+                style={{ borderBottom: i < upcomingEvents.length - 1 ? '1px solid #1a2e45' : 'none' }}
               >
                 <div
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base"
-                  style={{ background: '#162031', border: '1px solid #1E2D45' }}
+                  style={{ background: '#182d47', border: '1px solid #1e3450' }}
                 >
                   {ev.event_type === 'webinar' ? '🖥' : ev.modality === 'virtual' ? '📡' : '🏥'}
                 </div>
@@ -329,9 +329,9 @@ export function NovoOverview() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.44 }}
           className="rounded-2xl"
-          style={{ border: '1px solid #1E2D45', background: '#0E1520' }}
+          style={{ border: '1px solid #1e3450', background: '#112035' }}
         >
-          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #152238' }}>
+          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #1a2e45' }}>
             <h3 className="text-sm font-bold" style={{ color: '#E1EAF4' }}>Actividad reciente</h3>
             <Link to="/novo/registros" className="text-xs font-semibold" style={{ color: '#00C9A0' }}>
               Ver registros →
@@ -342,7 +342,7 @@ export function NovoOverview() {
               <li
                 key={reg.id}
                 className="flex items-center gap-3 px-5 py-3.5"
-                style={{ borderBottom: i < recent.length - 1 ? '1px solid #152238' : 'none' }}
+                style={{ borderBottom: i < recent.length - 1 ? '1px solid #1a2e45' : 'none' }}
               >
                 {/* Avatar inicial */}
                 <div

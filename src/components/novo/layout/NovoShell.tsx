@@ -10,7 +10,7 @@ export function NovoShell() {
   return (
     <div
       className="flex min-h-screen w-full"
-      style={{ background: '#080C14', fontFamily: "'Inter', ui-sans-serif, system-ui, sans-serif" }}
+      style={{ background: '#0d1829', fontFamily: "'Inter', ui-sans-serif, system-ui, sans-serif" }}
     >
       <NovoSidebar />
 

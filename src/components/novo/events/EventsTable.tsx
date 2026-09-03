@@ -59,7 +59,7 @@ export function EventsTable({ events, onCreateEvent }: Props) {
           type="button"
           onClick={onCreateEvent}
           className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-150 active:scale-95"
-          style={{ background: '#00C9A0', color: '#080C14' }}
+          style={{ background: '#00C9A0', color: '#0d1829' }}
         >
           <PlusIcon size={16} strokeWidth={2.5} />
           Crear evento
@@ -71,7 +71,7 @@ export function EventsTable({ events, onCreateEvent }: Props) {
         {/* Búsqueda */}
         <div
           className="relative flex items-center"
-          style={{ background: '#0E1520', border: '1px solid #1E2D45', borderRadius: 12 }}
+          style={{ background: '#112035', border: '1px solid #1e3450', borderRadius: 12 }}
         >
           <SearchIcon size={14} className="absolute left-3" style={{ color: '#3A5470' }} />
           <input
@@ -87,7 +87,7 @@ export function EventsTable({ events, onCreateEvent }: Props) {
         {/* Filtros por estado */}
         <div
           className="flex items-center gap-0.5 p-1 rounded-xl"
-          style={{ background: '#0E1520', border: '1px solid #1E2D45' }}
+          style={{ background: '#112035', border: '1px solid #1e3450' }}
         >
           {FILTERS.map((f) => (
             <button
@@ -96,7 +96,7 @@ export function EventsTable({ events, onCreateEvent }: Props) {
               onClick={() => setFilter(f.value)}
               className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-150"
               style={{
-                background: filter === f.value ? '#1E2D45' : 'transparent',
+                background: filter === f.value ? '#1e3450' : 'transparent',
                 color: filter === f.value ? '#E1EAF4' : '#3A5470',
               }}
             >
@@ -109,7 +109,7 @@ export function EventsTable({ events, onCreateEvent }: Props) {
       {/* Tabla */}
       <div
         className="overflow-hidden rounded-2xl"
-        style={{ border: '1px solid #1E2D45', background: '#0E1520' }}
+        style={{ border: '1px solid #1e3450', background: '#112035' }}
       >
         {/* Cabecera */}
         <div
@@ -117,7 +117,7 @@ export function EventsTable({ events, onCreateEvent }: Props) {
           style={{
             gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr auto',
             color: '#3A5470',
-            borderBottom: '1px solid #152238',
+            borderBottom: '1px solid #1a2e45',
           }}
         >
           <span>Evento</span>
@@ -149,10 +149,10 @@ export function EventsTable({ events, onCreateEvent }: Props) {
               className="group relative grid items-center px-5 py-4 transition-colors duration-150"
               style={{
                 gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr auto',
-                borderBottom: i < filtered.length - 1 ? '1px solid #152238' : 'none',
+                borderBottom: i < filtered.length - 1 ? '1px solid #1a2e45' : 'none',
                 background: 'transparent',
               }}
-              onMouseEnter={(el) => (el.currentTarget.style.background = '#162031')}
+              onMouseEnter={(el) => (el.currentTarget.style.background = '#182d47')}
               onMouseLeave={(el) => (el.currentTarget.style.background = 'transparent')}
             >
               {/* Nombre */}
@@ -162,12 +162,12 @@ export function EventsTable({ events, onCreateEvent }: Props) {
                     src={event.cover_image_url}
                     alt=""
                     className="h-9 w-14 rounded-lg object-cover shrink-0"
-                    style={{ border: '1px solid #1E2D45' }}
+                    style={{ border: '1px solid #1e3450' }}
                   />
                 ) : (
                   <div
                     className="flex h-9 w-14 shrink-0 items-center justify-center rounded-lg text-lg"
-                    style={{ background: '#162031', border: '1px solid #1E2D45' }}
+                    style={{ background: '#182d47', border: '1px solid #1e3450' }}
                   >
                     🏥
                   </div>
@@ -203,7 +203,7 @@ export function EventsTable({ events, onCreateEvent }: Props) {
                   {(event.registrations_count ?? 0).toLocaleString('es-CO')}
                 </p>
                 {regProgress !== undefined && (
-                  <div className="mt-1.5 h-1 w-16 overflow-hidden rounded-full" style={{ background: '#1E2D45' }}>
+                  <div className="mt-1.5 h-1 w-16 overflow-hidden rounded-full" style={{ background: '#1e3450' }}>
                     <div
                       className="h-full rounded-full"
                       style={{ width: `${Math.min(regProgress, 100)}%`, background: '#00C9A0' }}
@@ -228,7 +228,7 @@ export function EventsTable({ events, onCreateEvent }: Props) {
                   to={`/eventos/${event.slug}`}
                   target="_blank"
                   className="flex h-7 w-7 items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ color: '#3A5470', background: '#162031' }}
+                  style={{ color: '#3A5470', background: '#182d47' }}
                   title="Ver sitio público"
                 >
                   <ExternalLinkIcon size={13} />
@@ -236,7 +236,7 @@ export function EventsTable({ events, onCreateEvent }: Props) {
                 <button
                   type="button"
                   className="flex h-7 w-7 items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ color: '#3A5470', background: '#162031' }}
+                  style={{ color: '#3A5470', background: '#182d47' }}
                   onClick={() => setOpenMenu(openMenu === event.id ? null : event.id)}
                 >
                   <MoreHorizontalIcon size={13} />
@@ -244,7 +244,7 @@ export function EventsTable({ events, onCreateEvent }: Props) {
                 {openMenu === event.id && (
                   <div
                     className="absolute right-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-xl py-1"
-                    style={{ background: '#162031', border: '1px solid #1E2D45', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
+                    style={{ background: '#182d47', border: '1px solid #1e3450', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
                   >
                     {[
                       { label: 'Abrir', to: `/novo/eventos/${event.id}` },
