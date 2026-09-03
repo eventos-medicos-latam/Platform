@@ -1,6 +1,18 @@
 import React from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { NovoShell } from './components/novo/layout/NovoShell';
+import { NovoOverview } from './pages/novo/NovoOverview';
+import { NovoEvents } from './pages/novo/NovoEvents';
+import { NovoRegistros } from './pages/novo/NovoRegistros';
+import { NovoEmpresas } from './pages/novo/NovoEmpresas';
+import { NovoProductos } from './pages/novo/NovoProductos';
+import { NovoStands } from './pages/novo/NovoStands';
+import { NovoPagos } from './pages/novo/NovoPagos';
+import { NovoScanner } from './pages/novo/NovoScanner';
+import { NovoAnalitica } from './pages/novo/NovoAnalitica';
+import { NovoDocumentos } from './pages/novo/NovoDocumentos';
+import { NovoPlaceholder } from './pages/novo/NovoPlaceholder';
 import { PlatformProvider } from './contexts/PlatformContext';
 import { PublicLayout } from './components/layout/PublicLayout';
 import { EventLayout } from './components/layout/EventLayout';
@@ -138,6 +150,23 @@ function AnimatedRoutes() {
             <Route path="perfil" element={<PortalProfile />} />
           </Route>
         </Route>
+
+        {/* ── NOVO ARCHITECTURE — nueva plataforma universal ── */}
+        {/* Auth desactivada temporalmente para desarrollo en modo mock */}
+        <Route path="/novo" element={<NovoShell />}>
+            <Route index element={<NovoOverview />} />
+            <Route path="eventos" element={<NovoEvents />} />
+            <Route path="eventos/:id" element={<NovoPlaceholder title="Detalle del Evento" description="Módulos: Resumen, Agenda, Inscripciones, Patrocinadores, Stands, Comunicaciones, Página Web, Configuración" />} />
+            <Route path="registros" element={<NovoRegistros />} />
+            <Route path="empresas" element={<NovoEmpresas />} />
+            <Route path="productos" element={<NovoProductos />} />
+            <Route path="stands" element={<NovoStands />} />
+            <Route path="pagos" element={<NovoPagos />} />
+            <Route path="scanner" element={<NovoScanner />} />
+            <Route path="analitica" element={<NovoAnalitica />} />
+            <Route path="documentos" element={<NovoDocumentos />} />
+            <Route path="configuracion" element={<NovoPlaceholder title="Configuración" description="Roles, integraciones, Supabase, n8n, GHL" />} />
+          </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

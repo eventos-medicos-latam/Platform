@@ -1,0 +1,46 @@
+/* =========================================================
+   NOVO DESIGN SYSTEM — Tokens de color y tipografía
+   Coexiste con el sistema legacy. Prefijo: --nv-
+   ========================================================= */
+
+:root {
+  /* Fondos */
+  --nv-bg:          #080C14;
+  --nv-surface:     #0E1520;
+  --nv-raised:      #162031;
+  --nv-card:        #101824;
+
+  /* Bordes */
+  --nv-border:      #1E2D45;
+  --nv-border-soft: #152238;
+
+  /* Acento principal — teal clínico */
+  --nv-accent:      #00C9A0;
+  --nv-accent-dim:  rgba(0, 201, 160, 0.12);
+  --nv-accent-glow: rgba(0, 201, 160, 0.06);
+
+  /* Acento cálido — comercial / acción */
+  --nv-warm:        #FF7043;
+  --nv-warm-dim:    rgba(255, 112, 67, 0.12);
+
+  /* Estados semánticos */
+  --nv-ok:          #00C9A0;
+  --nv-ok-dim:      rgba(0, 201, 160, 0.12);
+  --nv-warn:        #F59E0B;
+  --nv-warn-dim:    rgba(245, 158, 11, 0.12);
+  --nv-danger:      #F24463;
+  --nv-danger-dim:  rgba(242, 68, 99, 0.12);
+  --nv-info:        #5B8AF0;
+  --nv-info-dim:    rgba(91, 138, 240, 0.12);
+  --nv-muted:       #7A9CB8;
+  --nv-muted-dim:   rgba(122, 156, 184, 0.12);
+
+  /* Texto */
+  --nv-text:        #E1EAF4;
+  --nv-text-2:      #7A9CB8;
+  --nv-text-3:      #3A5470;
+
+  /* Sombras */
+  --nv-shadow-card: 0 1px 3px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.2);
+  --nv-shadow-raised: 0 4px 16px rgba(0,0,0,0.5);
+}
