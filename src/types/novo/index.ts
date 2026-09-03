@@ -150,6 +150,9 @@ export interface NovoEvent {
   // Joins / computed
   registrations_count?: number;
   revenue?: number;
+  speakers_count?: number;
+  stands_count?: number;
+  sponsors_count?: number;
   contracting_company?: { id: string; name: string };
 }
 
