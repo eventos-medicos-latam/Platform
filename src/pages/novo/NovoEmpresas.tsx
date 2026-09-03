@@ -8,9 +8,12 @@ import { KPICard } from '../../components/novo/ui/KPICard';
 import { AgreementStatusPill } from '../../components/novo/ui/StatusPill';
 import { MOCK_AGREEMENTS } from '../../lib/novo/mock';
 import { formatCurrency } from '../../lib/novo/events';
+import { RowActions } from '../../components/novo/ui/RowActions';
+import { NovoModal, ModalBtn, FormField, FormInput, FormSelect } from '../../components/novo/ui/NovoModal';
 
 // ── Mock companies ──────────────────────────────────────────────────────────
-const MOCK_COMPANIES = [
+const SECTORES = ['Farmacéutica', 'Nutrición médica', 'Diagnóstico', 'Alimentación', 'Tecnología', 'Seguros', 'Otro'];
+const INIT_COMPANIES = [
   {
     id: 'co-001', name: 'Laboratorios Roche Colombia', sector: 'Farmacéutica',
     city: 'Bogotá', website: 'roche.com', contacts: 8, events: 3,
@@ -49,6 +52,7 @@ const MOCK_COMPANIES = [
   },
 ];
 
+const EMPTY_CO_FORM = { name: '', sector: 'Farmacéutica', city: '', website: '', status: 'pendiente' };
 type AgreementStatus = 'cerrado' | 'aprobado' | 'pendiente';
 
 const STATUS_STYLES: Record<AgreementStatus, { color: string; bg: string; label: string }> = {
@@ -58,16 +62,42 @@ const STATUS_STYLES: Record<AgreementStatus, { color: string; bg: string; label:
 };
 
 export function NovoEmpresas() {
-  const [search, setSearch] = useState('');
+  const [companies, setCompanies] = useState(INIT_COMPANIES);
+  const [search, setSearch]       = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing]     = useState<typeof INIT_COMPANIES[0] | null>(null);
+  const [form, setForm]           = useState(EMPTY_CO_FORM);
+  const [saving, setSaving]       = useState(false);
 
-  const filtered = MOCK_COMPANIES.filter(c =>
+  const f = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }));
+
+  const openCreate = () => { setEditing(null); setForm(EMPTY_CO_FORM); setModalOpen(true); };
+  const openEdit   = (co: typeof INIT_COMPANIES[0]) => { setEditing(co); setForm({ name: co.name, sector: co.sector, city: co.city, website: co.website, status: co.status }); setModalOpen(true); };
+  const handleSave = () => {
+    setSaving(true);
+    setTimeout(() => {
+      setSaving(false);
+      if (editing) {
+        setCompanies(prev => prev.map(c => c.id !== editing.id ? c : { ...c, name: form.name, sector: form.sector, city: form.city, website: form.website, status: form.status as AgreementStatus }));
+      } else {
+        setCompanies(prev => [{ id: `co-${Date.now()}`, name: form.name, sector: form.sector, city: form.city, website: form.website, contacts: 0, events: 0, total_deal: null, status: form.status as AgreementStatus, emoji: '🏢' }, ...prev]);
+      }
+      setModalOpen(false);
+    }, 700);
+  };
+  const handleDelete = (id: string) => {
+    if (!confirm('¿Eliminar esta empresa?')) return;
+    setCompanies(prev => prev.filter(c => c.id !== id));
+  };
+
+  const filtered = companies.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.sector.toLowerCase().includes(search.toLowerCase()) ||
     c.city.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const totalAcordado = MOCK_COMPANIES.reduce((s, c) => s + (c.total_deal ?? 0), 0);
-  const cerradas = MOCK_COMPANIES.filter(c => c.status === 'cerrado').length;
+  const totalAcordado = companies.reduce((s, c) => s + (c.total_deal ?? 0), 0);
+  const cerradas = companies.filter(c => c.status === 'cerrado').length;
 
   return (
     <div>
@@ -81,24 +111,22 @@ export function NovoEmpresas() {
             Empresas
           </h1>
           <p className="mt-0.5 text-sm" style={{ color: '#7A9CB8' }}>
-            {MOCK_COMPANIES.length} empresas · acuerdos, cartera y participaciones
+            {companies.length} empresas · acuerdos, cartera y participaciones
           </p>
         </div>
-        <button
-          type="button"
+        <button type="button" onClick={openCreate}
           className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all active:scale-95"
-          style={{ background: '#00C9A0', color: '#0d1829' }}
-        >
+          style={{ background: '#00C9A0', color: '#0d1829' }}>
           <PlusIcon size={15} strokeWidth={2.5} /> Nueva empresa
         </button>
       </div>
 
       {/* KPIs */}
       <div className="mb-6 grid grid-cols-3 gap-4">
-        <KPICard label="Total empresas" value={MOCK_COMPANIES.length.toString()}
+        <KPICard label="Total empresas" value={companies.length.toString()}
           sub="en la plataforma" icon={BuildingIcon} delay={0} />
         <KPICard label="Acuerdos cerrados" value={cerradas.toString()}
-          sub={`de ${MOCK_COMPANIES.length} empresas`}
+          sub={`de ${companies.length} empresas`}
           icon={FileTextIcon} accent="#A78BFA" delay={0.05} />
         <KPICard label="Total acordado" value={formatCurrency(totalAcordado)}
           sub="acumulado todos los eventos"
@@ -132,7 +160,7 @@ export function NovoEmpresas() {
         <div
           className="grid text-[10px] font-bold uppercase tracking-widest px-5 py-3"
           style={{
-            gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr',
+            gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr auto',
             color: '#3A5470',
             borderBottom: '1px solid #1a2e45',
             background: '#182d47',
@@ -144,6 +172,7 @@ export function NovoEmpresas() {
           <span>Eventos</span>
           <span>Acuerdo total</span>
           <span>Estado</span>
+          <span className="w-20" />
         </div>
 
         {filtered.length === 0 && (
@@ -162,9 +191,10 @@ export function NovoEmpresas() {
               transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1], delay: i * 0.04 }}
               className="group grid items-center px-5 py-4 transition-colors duration-150 cursor-pointer"
               style={{
-                gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr',
+                gridTemplateColumns: '2.5fr 1fr 1fr 1fr 1fr 1fr auto',
                 borderBottom: i < filtered.length - 1 ? '1px solid #1a2e45' : 'none',
               }}
+              onClick={() => openEdit(co)}
               onMouseEnter={e => (e.currentTarget.style.background = '#182d47')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
@@ -213,17 +243,58 @@ export function NovoEmpresas() {
 
               {/* Estado */}
               <div>
-                <span
-                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-                  style={{ color: st.color, background: st.bg }}
-                >
-                  {st.label}
-                </span>
+                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                  style={{ color: st.color, background: st.bg }}>{st.label}</span>
+              </div>
+              <div className="w-20 flex justify-end">
+                <RowActions
+                  onEdit={() => openEdit(co)}
+                  onDelete={() => handleDelete(co.id)}
+                />
               </div>
             </motion.div>
           );
         })}
       </div>
+
+      {/* Modal */}
+      <NovoModal open={modalOpen} onClose={() => setModalOpen(false)}
+        title={editing ? 'Editar empresa' : 'Nueva empresa'}
+        subtitle={editing ? `Editando ${editing.name}` : 'Agregar empresa al CRM'}
+        width={480}
+        footer={
+          <>
+            <ModalBtn variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
+            <ModalBtn variant="primary" onClick={handleSave} disabled={saving || !form.name}>
+              {saving ? 'Guardando…' : editing ? 'Guardar' : 'Crear empresa'}
+            </ModalBtn>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <FormField label="Nombre de la empresa" required>
+            <FormInput value={form.name} onChange={f('name')} placeholder="Nombre completo o razón social" />
+          </FormField>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Sector">
+              <FormSelect value={form.sector} onChange={f('sector')} options={SECTORES.map(s => ({ value: s, label: s }))} />
+            </FormField>
+            <FormField label="Estado">
+              <FormSelect value={form.status} onChange={f('status')} options={[
+                { value: 'pendiente', label: 'En negociación' },
+                { value: 'aprobado',  label: 'Aprobado' },
+                { value: 'cerrado',   label: 'Cerrado' },
+              ]} />
+            </FormField>
+            <FormField label="Ciudad">
+              <FormInput value={form.city} onChange={f('city')} placeholder="Bogotá, Medellín…" />
+            </FormField>
+            <FormField label="Sitio web">
+              <FormInput value={form.website} onChange={f('website')} placeholder="empresa.com" />
+            </FormField>
+          </div>
+        </div>
+      </NovoModal>
     </div>
   );
 }
