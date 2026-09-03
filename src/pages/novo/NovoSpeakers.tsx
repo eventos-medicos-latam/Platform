@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PlusIcon, SearchIcon, MicIcon, LockIcon, StarIcon, GlobeIcon, CheckCircleIcon, XCircleIcon } from 'lucide-react';
 import { KPICard } from '../../components/novo/ui/KPICard';
 import { RowActions } from '../../components/novo/ui/RowActions';
-import { NovoModal, ModalBtn, FormField, FormInput, FormSelect, FormTextarea } from '../../components/novo/ui/NovoModal';
+import { NovoModal, ModalBtn, FormField, FormInput, FormSelect, FormTextarea, FormSection, ImageField } from '../../components/novo/ui/NovoModal';
 
 interface Speaker {
   id: string;
@@ -55,7 +55,11 @@ const STATUS_FILTERS: StatusFilter[] = ['Todos', 'publicado', 'confirmado', 'inv
 
 function initials(name: string) { return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase(); }
 
-const EMPTY_FORM = { name: '', specialty: '', role: 'Conferencista', institution: '', city: '', country: 'Colombia', talk: '', status: 'invitado', bio: '' };
+const EMPTY_FORM = {
+  name: '', specialty: '', role: 'Conferencista', institution: '',
+  city: '', country: 'Colombia', talk: '', status: 'invitado', bio: '',
+  foto: '', email: '', linkedin: '', telefono: '',
+};
 
 export function NovoSpeakers() {
   const [speakers, setSpeakers]   = useState<Speaker[]>(INIT_SPEAKERS);
@@ -73,8 +77,12 @@ export function NovoSpeakers() {
   const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setModalOpen(true); };
   const openEdit   = (sp: Speaker) => {
     setEditing(sp);
-    setForm({ name: sp.name, specialty: sp.specialty, role: sp.role, institution: sp.institution,
-               city: sp.city, country: sp.country, talk: sp.talks[0] ?? '', status: sp.status, bio: '' });
+    setForm({
+      name: sp.name, specialty: sp.specialty, role: sp.role, institution: sp.institution,
+      city: sp.city, country: sp.country, talk: sp.talks[0] ?? '', status: sp.status, bio: '',
+      foto: (sp as any).foto ?? '', email: (sp as any).email ?? '',
+      linkedin: (sp as any).linkedin ?? '', telefono: (sp as any).telefono ?? '',
+    });
     setModalOpen(true);
   };
   const handleSave = () => {
@@ -293,7 +301,7 @@ export function NovoSpeakers() {
         onClose={() => setModalOpen(false)}
         title={editing ? 'Editar speaker' : 'Nuevo speaker'}
         subtitle={editing ? `Editando ficha de ${editing.name}` : 'Agrega un nuevo ponente al catálogo global'}
-        width={600}
+        width={640}
         footer={
           <>
             <ModalBtn variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
@@ -303,42 +311,63 @@ export function NovoSpeakers() {
           </>
         }
       >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <FormField label="Nombre completo" required>
-                <FormInput value={form.name} onChange={f('name')} placeholder="Dr. / Dra. Nombre Apellido" />
+        <div className="space-y-6">
+
+          {/* Perfil */}
+          <FormSection title="Perfil">
+            <ImageField label="Foto del ponente" value={form.foto} onChange={f('foto')}
+              hint="URL pública de la foto (formato cuadrado recomendado)" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <FormField label="Nombre completo" required>
+                  <FormInput value={form.name} onChange={f('name')} placeholder="Dr. / Dra. Nombre Apellido" />
+                </FormField>
+              </div>
+              <FormField label="Especialidad" required>
+                <FormInput value={form.specialty} onChange={f('specialty')} placeholder="Endocrinología, Nutrición…" />
+              </FormField>
+              <FormField label="Rol en el evento">
+                <FormSelect value={form.role} onChange={f('role')} options={ROLES.map(r => ({ value: r, label: r }))} />
+              </FormField>
+              <FormField label="Institución">
+                <FormInput value={form.institution} onChange={f('institution')} placeholder="Hospital, Universidad…" />
+              </FormField>
+              <FormField label="Estado">
+                <FormSelect value={form.status} onChange={f('status')} options={STATUSES.map(s => ({ value: s, label: STATUS_CONFIG[s as Speaker['status']].label }))} />
+              </FormField>
+              <FormField label="Ciudad">
+                <FormInput value={form.city} onChange={f('city')} placeholder="Medellín, Bogotá…" />
+              </FormField>
+              <FormField label="País">
+                <FormInput value={form.country} onChange={f('country')} placeholder="Colombia" />
               </FormField>
             </div>
-            <FormField label="Especialidad" required>
-              <FormInput value={form.specialty} onChange={f('specialty')} placeholder="Endocrinología, Nutrición…" />
+            <FormField label="Tema / charla">
+              <FormInput value={form.talk} onChange={f('talk')} placeholder="Título de la presentación" />
             </FormField>
-            <FormField label="Rol">
-              <FormSelect value={form.role} onChange={f('role')} options={ROLES.map(r => ({ value: r, label: r }))} />
+            <FormField label="Biografía" hint="Aparecerá en el perfil público del evento">
+              <FormTextarea value={form.bio} onChange={f('bio')} placeholder="Breve descripción del ponente…" rows={3} />
             </FormField>
-            <FormField label="Institución">
-              <FormInput value={form.institution} onChange={f('institution')} placeholder="Hospital, Universidad…" />
-            </FormField>
-            <FormField label="Ciudad">
-              <FormInput value={form.city} onChange={f('city')} placeholder="Medellín, Bogotá…" />
-            </FormField>
-            <FormField label="País">
-              <FormInput value={form.country} onChange={f('country')} placeholder="Colombia" />
-            </FormField>
-            <FormField label="Estado">
-              <FormSelect value={form.status} onChange={f('status')} options={STATUSES.map(s => ({ value: s, label: STATUS_CONFIG[s as Speaker['status']].label }))} />
-            </FormField>
-            <div className="col-span-2">
-              <FormField label="Tema / charla">
-                <FormInput value={form.talk} onChange={f('talk')} placeholder="Título de la presentación" />
+          </FormSection>
+
+          {/* Contacto */}
+          <FormSection title="Datos de contacto">
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Email">
+                <FormInput type="email" value={form.email} onChange={f('email')} placeholder="dr.nombre@email.com" />
               </FormField>
-            </div>
-            <div className="col-span-2">
-              <FormField label="Biografía" hint="Aparecerá en el perfil público">
-                <FormTextarea value={form.bio} onChange={f('bio')} placeholder="Breve descripción del ponente…" rows={3} />
+              <FormField label="Teléfono / WhatsApp">
+                <FormInput value={form.telefono} onChange={f('telefono')} placeholder="+57 310 555 0000" />
               </FormField>
+              <div className="col-span-2">
+                <FormField label="LinkedIn" hint="URL completa del perfil">
+                  <FormInput value={form.linkedin} onChange={f('linkedin')} placeholder="https://linkedin.com/in/nombre" />
+                </FormField>
+              </div>
             </div>
-          </div>
+          </FormSection>
+
+        </div>
         </div>
       </NovoModal>
     </div>
