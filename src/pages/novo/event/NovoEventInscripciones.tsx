@@ -3,10 +3,15 @@ import { useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   UsersIcon, TicketIcon, CheckCircleIcon, XCircleIcon,
-  SearchIcon, DownloadIcon, QrCodeIcon, ChevronRightIcon,
+  SearchIcon, DownloadIcon, QrCodeIcon, PlusIcon,
   CalendarIcon, BuildingIcon, MailIcon,
 } from 'lucide-react';
 import { KPICard } from '../../../components/novo/ui/KPICard';
+import { RowActions } from '../../../components/novo/ui/RowActions';
+import {
+  NovoModal, ModalBtn,
+  FormField, FormInput, FormSelect, FormSection,
+} from '../../../components/novo/ui/NovoModal';
 import type { NovoEvent } from '../../../types/novo';
 
 interface EventContext { event: NovoEvent }
@@ -26,7 +31,7 @@ interface Registration {
   qr_code: string;
 }
 
-const MOCK_REGS: Registration[] = [
+const INIT_REGS: Registration[] = [
   { id: 'r001', name: 'Dra. Valentina Ospina',  email: 'vospina@hospital.com',    company: 'Hospital Pablo Tobón',   ticket_type: 'medico',     status: 'confirmado',   registered_at: '2026-08-10', amount: 180000, qr_code: 'QR-001' },
   { id: 'r002', name: 'Dr. Andrés Mejía',        email: 'amejia@clinica.com',      company: 'Clínica Medellín',       ticket_type: 'medico',     status: 'confirmado',   registered_at: '2026-08-12', amount: 180000, qr_code: 'QR-002' },
   { id: 'r003', name: 'Laura Gómez',             email: 'lgomez@uni.edu.co',       company: 'Univ. de Antioquia',     ticket_type: 'estudiante', status: 'pendiente',    registered_at: '2026-08-15', amount: 80000,  qr_code: 'QR-003' },
@@ -53,6 +58,11 @@ const TYPE_CONFIG: Record<TicketType, { label: string; color: string }> = {
   cortesia:   { label: 'Cortesía',   color: '#A78BFA' },
 };
 
+const TYPE_OPTIONS = Object.entries(TYPE_CONFIG).map(([v, c]) => ({ value: v, label: c.label }));
+const STATUS_OPTIONS = Object.entries(STATUS_CONFIG).map(([v, c]) => ({ value: v, label: c.label }));
+
+const ALL_STATUSES: TicketStatus[] = ['confirmado', 'pendiente', 'cancelado', 'lista_espera'];
+
 const fmt = (n: number) =>
   n === 0 ? 'Cortesía' : `$${n.toLocaleString('es-CO')}`;
 
@@ -67,15 +77,84 @@ const GRADIENTS = [
   'linear-gradient(135deg,#1a3a7a,#5B8AF0)',
 ];
 
-const ALL_STATUSES: TicketStatus[] = ['confirmado', 'pendiente', 'cancelado', 'lista_espera'];
+const EMPTY_FORM = {
+  name: '', email: '', company: '',
+  ticket_type: 'medico' as TicketType,
+  status: 'pendiente' as TicketStatus,
+  amount: '180000',
+};
 
 export function NovoEventInscripciones() {
   const { event } = useOutletContext<EventContext>();
+  const [registrations, setRegistrations] = useState<Registration[]>(INIT_REGS);
   const [statusFilter, setStatusFilter] = useState<TicketStatus | 'todos'>('todos');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Registration | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<Registration | null>(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
 
-  const filtered = MOCK_REGS.filter(r => {
+  const f = (k: keyof typeof EMPTY_FORM) => (v: string) => setForm(p => ({ ...p, [k]: v }));
+
+  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setModalOpen(true); };
+  const openEdit = (r: Registration) => {
+    setEditing(r);
+    setForm({ name: r.name, email: r.email, company: r.company, ticket_type: r.ticket_type, status: r.status, amount: String(r.amount) });
+    setModalOpen(true);
+  };
+
+  const handleSave = () => {
+    setSaving(true);
+    setTimeout(() => {
+      setSaving(false);
+      if (editing) {
+        const updated = { ...editing, name: form.name, email: form.email, company: form.company, ticket_type: form.ticket_type, status: form.status, amount: Number(form.amount) };
+        setRegistrations(prev => prev.map(r => r.id !== editing.id ? r : updated));
+        if (selected?.id === editing.id) setSelected(updated);
+      } else {
+        const newR: Registration = {
+          id: `r-${Date.now()}`,
+          name: form.name, email: form.email, company: form.company,
+          ticket_type: form.ticket_type, status: form.status,
+          amount: Number(form.amount),
+          registered_at: new Date().toISOString().split('T')[0],
+          qr_code: `QR-${Date.now()}`,
+        };
+        setRegistrations(prev => [newR, ...prev]);
+      }
+      setModalOpen(false);
+    }, 600);
+  };
+
+  const handleDelete = (id: string) => {
+    if (!confirm('¿Eliminar este registro?')) return;
+    setRegistrations(prev => prev.filter(r => r.id !== id));
+    if (selected?.id === id) setSelected(null);
+  };
+
+  const handleDuplicate = (r: Registration) => {
+    const copy: Registration = { ...r, id: `r-${Date.now()}`, status: 'pendiente', qr_code: `QR-${Date.now()}` };
+    setRegistrations(prev => [copy, ...prev]);
+  };
+
+  const handleCancelReg = (id: string) => {
+    setRegistrations(prev => prev.map(r => r.id !== id ? r : { ...r, status: 'cancelado' }));
+    if (selected?.id === id) setSelected(s => s ? { ...s, status: 'cancelado' } : null);
+  };
+
+  const exportCSV = () => {
+    const headers = ['Nombre', 'Email', 'Empresa', 'Ticket', 'Estado', 'Monto', 'Fecha'];
+    const rows = registrations.map(r => [r.name, r.email, r.company, r.ticket_type, r.status, r.amount, r.registered_at]);
+    const csv = [headers, ...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `inscripciones-${event.id}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const filtered = registrations.filter(r => {
     const matchStatus = statusFilter === 'todos' || r.status === statusFilter;
     const q = query.toLowerCase();
     const matchQ = !q || r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q) || r.company.toLowerCase().includes(q);
@@ -83,27 +162,34 @@ export function NovoEventInscripciones() {
   });
 
   const counts = {
-    total:       MOCK_REGS.length,
-    confirmados: MOCK_REGS.filter(r => r.status === 'confirmado').length,
-    pendientes:  MOCK_REGS.filter(r => r.status === 'pendiente').length,
-    cancelados:  MOCK_REGS.filter(r => r.status === 'cancelado').length,
+    total:       registrations.length,
+    confirmados: registrations.filter(r => r.status === 'confirmado').length,
+    pendientes:  registrations.filter(r => r.status === 'pendiente').length,
+    cancelados:  registrations.filter(r => r.status === 'cancelado').length,
   };
-  const ingresos = MOCK_REGS.filter(r => r.status === 'confirmado').reduce((s, r) => s + r.amount, 0);
+  const ingresos = registrations.filter(r => r.status === 'confirmado').reduce((s, r) => s + r.amount, 0);
 
   return (
     <div>
-      <div className="mb-6">
-        <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#00C9A0' }}>{event.name}</p>
-        <h1 className="text-xl font-bold" style={{ color: '#E1EAF4', fontFamily: "'Sora', sans-serif" }}>Inscripciones</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#7A9CB8' }}>Registros · tickets · estados · QR</p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#00C9A0' }}>{event.name}</p>
+          <h1 className="text-xl font-bold" style={{ color: '#E1EAF4', fontFamily: "'Sora', sans-serif" }}>Inscripciones</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#7A9CB8' }}>Registros · tickets · estados · QR</p>
+        </div>
+        <button onClick={openCreate}
+          className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-all active:scale-95"
+          style={{ background: '#00C9A0', color: '#0d1829' }}>
+          <PlusIcon size={13} /> Nueva inscripción
+        </button>
       </div>
 
       {/* KPIs */}
       <div className="mb-6 grid grid-cols-4 gap-4">
         <KPICard label="Total inscritos"  value={counts.total.toString()}       icon={UsersIcon}      accent="#00C9A0" delay={0} />
-        <KPICard label="Confirmados"      value={counts.confirmados.toString()}  icon={CheckCircleIcon} accent="#00C9A0" progress={Math.round((counts.confirmados/counts.total)*100)} delay={0.05} />
+        <KPICard label="Confirmados"      value={counts.confirmados.toString()}  icon={CheckCircleIcon} accent="#00C9A0" progress={counts.total ? Math.round((counts.confirmados/counts.total)*100) : 0} delay={0.05} />
         <KPICard label="Pendientes"       value={counts.pendientes.toString()}   icon={TicketIcon}     accent="#F59E0B" delay={0.1} />
-        <KPICard label="Ingresos netos"   value={`$${(ingresos/1000).toFixed(0)}K`} icon={TicketIcon} accent="#5B8AF0" delay={0.15} />
+        <KPICard label="Ingresos netos"   value={`$${(ingresos/1000).toFixed(0)}K`} icon={XCircleIcon} accent="#5B8AF0" delay={0.15} />
       </div>
 
       {/* Toolbar */}
@@ -111,13 +197,9 @@ export function NovoEventInscripciones() {
         <div className="flex items-center gap-2 flex-1 min-w-[200px] rounded-xl px-3.5 py-2.5"
           style={{ background: '#112035', border: '1px solid #1e3450' }}>
           <SearchIcon size={14} style={{ color: '#2a4a6b' }} />
-          <input
-            className="flex-1 bg-transparent text-sm outline-none"
-            style={{ color: '#E1EAF4' }}
-            placeholder="Buscar por nombre, email o empresa…"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-          />
+          <input className="flex-1 bg-transparent text-sm outline-none" style={{ color: '#E1EAF4' }}
+            placeholder="Buscar por nombre, email o empresa…" value={query}
+            onChange={e => setQuery(e.target.value)} />
         </div>
         <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #1e3450' }}>
           {(['todos', ...ALL_STATUSES] as const).map(s => {
@@ -125,29 +207,25 @@ export function NovoEventInscripciones() {
             return (
               <button key={s} onClick={() => setStatusFilter(s)}
                 className="px-3.5 py-2 text-xs font-semibold transition-colors"
-                style={{
-                  background: isActive ? '#182d47' : '#112035',
-                  color: isActive ? '#E1EAF4' : '#2a4a6b',
-                  borderRight: '1px solid #1e3450',
-                }}>
+                style={{ background: isActive ? '#182d47' : '#112035', color: isActive ? '#E1EAF4' : '#2a4a6b', borderRight: '1px solid #1e3450' }}>
                 {s === 'todos' ? 'Todos' : STATUS_CONFIG[s].label}
               </button>
             );
           })}
         </div>
-        <button className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold"
+        <button onClick={exportCSV}
+          className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-all active:scale-95"
           style={{ background: '#182d47', color: '#7A9CB8', border: '1px solid #1e3450' }}>
-          <DownloadIcon size={13} /> Exportar
+          <DownloadIcon size={13} /> Exportar CSV
         </button>
       </div>
 
       <div className="flex gap-5">
         {/* Tabla */}
         <div className="flex-1 overflow-hidden rounded-2xl" style={{ background: '#112035', border: '1px solid #1e3450' }}>
-          {/* Header */}
           <div className="grid px-5 py-3"
-            style={{ gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr', borderBottom: '1px solid #1e3450' }}>
-            {['Participante', 'Empresa', 'Ticket', 'Monto', 'Estado'].map(h => (
+            style={{ gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr auto', borderBottom: '1px solid #1e3450' }}>
+            {['Participante', 'Empresa', 'Ticket', 'Monto', 'Estado', ''].map(h => (
               <p key={h} className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#2a4a6b' }}>{h}</p>
             ))}
           </div>
@@ -163,7 +241,7 @@ export function NovoEventInscripciones() {
                 onClick={() => setSelected(isSelected ? null : reg)}
                 className="grid px-5 py-3.5 cursor-pointer transition-colors"
                 style={{
-                  gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr',
+                  gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr auto',
                   borderBottom: i < filtered.length - 1 ? '1px solid #1a2e45' : 'none',
                   background: isSelected ? '#182d47' : 'transparent',
                 }}
@@ -189,12 +267,18 @@ export function NovoEventInscripciones() {
                 <div className="flex items-center">
                   <p className="text-sm tabular-nums" style={{ color: '#E1EAF4' }}>{fmt(reg.amount)}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center">
                   <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
                     style={{ color: st.color, background: st.bg }}>
                     {st.label}
                   </span>
-                  <ChevronRightIcon size={12} style={{ color: '#2a4a6b', marginLeft: 'auto' }} />
+                </div>
+                <div className="flex items-center" onClick={e => e.stopPropagation()}>
+                  <RowActions
+                    onEdit={() => openEdit(reg)}
+                    onDuplicate={() => handleDuplicate(reg)}
+                    onDelete={() => handleDelete(reg.id)}
+                  />
                 </div>
               </motion.div>
             );
@@ -220,7 +304,7 @@ export function NovoEventInscripciones() {
               <div className="p-5">
                 <div className="flex flex-col items-center gap-2 mb-5 pb-5" style={{ borderBottom: '1px solid #1e3450' }}>
                   <div className="flex h-14 w-14 items-center justify-center rounded-full text-lg font-bold text-white"
-                    style={{ background: GRADIENTS[MOCK_REGS.indexOf(selected) % GRADIENTS.length] }}>
+                    style={{ background: GRADIENTS[registrations.indexOf(selected) % GRADIENTS.length] }}>
                     {initials(selected.name)}
                   </div>
                   <p className="text-sm font-bold text-center" style={{ color: '#E1EAF4' }}>{selected.name}</p>
@@ -235,10 +319,9 @@ export function NovoEventInscripciones() {
                   { icon: BuildingIcon, label: 'Empresa', value: selected.company },
                   { icon: TicketIcon,   label: 'Ticket',  value: TYPE_CONFIG[selected.ticket_type].label },
                   { icon: CalendarIcon, label: 'Registro',value: new Date(selected.registered_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start gap-3 mb-4">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
-                      style={{ background: '#182d47' }}>
+                ].map((item, idx) => (
+                  <div key={idx} className="flex items-start gap-3 mb-4">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: '#182d47' }}>
                       <item.icon size={12} style={{ color: '#7A9CB8' }} />
                     </div>
                     <div>
@@ -256,10 +339,15 @@ export function NovoEventInscripciones() {
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-2">
-                  <button className="rounded-xl py-2 text-xs font-semibold" style={{ background: '#182d47', color: '#7A9CB8', border: '1px solid #1e3450' }}>
+                  <button onClick={() => openEdit(selected)}
+                    className="rounded-xl py-2 text-xs font-semibold transition-all active:scale-95"
+                    style={{ background: 'rgba(0,201,160,.1)', color: '#00C9A0', border: '1px solid rgba(0,201,160,.2)' }}>
                     Editar
                   </button>
-                  <button className="rounded-xl py-2 text-xs font-semibold" style={{ background: 'rgba(242,68,99,.1)', color: '#F24463', border: '1px solid rgba(242,68,99,.2)' }}>
+                  <button onClick={() => handleCancelReg(selected.id)}
+                    disabled={selected.status === 'cancelado'}
+                    className="rounded-xl py-2 text-xs font-semibold transition-all active:scale-95 disabled:opacity-40"
+                    style={{ background: 'rgba(242,68,99,.1)', color: '#F24463', border: '1px solid rgba(242,68,99,.2)' }}>
                     Cancelar
                   </button>
                 </div>
@@ -268,6 +356,51 @@ export function NovoEventInscripciones() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* ═══ MODAL ══════════════════════════════════════════════════════════ */}
+      <NovoModal
+        open={modalOpen} onClose={() => setModalOpen(false)}
+        title={editing ? 'Editar inscripción' : 'Nueva inscripción'}
+        subtitle={editing ? `Editando: ${editing.name}` : 'Registrar participante manualmente'}
+        width={560}
+        footer={
+          <>
+            <ModalBtn variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
+            <ModalBtn variant="primary" onClick={handleSave} disabled={saving || !form.name || !form.email}>
+              {saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Crear registro'}
+            </ModalBtn>
+          </>
+        }
+      >
+        <div className="space-y-5">
+          <FormSection title="Datos del participante">
+            <FormField label="Nombre completo" required>
+              <FormInput value={form.name} onChange={f('name')} placeholder="Dr. Juan Pérez" />
+            </FormField>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Email" required>
+                <FormInput type="email" value={form.email} onChange={f('email')} placeholder="juan@hospital.com" />
+              </FormField>
+              <FormField label="Empresa / Institución">
+                <FormInput value={form.company} onChange={f('company')} placeholder="Hospital, clínica…" />
+              </FormField>
+            </div>
+          </FormSection>
+          <FormSection title="Ticket y estado">
+            <div className="grid grid-cols-3 gap-4">
+              <FormField label="Tipo de ticket">
+                <FormSelect value={form.ticket_type} onChange={v => setForm(p => ({ ...p, ticket_type: v as TicketType }))} options={TYPE_OPTIONS} />
+              </FormField>
+              <FormField label="Estado">
+                <FormSelect value={form.status} onChange={v => setForm(p => ({ ...p, status: v as TicketStatus }))} options={STATUS_OPTIONS} />
+              </FormField>
+              <FormField label="Monto ($)">
+                <FormInput type="number" value={form.amount} onChange={f('amount')} placeholder="180000" />
+              </FormField>
+            </div>
+          </FormSection>
+        </div>
+      </NovoModal>
     </div>
   );
 }
