@@ -59,6 +59,11 @@ interface Props {
 
 export function EventsTable({ events: initialEvents }: Props) {
   const [events, setEvents] = useState<NovoEvent[]>(initialEvents);
+
+  // Sync when parent loads async data
+  React.useEffect(() => {
+    if (initialEvents.length > 0) setEvents(initialEvents);
+  }, [initialEvents]);
   const [filter, setFilter] = useState<NovoEventOperationalStatus | 'todos'>('todos');
   const [search, setSearch] = useState('');
   const [openMenu, setOpenMenu] = useState<string | null>(null);
