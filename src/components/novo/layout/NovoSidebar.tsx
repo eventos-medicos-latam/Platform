@@ -5,34 +5,36 @@ import {
   LayoutDashboardIcon, CalendarDaysIcon, UsersIcon,
   BuildingIcon, ShoppingBagIcon, LayoutPanelLeftIcon,
   CreditCardIcon, FolderIcon, SettingsIcon, LogOutIcon,
-  QrCodeIcon, BarChart3Icon, ChevronRightIcon,
+  MicIcon, GlobeIcon, HeadphonesIcon, TvIcon, ChevronRightIcon,
 } from 'lucide-react';
 import { usePlatform } from '../../../contexts/PlatformContext';
 
 const NAV = [
   {
-    group: 'Principal',
+    group: 'Operación',
     items: [
-      { to: '/novo', label: 'Resumen', icon: LayoutDashboardIcon, end: true },
-      { to: '/novo/eventos', label: 'Mis Eventos', icon: CalendarDaysIcon },
-      { to: '/novo/registros', label: 'Registros', icon: UsersIcon },
+      { to: '/novo',           label: 'Resumen',       icon: LayoutDashboardIcon, end: true },
+      { to: '/novo/eventos',   label: 'Mis Eventos',   icon: CalendarDaysIcon },
+      { to: '/novo/registros', label: 'Registros',     icon: UsersIcon },
+      { to: '/novo/speakers',  label: 'Speakers',      icon: MicIcon },
     ],
   },
   {
     group: 'Comercial',
     items: [
-      { to: '/novo/empresas', label: 'Empresas', icon: BuildingIcon },
-      { to: '/novo/productos', label: 'Productos', icon: ShoppingBagIcon },
-      { to: '/novo/stands', label: 'Stands', icon: LayoutPanelLeftIcon },
-      { to: '/novo/pagos', label: 'Facturación', icon: CreditCardIcon },
+      { to: '/novo/empresas',  label: 'Empresas',           icon: BuildingIcon },
+      { to: '/novo/productos', label: 'Productos',           icon: ShoppingBagIcon },
+      { to: '/novo/stands',    label: 'Stands',              icon: LayoutPanelLeftIcon },
+      { to: '/novo/pagos',     label: 'Facturación y Pagos', icon: CreditCardIcon },
     ],
   },
   {
-    group: 'Operación',
+    group: 'Ecosistema',
     items: [
-      { to: '/novo/scanner', label: 'Scanner QR', icon: QrCodeIcon },
-      { to: '/novo/analitica', label: 'Analítica', icon: BarChart3Icon },
-      { to: '/novo/documentos', label: 'Documentos', icon: FolderIcon },
+      { to: '/novo/digital',    label: 'Agenda Digital',        icon: TvIcon },
+      { to: '/novo/sitio',      label: 'Sitio Web EML',         icon: GlobeIcon },
+      { to: '/novo/documentos', label: 'Documentos y Recursos', icon: FolderIcon },
+      { to: '/novo/soporte',    label: 'Soporte',               icon: HeadphonesIcon },
     ],
   },
   {
@@ -86,9 +88,7 @@ export function NovoSidebar() {
                     end={item.end}
                     className={({ isActive }) =>
                       `relative flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition-all duration-150 ${
-                        isActive
-                          ? 'font-semibold'
-                          : 'font-medium hover:opacity-100 opacity-60'
+                        isActive ? 'font-semibold' : 'font-medium hover:opacity-100 opacity-60'
                       }`
                     }
                     style={({ isActive }) => ({

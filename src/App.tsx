@@ -13,6 +13,14 @@ import { NovoScanner } from './pages/novo/NovoScanner';
 import { NovoAnalitica } from './pages/novo/NovoAnalitica';
 import { NovoDocumentos } from './pages/novo/NovoDocumentos';
 import { NovoPlaceholder } from './pages/novo/NovoPlaceholder';
+import { NovoEventShell } from './components/novo/layout/NovoEventShell';
+import { NovoEventResumen } from './pages/novo/event/NovoEventResumen';
+import { NovoEventPlaceholder } from './pages/novo/event/NovoEventPlaceholder';
+// Nuevos módulos globales (placeholders hasta implementar)
+const NovoSpeakers   = () => <NovoPlaceholder title="Speakers" description="Gestión global de ponentes · ficha única por persona · historial de eventos" />;
+const NovoDigital    = () => <NovoPlaceholder title="Agenda Digital" description="Webinars, masterclasses y conversatorios · vive sobre el motor de Eventos" />;
+const NovoSitio      = () => <NovoPlaceholder title="Sitio Web EML" description="Organización · Home · Banners · Tienda · Páginas corporativas · SEO" />;
+const NovoSoporte    = () => <NovoPlaceholder title="Soporte" description="Tickets · estados · conversaciones · FAQ · empresas" />;
 import { PlatformProvider } from './contexts/PlatformContext';
 import { PublicLayout } from './components/layout/PublicLayout';
 import { EventLayout } from './components/layout/EventLayout';
@@ -156,16 +164,31 @@ function AnimatedRoutes() {
         <Route path="/novo" element={<NovoShell />}>
             <Route index element={<NovoOverview />} />
             <Route path="eventos" element={<NovoEvents />} />
-            <Route path="eventos/:id" element={<NovoPlaceholder title="Detalle del Evento" description="Módulos: Resumen, Agenda, Inscripciones, Patrocinadores, Stands, Comunicaciones, Página Web, Configuración" />} />
-            <Route path="registros" element={<NovoRegistros />} />
-            <Route path="empresas" element={<NovoEmpresas />} />
-            <Route path="productos" element={<NovoProductos />} />
-            <Route path="stands" element={<NovoStands />} />
-            <Route path="pagos" element={<NovoPagos />} />
-            <Route path="scanner" element={<NovoScanner />} />
-            <Route path="analitica" element={<NovoAnalitica />} />
-            <Route path="documentos" element={<NovoDocumentos />} />
-            <Route path="configuracion" element={<NovoPlaceholder title="Configuración" description="Roles, integraciones, Supabase, n8n, GHL" />} />
+            <Route path="eventos/:id" element={<NovoEventShell />}>
+              <Route index                   element={<NovoEventResumen />} />
+              <Route path="informacion"      element={<NovoEventPlaceholder title="Información del Evento"  description="Nombre · tipo · modalidad · fechas · lugar · identidad · certificado" />} />
+              <Route path="agenda"           element={<NovoEventPlaceholder title="Agenda del Evento"       description="Días · horarios · espacios · actividades · speakers · importar CSV" />} />
+              <Route path="inscripciones"    element={<NovoEventPlaceholder title="Inscripciones"           description="Registros · tickets · etapas de precio · cupones · lista de espera · QR" />} />
+              <Route path="patrocinadores"   element={<NovoEventPlaceholder title="Patrocinadores"          description="Empresas · planes · beneficios · inventario · acuerdos · visibilidad" />} />
+              <Route path="stands"           element={<NovoEventPlaceholder title="Stands"                  description="Inventario de este evento · plano · disponibilidad · reservas" />} />
+              <Route path="comunicaciones"   element={<NovoEventPlaceholder title="Comunicaciones"          description="Triggers · estado de envíos · webhooks GHL · System Events" />} />
+              <Route path="web"              element={<NovoEventPlaceholder title="Página Web"              description="Template · textos · secciones · preview · publicar · estados" />} />
+              <Route path="configuracion"    element={<NovoEventPlaceholder title="Configuración"           description="Metas/KPIs · capacidad · reglas · QR interactions · consentimientos" />} />
+            </Route>
+            <Route path="registros"     element={<NovoRegistros />} />
+            <Route path="speakers"      element={<NovoSpeakers />} />
+            <Route path="empresas"      element={<NovoEmpresas />} />
+            <Route path="productos"     element={<NovoProductos />} />
+            <Route path="stands"        element={<NovoStands />} />
+            <Route path="pagos"         element={<NovoPagos />} />
+            <Route path="digital"       element={<NovoDigital />} />
+            <Route path="sitio"         element={<NovoSitio />} />
+            <Route path="documentos"    element={<NovoDocumentos />} />
+            <Route path="soporte"       element={<NovoSoporte />} />
+            <Route path="configuracion" element={<NovoPlaceholder title="Configuración" description="Wompi · GHL · n8n · Meta · Google · Roles · Permisos · Papelera · Logs" />} />
+            {/* Scanner vive como mini-app separada — /scanner */}
+            <Route path="scanner"       element={<NovoScanner />} />
+            <Route path="analitica"     element={<NovoAnalitica />} />
           </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
