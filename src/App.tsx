@@ -18,9 +18,16 @@ import { NovoEventResumen } from './pages/novo/event/NovoEventResumen';
 import { NovoEventPlaceholder } from './pages/novo/event/NovoEventPlaceholder';
 import { NovoSpeakers } from './pages/novo/NovoSpeakers';
 import { NovoSitio } from './pages/novo/NovoSitio';
-// Módulos en construcción
-const NovoDigital = () => <NovoPlaceholder title="Agenda Digital" description="Webinars, masterclasses y conversatorios · vive sobre el motor de Eventos" />;
-const NovoSoporte = () => <NovoPlaceholder title="Soporte" description="Tickets · estados · conversaciones · FAQ · empresas" />;
+import { NovoDigital } from './pages/novo/NovoDigital';
+import { NovoSoporte } from './pages/novo/NovoSoporte';
+import { NovoEventInscripciones } from './pages/novo/event/NovoEventInscripciones';
+import { NovoEventAgenda } from './pages/novo/event/NovoEventAgenda';
+import { NovoEventPatrocinadores } from './pages/novo/event/NovoEventPatrocinadores';
+import { NovoEventStands } from './pages/novo/event/NovoEventStands';
+import { NovoEventInformacion } from './pages/novo/event/NovoEventInformacion';
+import { NovoEventComunicaciones } from './pages/novo/event/NovoEventComunicaciones';
+import { NovoEventWeb } from './pages/novo/event/NovoEventWeb';
+import { NovoEventConfiguracion } from './pages/novo/event/NovoEventConfiguracion';
 import { PlatformProvider } from './contexts/PlatformContext';
 import { PublicLayout } from './components/layout/PublicLayout';
 import { EventLayout } from './components/layout/EventLayout';
@@ -166,14 +173,14 @@ function AnimatedRoutes() {
             <Route path="eventos" element={<NovoEvents />} />
             <Route path="eventos/:id" element={<NovoEventShell />}>
               <Route index                   element={<NovoEventResumen />} />
-              <Route path="informacion"      element={<NovoEventPlaceholder title="Información del Evento"  description="Nombre · tipo · modalidad · fechas · lugar · identidad · certificado" />} />
-              <Route path="agenda"           element={<NovoEventPlaceholder title="Agenda del Evento"       description="Días · horarios · espacios · actividades · speakers · importar CSV" />} />
-              <Route path="inscripciones"    element={<NovoEventPlaceholder title="Inscripciones"           description="Registros · tickets · etapas de precio · cupones · lista de espera · QR" />} />
-              <Route path="patrocinadores"   element={<NovoEventPlaceholder title="Patrocinadores"          description="Empresas · planes · beneficios · inventario · acuerdos · visibilidad" />} />
-              <Route path="stands"           element={<NovoEventPlaceholder title="Stands"                  description="Inventario de este evento · plano · disponibilidad · reservas" />} />
-              <Route path="comunicaciones"   element={<NovoEventPlaceholder title="Comunicaciones"          description="Triggers · estado de envíos · webhooks GHL · System Events" />} />
-              <Route path="web"              element={<NovoEventPlaceholder title="Página Web"              description="Template · textos · secciones · preview · publicar · estados" />} />
-              <Route path="configuracion"    element={<NovoEventPlaceholder title="Configuración"           description="Metas/KPIs · capacidad · reglas · QR interactions · consentimientos" />} />
+              <Route path="informacion"      element={<NovoEventInformacion />} />
+              <Route path="agenda"           element={<NovoEventAgenda />} />
+              <Route path="inscripciones"    element={<NovoEventInscripciones />} />
+              <Route path="patrocinadores"   element={<NovoEventPatrocinadores />} />
+              <Route path="stands"           element={<NovoEventStands />} />
+              <Route path="comunicaciones"   element={<NovoEventComunicaciones />} />
+              <Route path="web"              element={<NovoEventWeb />} />
+              <Route path="configuracion"    element={<NovoEventConfiguracion />} />
             </Route>
             <Route path="registros"     element={<NovoRegistros />} />
             <Route path="speakers"      element={<NovoSpeakers />} />
