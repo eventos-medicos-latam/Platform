@@ -16,11 +16,11 @@ import { NovoPlaceholder } from './pages/novo/NovoPlaceholder';
 import { NovoEventShell } from './components/novo/layout/NovoEventShell';
 import { NovoEventResumen } from './pages/novo/event/NovoEventResumen';
 import { NovoEventPlaceholder } from './pages/novo/event/NovoEventPlaceholder';
-// Nuevos módulos globales (placeholders hasta implementar)
-const NovoSpeakers   = () => <NovoPlaceholder title="Speakers" description="Gestión global de ponentes · ficha única por persona · historial de eventos" />;
-const NovoDigital    = () => <NovoPlaceholder title="Agenda Digital" description="Webinars, masterclasses y conversatorios · vive sobre el motor de Eventos" />;
-const NovoSitio      = () => <NovoPlaceholder title="Sitio Web EML" description="Organización · Home · Banners · Tienda · Páginas corporativas · SEO" />;
-const NovoSoporte    = () => <NovoPlaceholder title="Soporte" description="Tickets · estados · conversaciones · FAQ · empresas" />;
+import { NovoSpeakers } from './pages/novo/NovoSpeakers';
+import { NovoSitio } from './pages/novo/NovoSitio';
+// Módulos en construcción
+const NovoDigital = () => <NovoPlaceholder title="Agenda Digital" description="Webinars, masterclasses y conversatorios · vive sobre el motor de Eventos" />;
+const NovoSoporte = () => <NovoPlaceholder title="Soporte" description="Tickets · estados · conversaciones · FAQ · empresas" />;
 import { PlatformProvider } from './contexts/PlatformContext';
 import { PublicLayout } from './components/layout/PublicLayout';
 import { EventLayout } from './components/layout/EventLayout';
