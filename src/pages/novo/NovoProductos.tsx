@@ -135,6 +135,7 @@ export function NovoProductos() {
           type="button"
           className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all active:scale-95"
           style={{ background: '#00C9A0', color: '#0d1829' }}
+          onClick={openCreate}
         >
           <PlusIcon size={15} strokeWidth={2.5} /> Nuevo producto
         </button>

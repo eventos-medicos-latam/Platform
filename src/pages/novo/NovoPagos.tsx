@@ -352,12 +352,12 @@ export function NovoPagos() {
 
       {/* ── Modal registrar / editar pago ─────────────────── */}
       <NovoModal
-        isOpen={modalOpen} onClose={() => setModalOpen(false)}
+        open={modalOpen} onClose={() => setModalOpen(false)}
         title={editing ? 'Editar pago' : 'Registrar pago'}
         footer={
           <>
-            <ModalBtn variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
-            <ModalBtn variant="primary" onClick={handleSave} loading={saving}>
+            <ModalBtn variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
+            <ModalBtn variant="primary" onClick={handleSave} >
               {editing ? 'Guardar cambios' : 'Registrar pago'}
             </ModalBtn>
           </>

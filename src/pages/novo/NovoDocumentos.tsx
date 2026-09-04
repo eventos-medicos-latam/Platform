@@ -398,12 +398,12 @@ export function NovoDocumentos() {
 
       {/* ── Modal subir / editar recurso ──────────────────── */}
       <NovoModal
-        isOpen={modalOpen} onClose={() => setModalOpen(false)}
+        open={modalOpen} onClose={() => setModalOpen(false)}
         title={editing ? 'Editar recurso' : 'Subir recurso'}
         footer={
           <>
-            <ModalBtn variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
-            <ModalBtn variant="primary" onClick={handleSave} loading={saving}>
+            <ModalBtn variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
+            <ModalBtn variant="primary" onClick={handleSave} >
               {editing ? 'Guardar cambios' : 'Guardar recurso'}
             </ModalBtn>
           </>

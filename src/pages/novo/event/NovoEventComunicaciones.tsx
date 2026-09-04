@@ -477,13 +477,13 @@ export function NovoEventComunicaciones() {
 
       {/* ── Modal crear / editar ─────────────────────────────── */}
       <NovoModal
-        isOpen={modalOpen}
+        open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editing ? 'Editar trigger' : 'Nuevo trigger'}
         footer={
           <>
-            <ModalBtn variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
-            <ModalBtn variant="primary" onClick={handleSave} loading={saving}>
+            <ModalBtn variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
+            <ModalBtn variant="primary" onClick={handleSave} >
               {editing ? 'Guardar cambios' : 'Crear trigger'}
             </ModalBtn>
           </>
