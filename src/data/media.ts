@@ -43,8 +43,8 @@ export const media = {
   /** Logo La Eterna Primavera — versión para fondos claros. */
   logoEternaPrimaveraLight: "/Eterna_primavera_fondos claros.png",
 
-  /** Fondo para La Eterna Primavera (placeholder hasta imagen oficial). */
-  eternaPrimaveraHero: "/60338d4a-a991-4e02-b6cb-cb2fb0903c21.jpg",
+  /** Fondo para La Eterna Primavera — auditorio genérico hasta imagen oficial del evento. */
+  eternaPrimaveraHero: "/d8d0dcc7-a602-4d33-8984-942935dfe42c.jpg",
 
 } as const;
 
