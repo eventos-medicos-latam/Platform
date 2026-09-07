@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FileTextIcon, FolderIcon, HelpCircleIcon, LayoutDashboardIcon, LogOutIcon, PackageIcon, UserRoundIcon, UsersIcon, WalletIcon } from 'lucide-react';
+import { FileTextIcon, FolderIcon, HelpCircleIcon, LayoutDashboardIcon, LogOutIcon, MicVocalIcon, PackageIcon, UserRoundIcon, UsersIcon, WalletIcon } from 'lucide-react';
 import { Logo } from '../ui/Logo';
 import { getEdition } from '../../data/editions';
 import { usePlatform } from '../../contexts/PlatformContext';
@@ -28,6 +28,10 @@ const items = [{
   to: '/portal/pagos',
   label: 'Pagos y facturación',
   icon: WalletIcon
+}, {
+  to: '/portal/speakers',
+  label: 'Speakers',
+  icon: MicVocalIcon
 }, {
   to: '/portal/recursos',
   label: 'Recursos',

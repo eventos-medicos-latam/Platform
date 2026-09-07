@@ -11,6 +11,7 @@ import {
   MegaphoneIcon, ZapIcon,
 } from 'lucide-react';
 import type { NovoEvent, NovoEventPublicationStatus } from '../../../types/novo';
+import { MOCK_SPEAKERS } from '../../../components/speakers/speakerData';
 
 interface EventContext { event: NovoEvent }
 
@@ -141,6 +142,7 @@ export function NovoEventWeb() {
   });
   const [saving, setSaving]         = useState(false);
   const [saved,  setSaved]          = useState(false);
+  const [assignedSpeakers, setAssignedSpeakers] = useState<string[]>([]);
 
   const cfg = PUB_CONFIG[pubStatus];
 
@@ -314,11 +316,37 @@ export function NovoEventWeb() {
           </Link>
         )}
         {selected === 'speakers' && (
-          <Link to={`/novo/speakers`}
-            className="flex items-center justify-between w-full rounded-xl px-4 py-3 text-xs font-semibold transition-all"
-            style={{ background: 'rgba(0,201,160,.08)', color: ACCENT, border: `1px solid rgba(0,201,160,.2)` }}>
-            Ir a Speakers globales <ChevronRightIcon size={13} />
-          </Link>
+          <div className="space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Speakers asignados a este evento</p>
+            <div className="space-y-2">
+              {MOCK_SPEAKERS.map(sp => {
+                const assigned = assignedSpeakers.includes(sp.id);
+                const initials = sp.nombre.split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+                return (
+                  <div key={sp.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all"
+                    style={{ background: assigned ? 'rgba(0,201,160,.08)' : BG_DEEP, border: `1px solid ${assigned ? 'rgba(0,201,160,.3)' : BORDER}` }}>
+                    <div className="h-8 w-8 shrink-0 rounded-lg flex items-center justify-center text-[10px] font-bold text-white"
+                      style={{ background: `linear-gradient(135deg,#1a4a7a,#2d6fae)` }}>{initials}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold truncate" style={{ color: TEXT_HI }}>{sp.nombre}</p>
+                      <p className="text-[10px] truncate" style={{ color: TEXT_LO }}>{sp.especialidad}</p>
+                    </div>
+                    <button type="button"
+                      onClick={() => setAssignedSpeakers(prev => assigned ? prev.filter(id => id !== sp.id) : [...prev, sp.id])}
+                      className="shrink-0 rounded-lg px-2.5 py-1 text-[10px] font-bold transition-all"
+                      style={{ background: assigned ? 'rgba(0,201,160,.2)' : 'rgba(255,255,255,.06)', color: assigned ? ACCENT : TEXT_DIM, border: `1px solid ${assigned ? 'rgba(0,201,160,.4)' : BORDER}` }}>
+                      {assigned ? '✓ Asignado' : '+ Asignar'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <Link to={`/novo/speakers`}
+              className="flex items-center justify-between w-full rounded-xl px-4 py-3 text-xs font-semibold transition-all"
+              style={{ background: 'rgba(0,201,160,.06)', color: TEXT_LO, border: `1px solid ${BORDER}` }}>
+              Gestionar speakers globales <ChevronRightIcon size={13} />
+            </Link>
+          </div>
         )}
         {selected === 'patrocinadores' && (
           <Link to={`/novo/eventos/${event.id}/patrocinadores`}

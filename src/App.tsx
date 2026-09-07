@@ -47,6 +47,8 @@ import { Digital } from './pages/public/Digital';
 import { Store } from './pages/public/Store';
 import { Contact } from './pages/public/Contact';
 import { Speakers } from './pages/public/Speakers';
+import { SpeakerPage } from './pages/public/SpeakerPage';
+import { PortalSpeakers } from './pages/portal/PortalSpeakers';
 import { Legal } from './pages/public/Legal';
 import { EventHome } from './pages/event/EventHome';
 import { EventProgram } from './pages/event/EventProgram';
@@ -107,6 +109,7 @@ function AnimatedRoutes() {
           <Route path="/digital" element={<Digital />} />
           <Route path="/tienda" element={<Store />} />
           <Route path="/speakers" element={<Speakers />} />
+          <Route path="/speakers/:slug" element={<SpeakerPage />} />
           <Route path="/contacto" element={<Contact />} />
           <Route path="/legal" element={<Legal />} />
         </Route>
@@ -180,6 +183,7 @@ function AnimatedRoutes() {
             <Route path="documentos" element={<PortalDocuments />} />
             <Route path="pagos" element={<PortalPayments />} />
             <Route path="ayuda" element={<PortalHelp />} />
+            <Route path="speakers" element={<PortalSpeakers />} />
             <Route path="recursos" element={<PortalResources />} />
             <Route path="perfil" element={<PortalProfile />} />
           </Route>

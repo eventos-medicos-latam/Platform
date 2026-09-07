@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { BookOpenIcon, CalendarDaysIcon, HandshakeIcon, HomeIcon, MailIcon, MenuIcon, ShoppingBagIcon, SparklesIcon, UserRoundIcon, UsersIcon, VideoIcon, XIcon, BoxIcon } from "lucide-react";
+import { BookOpenIcon, CalendarDaysIcon, HandshakeIcon, HomeIcon, MailIcon, MenuIcon, MicVocalIcon, ShoppingBagIcon, SparklesIcon, UserRoundIcon, UsersIcon, VideoIcon, XIcon, BoxIcon } from "lucide-react";
 import { Logo } from "../ui/Logo";
 import { editions, featuredEditionId, getFamily } from "../../data/editions";
 import { DURATION, EASE_EMPHASIS } from "../../utils/motion";
@@ -46,6 +46,10 @@ const navItems: NavItem[] = [{
   to: '/nosotros',
   label: 'Nosotros',
   icon: UserRoundIcon
+}, {
+  to: '/speakers',
+  label: 'Speakers',
+  icon: MicVocalIcon
 }, {
   to: '/contacto',
   label: 'Contacto',

@@ -1,4 +1,6 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeftIcon, ChevronRightIcon, MapPinIcon, BuildingIcon } from 'lucide-react';
 import { SpeakerProfileModal } from './SpeakerProfileModal';
@@ -24,9 +26,9 @@ interface Props {
 }
 
 /* ── Card visuals ── */
-function SpeakerCard({ speaker, gradient, isFront, isAdjacent, onClick }: {
+function SpeakerCard({ speaker, gradient, isFront, isAdjacent, onClick, onViewProfile }: {
   speaker: SpeakerPublic; gradient: string;
-  isFront: boolean; isAdjacent: boolean; onClick: () => void;
+  isFront: boolean; isAdjacent: boolean; onClick: () => void; onViewProfile?: () => void;
 }) {
   const initials = speaker.nombre.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
   return (
@@ -70,7 +72,8 @@ function SpeakerCard({ speaker, gradient, isFront, isAdjacent, onClick }: {
           ))}
         </div>
         {isFront && (
-          <button type="button" onClick={onClick}
+          <button type="button"
+            onClick={e => { e.stopPropagation(); onViewProfile ? onViewProfile() : onClick(); }}
             className="mt-4 w-full rounded-xl py-2.5 text-xs font-bold transition-all active:scale-95"
             style={{ background: ACCENT, color: NAVY }}>
             Ver perfil completo
@@ -85,6 +88,8 @@ function SpeakerCard({ speaker, gradient, isFront, isAdjacent, onClick }: {
 export function SpeakerCarousel({ speakers, eventContext, title, subtitle }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [selected, setSelected]   = useState<SpeakerPublic | null>(null);
+  const navigate = useNavigate();
+  const goToProfile = useCallback((slug: string) => navigate(`/speakers/${slug}`), [navigate]);
   const N = speakers.length;
 
   const prev = useCallback(() => setActiveIdx(i => (i - 1 + N) % N), [N]);
@@ -152,6 +157,7 @@ export function SpeakerCarousel({ speakers, eventContext, title, subtitle }: Pro
                   isFront={offset === 0}
                   isAdjacent={Math.abs(offset) === 1}
                   onClick={() => offset === 0 ? setSelected(speaker) : (offset > 0 ? next() : prev())}
+                  onViewProfile={() => goToProfile(speaker.slug)}
                 />
               </motion.div>
             );
