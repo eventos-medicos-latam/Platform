@@ -3,7 +3,6 @@ import { Link, NavLink, Outlet, useLocation, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion';
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
 import { getEdition, getEditionBySlug, getFamily } from '../../data/editions';
-import { media } from '../../data/media';
 import { editionStatusMeta, StatusBadge } from '../ui/StatusBadge';
 import { SponsorBanner } from '../public/SponsorBanner';
 import { PublicFooter } from './PublicFooter';
@@ -86,9 +85,9 @@ export function EventLayout() {
       <div className="border-b border-line bg-white">
         <div className="mx-auto max-w-shell px-6 py-4">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            {/* Marca del producto: el evento pertenece a Hormobiota */}
-            {family?.slug === 'hormobiota' ? <Link to="/hormobiota" className="mr-1 shrink-0" aria-label="Hormobiota">
-                <img src={media.logoHormobiota} alt="HormoBiota 2.0" className="h-12 w-auto" draggable={false} />
+            {/* Logo de la familia del evento */}
+            {family?.logoLight ? <Link to={`/eventos?familia=${family.slug}`} className="mr-1 shrink-0" aria-label={family.name}>
+                <img src={family.logoLight} alt={family.name} className="h-12 w-auto" draggable={false} />
               </Link> : null}
             <Link to="/eventos" className="text-sm text-ink-muted hover:text-brand">
               Eventos

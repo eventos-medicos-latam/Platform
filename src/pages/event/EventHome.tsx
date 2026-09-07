@@ -13,7 +13,7 @@ import { SponsorBanner } from '../../components/public/SponsorBanner';
 import { DisplayTitle } from '../../components/ui/DisplayTitle';
 import { Pending } from '../../components/ui/Pending';
 import { cascadeChild, cascadeParent, EASE_EMPHASIS } from '../../utils/motion';
-import { getEdition } from '../../data/editions';
+import { getEdition, getFamily } from '../../data/editions';
 import { editionMedia, media } from '../../data/media';
 export function EventHome() {
   const {
@@ -23,6 +23,9 @@ export function EventHome() {
   }>();
   const isHistoric = edition.status === 'historico';
   const next = edition.nextEditionId ? getEdition(edition.nextEditionId) : undefined;
+  const family = getFamily(edition.familyId);
+  const familyLogoDark = family?.logoDark ?? media.logoHormobiotaDark;
+  const familyLogoAlt = family ? `${family.name} — ${family.tagline}` : edition.name;
   const reduce = useReducedMotion();
   const heroRef = useRef<HTMLElement>(null);
   const conceptRef = useRef<HTMLDivElement>(null);
@@ -64,7 +67,7 @@ export function EventHome() {
         opacity: heroFade
       }}>
           <motion.div className="min-w-0 flex-1" variants={cascadeParent()} initial="initial" animate="enter">
-            <motion.img variants={cascadeChild} src={media.logoHormobiotaDark} alt="HormoBiota 2.0 — donde se unen las hormonas con la microbiota" className="h-28 w-auto sm:h-40" draggable={false} />
+            <motion.img variants={cascadeChild} src={familyLogoDark} alt={familyLogoAlt} className="h-28 w-auto sm:h-40" draggable={false} />
 
             <motion.p variants={cascadeChild} className="mt-8 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-hb-violet">
               <span className="h-px w-9 bg-hb-violet" aria-hidden="true" />

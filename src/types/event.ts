@@ -79,6 +79,10 @@ export interface EventFamily {
   tagline: string;
   description: string;
   since: number;
+  /** Logo para usar sobre fondos oscuros (hero, poster). */
+  logoDark?: string;
+  /** Logo para usar sobre fondos claros (breadcrumb). */
+  logoLight?: string;
 }
 
 export interface Edition {

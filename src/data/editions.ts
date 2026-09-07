@@ -8,7 +8,9 @@ export const eventFamilies: EventFamily[] = [
   tagline: 'Microbiota, hormonas y longevidad',
   description:
   'Familia de congresos de Eventos Médicos LATAM dedicada a la relación entre microbiota, sistema endocrino y longevidad. Cada edición amplía el mapa de conexiones entre sistemas.',
-  since: 2026
+  since: 2026,
+  logoDark: '/Hombobiota2_logook_oscuros.png',
+  logoLight: '/Hombobiota2_logook.png',
 },
 {
   id: 'fam-eterna-primavera',
@@ -17,7 +19,9 @@ export const eventFamilies: EventFamily[] = [
   tagline: 'Salud hormonal femenina en todas sus etapas',
   description:
   'Congreso de Eventos Médicos LATAM dedicado a la salud hormonal de la mujer: menopausia, SOP, tiroides y bienestar hormonal abordados desde la evidencia y con un enfoque integral.',
-  since: 2023
+  since: 2023,
+  logoDark: '/Eterna_primavera_fondos oscuros.png',
+  logoLight: '/Eterna_primavera_fondos claros.png',
 }];
 
 
