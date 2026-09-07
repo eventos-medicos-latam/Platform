@@ -46,6 +46,7 @@ import { Content } from './pages/public/Content';
 import { Digital } from './pages/public/Digital';
 import { Store } from './pages/public/Store';
 import { Contact } from './pages/public/Contact';
+import { Speakers } from './pages/public/Speakers';
 import { Legal } from './pages/public/Legal';
 import { EventHome } from './pages/event/EventHome';
 import { EventProgram } from './pages/event/EventProgram';
@@ -83,6 +84,13 @@ import { PortalPayments } from './pages/portal/PortalPayments';
 import { PortalProfile } from './pages/portal/PortalProfile';
 import { PortalHelp } from './pages/portal/PortalHelp';
 import { PortalResources } from './pages/portal/PortalResources';
+import { SpeakerLayout } from './components/layout/SpeakerLayout';
+import { SpeakerHome } from './pages/speaker/SpeakerHome';
+import { SpeakerPerfil } from './pages/speaker/SpeakerPerfil';
+import { SpeakerExperiencia } from './pages/speaker/SpeakerExperiencia';
+import { SpeakerPonencias } from './pages/speaker/SpeakerPonencias';
+import { SpeakerVisibilidad } from './pages/speaker/SpeakerVisibilidad';
+import { SpeakerSolicitudes } from './pages/speaker/SpeakerSolicitudes';
 function AnimatedRoutes() {
   const location = useLocation();
   return <AnimatePresence mode="wait" initial={false}>
@@ -98,6 +106,7 @@ function AnimatedRoutes() {
           <Route path="/contenido" element={<Content />} />
           <Route path="/digital" element={<Digital />} />
           <Route path="/tienda" element={<Store />} />
+          <Route path="/speakers" element={<Speakers />} />
           <Route path="/contacto" element={<Contact />} />
           <Route path="/legal" element={<Legal />} />
         </Route>
@@ -149,6 +158,16 @@ function AnimatedRoutes() {
             <Route path="papelera" element={<Trash />} />
             <Route path="configuracion" element={<Settings />} />
           </Route>
+        </Route>
+
+        {/* Portal de speakers */}
+        <Route path="/speaker" element={<SpeakerLayout />}>
+          <Route index element={<SpeakerHome />} />
+          <Route path="perfil"      element={<SpeakerPerfil />} />
+          <Route path="experiencia" element={<SpeakerExperiencia />} />
+          <Route path="ponencias"   element={<SpeakerPonencias />} />
+          <Route path="visibilidad" element={<SpeakerVisibilidad />} />
+          <Route path="solicitudes" element={<SpeakerSolicitudes />} />
         </Route>
 
         {/* Portal de empresas */}
