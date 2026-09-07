@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { UtensilsCrossedIcon, ArrowLeftIcon, BellIcon } from 'lucide-react';
+import { ArrowLeftIcon, BellIcon } from 'lucide-react';
 import { PageTransition } from '../../components/motion/PageTransition';
 import { EASE_EMPHASIS } from '../../utils/motion';
 
@@ -10,14 +10,15 @@ export function HabitosAlPlato() {
     <PageTransition>
       <div className="min-h-screen bg-canvas flex flex-col items-center justify-center px-6 text-center">
 
-        {/* Icono animado */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+        {/* Logo animado */}
+        <motion.img
+          src="/habitos-al-plato-logo.png"
+          alt="Hábitos al Plato"
+          initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4, ease: EASE_EMPHASIS }}
-          className="mb-8 flex h-24 w-24 items-center justify-center rounded-3xl"
-          style={{ background: 'linear-gradient(135deg, #0a1f35, #1e3a5f)' }}>
-          <UtensilsCrossedIcon size={44} className="text-accent" strokeWidth={1.5} />
-        </motion.div>
+          className="mb-8 h-auto w-64 max-w-xs object-contain"
+          draggable={false}
+        />
 
         {/* Eyebrow */}
         <motion.p
