@@ -147,106 +147,124 @@ export function SpeakerPage() {
   return (
     <div className="min-h-screen bg-canvas">
 
-      {/* ── HERO con foto grande ── */}
-      <div className="relative overflow-hidden" style={{ minHeight: '72vh' }}>
-        {/* Foto de fondo a pantalla completa */}
-        {speaker.foto ? (
-          <img src={speaker.foto} alt={speaker.nombre}
-            className="absolute inset-0 h-full w-full object-cover object-top" />
-        ) : (
-          <div className="absolute inset-0" style={{ background: gradient }} />
-        )}
+      {/* ── HERO: banner split — info izquierda / foto derecha ── */}
+      <div className="relative overflow-hidden" style={{ background: NAVY, minHeight: '72vh' }}>
 
-        {/* Overlay gradiente: más oscuro abajo para la transición al contenido */}
-        <div className="absolute inset-0"
-          style={{ background: 'linear-gradient(to bottom, rgba(10,31,53,0.55) 0%, rgba(10,31,53,0.30) 30%, rgba(10,31,53,0.70) 65%, rgba(248,250,252,1) 100%)' }} />
+        {/* Patrón de puntos sutil en el fondo navy */}
+        <div className="absolute inset-0 opacity-[0.06]"
+          style={{ backgroundImage: 'radial-gradient(rgba(0,201,160,1) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
 
-        {/* Color de la especialidad sutil */}
-        <div className="absolute inset-0 opacity-30" style={{ background: gradient }} />
+        {/* Gradiente lateral que sale desde la foto hacia la izquierda */}
+        <div className="absolute inset-y-0 right-0 w-3/5 pointer-events-none"
+          style={{ background: 'linear-gradient(to left, transparent 40%, rgba(10,31,53,0.85) 80%, rgba(10,31,53,1) 100%)' }} />
 
-        {/* Contenido superpuesto */}
-        <div className="relative flex flex-col justify-between h-full" style={{ minHeight: '72vh' }}>
-          {/* Back link — top */}
-          <div className="pt-24 px-6 max-w-4xl mx-auto w-full">
-            <Link to="/speakers"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/80 hover:text-white transition-colors">
-              <ArrowLeftIcon size={14} /> Todos los speakers
-            </Link>
-          </div>
+        {/* Gradiente inferior — transición al contenido */}
+        <div className="absolute inset-x-0 bottom-0 h-32 pointer-events-none"
+          style={{ background: 'linear-gradient(to bottom, transparent 0%, rgba(248,250,252,1) 100%)' }} />
 
-          {/* Info del speaker — bottom del hero */}
+        <div className="relative mx-auto max-w-6xl px-6 flex items-stretch" style={{ minHeight: '72vh' }}>
+
+          {/* ── IZQUIERDA: info ── */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, ease: EASE_EMPHASIS, delay: 0.1 }}
-            className="px-6 pb-16 max-w-4xl mx-auto w-full">
+            initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.45, ease: EASE_EMPHASIS }}
+            className="flex flex-col justify-center py-28 pr-8 flex-1 max-w-xl z-10">
 
-            <p className="text-xs font-bold uppercase tracking-widest mb-3"
-              style={{ color: ACCENT, letterSpacing: '0.2em' }}>
+            <Link to="/speakers"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/55 hover:text-white transition-colors mb-8 w-fit">
+              <ArrowLeftIcon size={13} /> Todos los speakers
+            </Link>
+
+            <p className="text-[11px] font-bold uppercase tracking-[0.25em] mb-3"
+              style={{ color: ACCENT }}>
               {speaker.especialidad}
             </p>
+
             <h1 className="text-4xl font-bold text-white leading-tight lg:text-5xl"
-              style={{ fontFamily: "'Sora', sans-serif", textShadow: '0 2px 24px rgba(0,0,0,0.4)' }}>
+              style={{ fontFamily: "'Sora', sans-serif" }}>
               {speaker.nombre}
             </h1>
-            <div className="flex flex-wrap items-center gap-4 mt-3">
-              <div className="flex items-center gap-1.5 text-sm text-white/75">
+
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4">
+              <div className="flex items-center gap-1.5 text-sm text-white/65">
                 <BuildingIcon size={13} /> {speaker.institucion}
               </div>
-              <div className="flex items-center gap-1.5 text-sm text-white/75">
+              <div className="flex items-center gap-1.5 text-sm text-white/65">
                 <MapPinIcon size={13} /> {speaker.pais}
               </div>
               {speaker.eventos_participados.length > 0 && (
-                <div className="flex items-center gap-1.5 text-sm text-white/75">
+                <div className="flex items-center gap-1.5 text-sm" style={{ color: ACCENT }}>
                   <StarIcon size={13} /> {speaker.eventos_participados.length} evento{speaker.eventos_participados.length !== 1 ? 's' : ''} EML
                 </div>
               )}
             </div>
 
-            {/* Chips de habilidades */}
-            <div className="flex flex-wrap gap-2 mt-4">
+            {/* Chips habilidades */}
+            <div className="flex flex-wrap gap-2 mt-5">
               {speaker.habilidades.map(h => (
-                <span key={h}
-                  className="rounded-full px-3 py-1 text-xs font-semibold"
-                  style={{ background: 'rgba(0,201,160,0.2)', color: '#fff', border: '1px solid rgba(0,201,160,0.4)' }}>
+                <span key={h} className="rounded-full px-3 py-1 text-xs font-semibold"
+                  style={{ background: 'rgba(0,201,160,0.15)', color: '#fff', border: '1px solid rgba(0,201,160,0.35)' }}>
                   {h}
                 </span>
               ))}
             </div>
 
-            {/* Links redes sociales */}
+            {/* Links redes */}
             {Object.values(speaker.links).some(Boolean) && (
-              <div className="flex gap-2 mt-4">
+              <div className="flex flex-wrap gap-2 mt-5">
                 {speaker.links.linkedin && (
                   <a href={speaker.links.linkedin} target="_blank" rel="noreferrer"
-                    className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all"
-                    style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                    className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all hover:bg-white/20"
+                    style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}>
                     <LinkedinIcon size={12} /> LinkedIn
                   </a>
                 )}
                 {speaker.links.web && (
                   <a href={speaker.links.web} target="_blank" rel="noreferrer"
-                    className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all"
-                    style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                    className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all hover:bg-white/20"
+                    style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}>
                     <GlobeIcon size={12} /> Sitio web
                   </a>
                 )}
                 {speaker.links.instagram && (
                   <a href={speaker.links.instagram} target="_blank" rel="noreferrer"
-                    className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all"
-                    style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                    className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all hover:bg-white/20"
+                    style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}>
                     <InstagramIcon size={12} /> Instagram
                   </a>
                 )}
                 {speaker.links.youtube && (
                   <a href={speaker.links.youtube} target="_blank" rel="noreferrer"
-                    className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all"
-                    style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                    className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all hover:bg-white/20"
+                    style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}>
                     <YoutubeIcon size={12} /> YouTube
                   </a>
                 )}
               </div>
             )}
           </motion.div>
+
+          {/* ── DERECHA: foto protagonista ── */}
+          <motion.div
+            initial={{ opacity: 0, scale: 1.04 }} animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.55, ease: EASE_EMPHASIS }}
+            className="hidden lg:flex absolute inset-y-0 right-0 items-end"
+            style={{ width: '52%' }}>
+            {speaker.foto ? (
+              <img
+                src={speaker.foto}
+                alt={speaker.nombre}
+                className="h-full w-full object-cover object-top"
+                style={{ objectPosition: 'center top' }}
+              />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center text-6xl font-bold text-white/30"
+                style={{ background: gradient }}>
+                {initials}
+              </div>
+            )}
+          </motion.div>
+
         </div>
       </div>
 
