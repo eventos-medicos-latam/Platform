@@ -115,20 +115,13 @@ export function NovoSitio() {
               className="overflow-hidden rounded-2xl"
               style={{ background: '#0d1829', border: '1px solid #1e3450' }}
             >
-              {active === 'organizacion' ? (
-                <OrganizacionPanel />
-              ) : (
-                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl"
-                    style={{ background: '#182d47', border: '1px solid #1e3450' }}>
-                    {React.createElement(SECTIONS.find(s => s.id === active)!.icon, { size: 20, style: { color: '#2a4a6b' } })}
-                  </div>
-                  <p className="text-sm font-semibold" style={{ color: '#7A9CB8' }}>
-                    {SECTIONS.find(s => s.id === active)?.label}
-                  </p>
-                  <p className="text-xs" style={{ color: '#2a4a6b' }}>Editor en construcción</p>
-                </div>
-              )}
+              {active === 'organizacion' ? <OrganizacionPanel /> :
+               active === 'home'         ? <HomePanel /> :
+               active === 'paginas'      ? <PaginasPanel /> :
+               active === 'eventos'      ? <EventosPanel /> :
+               active === 'tienda'       ? <TiendaPanel /> :
+               active === 'banners'      ? <BannersPanel /> :
+               active === 'config'       ? <ConfigPanel /> : null}
             </motion.div>
           )}
         </div>
@@ -187,6 +180,216 @@ export function NovoSitio() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ── Shared helpers ────────────────────────────────────────── */
+const BG_DEEP = '#0d1829'; const BORDER = '#1e3450'; const TEXT_HI = '#E1EAF4'; const TEXT_LO = '#7A9CB8'; const TEXT_DIM = '#2a4a6b'; const RAISED = '#182d47';
+
+function FieldRow({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: TEXT_DIM }}>{label}</p>
+      <input className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none"
+        style={{ background: '#112035', border: `1px solid ${BORDER}`, color: TEXT_HI }}
+        placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+function PanelSaveBtn({ saving, onSave }: { saving: boolean; onSave: () => void }) {
+  return (
+    <div className="flex justify-end pt-2" style={{ borderTop: `1px solid ${BORDER}` }}>
+      <button type="button" onClick={onSave} disabled={saving}
+        className="rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-60 transition-all active:scale-95"
+        style={{ background: '#00C9A0', color: BG_DEEP }}>
+        {saving ? 'Guardando…' : 'Guardar cambios'}
+      </button>
+    </div>
+  );
+}
+
+/* ── Home panel ────────────────────────────────────────────── */
+function HomePanel() {
+  const [vals, setVals] = useState({ hero_title: 'El encuentro de la medicina en movimiento', hero_subtitle: 'Congrega a los mejores especialistas de Latinoamérica', cta_text: 'Ver próximos eventos', featured_event: 'La Eterna Primavera' });
+  const [saving, setSaving] = useState(false);
+  const save = () => { setSaving(true); setTimeout(() => setSaving(false), 700); };
+  const f = (k: keyof typeof vals) => (v: string) => setVals(p => ({ ...p, [k]: v }));
+  const EVENTS = ['La Eterna Primavera', 'Hormobiota VI', 'Webinar Vitamina D'];
+  return (
+    <div className="p-5 space-y-5">
+      <p className="text-xs font-bold" style={{ color: TEXT_HI }}>Hero principal</p>
+      <div className="space-y-3">
+        <FieldRow label="Título hero" value={vals.hero_title} onChange={f('hero_title')} />
+        <FieldRow label="Subtítulo" value={vals.hero_subtitle} onChange={f('hero_subtitle')} />
+        <FieldRow label="Texto del botón CTA" value={vals.cta_text} onChange={f('cta_text')} />
+      </div>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: TEXT_DIM }}>Evento protagonista</p>
+        <div className="flex gap-2 flex-wrap">
+          {EVENTS.map(e => (
+            <button key={e} type="button" onClick={() => setVals(p => ({ ...p, featured_event: e }))}
+              className="rounded-xl px-3.5 py-2 text-xs font-semibold transition-all"
+              style={{ background: vals.featured_event === e ? '#00C9A0' : RAISED, color: vals.featured_event === e ? BG_DEEP : TEXT_LO, border: `1px solid ${BORDER}` }}>
+              {e}
+            </button>
+          ))}
+        </div>
+      </div>
+      <PanelSaveBtn saving={saving} onSave={save} />
+    </div>
+  );
+}
+
+/* ── Páginas panel ─────────────────────────────────────────── */
+function PaginasPanel() {
+  const [pages, setPages] = useState([
+    { id: 'nosotros',  label: 'Nosotros',  visible: true,  slug: 'nosotros' },
+    { id: 'comunidad', label: 'Comunidad', visible: true,  slug: 'comunidad' },
+    { id: 'aliados',   label: 'Aliados',   visible: true,  slug: 'aliados' },
+    { id: 'contacto',  label: 'Contacto',  visible: true,  slug: 'contacto' },
+  ]);
+  const toggle = (id: string) => setPages(p => p.map(pg => pg.id === id ? { ...pg, visible: !pg.visible } : pg));
+  return (
+    <div className="p-5 space-y-3">
+      <p className="text-xs font-bold mb-3" style={{ color: TEXT_HI }}>Visibilidad de páginas</p>
+      {pages.map(pg => (
+        <div key={pg.id} className="flex items-center justify-between rounded-xl px-4 py-3"
+          style={{ background: '#112035', border: `1px solid ${BORDER}` }}>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: TEXT_HI }}>{pg.label}</p>
+            <p className="text-[10px]" style={{ color: TEXT_DIM }}>/{ pg.slug }</p>
+          </div>
+          <button type="button" onClick={() => toggle(pg.id)}
+            className="h-6 w-11 rounded-full transition-all relative"
+            style={{ background: pg.visible ? '#00C9A0' : BORDER }}>
+            <span className="absolute top-0.5 rounded-full h-5 w-5 transition-all"
+              style={{ background: pg.visible ? '#0d1829' : TEXT_DIM, left: pg.visible ? '50%' : '2px' }} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── Eventos panel ─────────────────────────────────────────── */
+function EventosPanel() {
+  const [items, setItems] = useState([
+    { id:'ep', name: 'La Eterna Primavera', visible: true, destacado: true },
+    { id:'hb', name: 'Hormobiota VI',       visible: true, destacado: false },
+    { id:'vd', name: 'Webinar Vitamina D',  visible: true, destacado: false },
+    { id:'ci', name: 'Congreso Invierno 24',visible: false, destacado: false },
+  ]);
+  const toggle = (id: string, key: 'visible' | 'destacado') =>
+    setItems(p => p.map(e => e.id === id ? { ...e, [key]: !e[key] } : e));
+  return (
+    <div className="p-5 space-y-3">
+      <p className="text-xs font-bold mb-3" style={{ color: TEXT_HI }}>Eventos en el sitio</p>
+      <div className="grid text-[9px] font-bold uppercase tracking-widest px-2 pb-1"
+        style={{ gridTemplateColumns: '1fr auto auto', color: TEXT_DIM, gap: '0 24px' }}>
+        <span>Evento</span><span>Visible</span><span>Destacado</span>
+      </div>
+      {items.map(ev => (
+        <div key={ev.id} className="flex items-center gap-4 rounded-xl px-4 py-3"
+          style={{ background: '#112035', border: `1px solid ${BORDER}` }}>
+          <p className="flex-1 text-sm font-semibold" style={{ color: ev.visible ? TEXT_HI : TEXT_DIM }}>{ev.name}</p>
+          {(['visible', 'destacado'] as const).map(key => (
+            <button key={key} type="button" onClick={() => toggle(ev.id, key)}
+              className="h-6 w-11 rounded-full transition-all relative shrink-0"
+              style={{ background: ev[key] ? '#00C9A0' : BORDER }}>
+              <span className="absolute top-0.5 rounded-full h-5 w-5 transition-all"
+                style={{ background: ev[key] ? '#0d1829' : TEXT_DIM, left: ev[key] ? '50%' : '2px' }} />
+            </button>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── Tienda panel ──────────────────────────────────────────── */
+function TiendaPanel() {
+  const [items, setItems] = useState([
+    { id:'p1', name: 'Entrada General — La Eterna Primavera', price: '$220.000',  visible: true  },
+    { id:'p2', name: 'VIP Hormobiota VI',                     price: '$450.000',  visible: true  },
+    { id:'p3', name: 'Paquete Grabaciones 2025',              price: '$85.000',   visible: true  },
+    { id:'p4', name: 'Membresía EML Pro',                     price: '$1.200.000',visible: false },
+  ]);
+  const toggle = (id: string) => setItems(p => p.map(it => it.id === id ? { ...it, visible: !it.visible } : it));
+  return (
+    <div className="p-5 space-y-3">
+      <p className="text-xs font-bold mb-1" style={{ color: TEXT_HI }}>Productos visibles en tienda</p>
+      <p className="text-xs mb-3" style={{ color: TEXT_DIM }}>Plataforma de pago: Hotmart · ePayco</p>
+      {items.map(it => (
+        <div key={it.id} className="flex items-center gap-4 rounded-xl px-4 py-3"
+          style={{ background: '#112035', border: `1px solid ${BORDER}` }}>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate" style={{ color: it.visible ? TEXT_HI : TEXT_DIM }}>{it.name}</p>
+            <p className="text-xs tabular-nums" style={{ color: '#00C9A0' }}>{it.price}</p>
+          </div>
+          <button type="button" onClick={() => toggle(it.id)}
+            className="h-6 w-11 rounded-full transition-all relative shrink-0"
+            style={{ background: it.visible ? '#00C9A0' : BORDER }}>
+            <span className="absolute top-0.5 rounded-full h-5 w-5 transition-all"
+              style={{ background: it.visible ? '#0d1829' : TEXT_DIM, left: it.visible ? '50%' : '2px' }} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── Banners panel ─────────────────────────────────────────── */
+function BannersPanel() {
+  const TIERS = [
+    { label: 'Platinum', color: '#E5C97B', slots: 2, filled: 2 },
+    { label: 'Gold',     color: '#C9A84C', slots: 4, filled: 3 },
+    { label: 'Silver',   color: '#A0A8B8', slots: 6, filled: 4 },
+    { label: 'Bronze',   color: '#B87333', slots: 8, filled: 2 },
+  ];
+  return (
+    <div className="p-5 space-y-4">
+      <p className="text-xs font-bold" style={{ color: TEXT_HI }}>Slots de patrocinadores</p>
+      {TIERS.map(t => (
+        <div key={t.label} className="rounded-xl p-4" style={{ background: '#112035', border: `1px solid ${BORDER}` }}>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-bold" style={{ color: t.color }}>{t.label}</p>
+            <span className="text-xs tabular-nums" style={{ color: TEXT_LO }}>{t.filled}/{t.slots} slots</span>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {Array.from({ length: t.slots }).map((_, i) => (
+              <div key={i} className="h-10 w-16 rounded-lg flex items-center justify-center text-[9px] font-bold"
+                style={{ background: i < t.filled ? `${t.color}22` : RAISED, border: `1px solid ${i < t.filled ? t.color + '44' : BORDER}`, color: i < t.filled ? t.color : TEXT_DIM }}>
+                {i < t.filled ? 'Logo' : 'Libre'}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── Config panel ──────────────────────────────────────────── */
+function ConfigPanel() {
+  const [vals, setVals] = useState({ domain: 'eventosmedicoslatam.com', seo_title: 'Eventos Médicos Latam — Congresología de excelencia', seo_description: 'Plataforma de eventos médicos de alta calidad para especialistas de toda Latinoamérica.', nav_links: 'Inicio, Eventos, Comunidad, Aliados, Tienda, Contacto' });
+  const [saving, setSaving] = useState(false);
+  const save = () => { setSaving(true); setTimeout(() => setSaving(false), 700); };
+  const f = (k: keyof typeof vals) => (v: string) => setVals(p => ({ ...p, [k]: v }));
+  return (
+    <div className="p-5 space-y-4">
+      <p className="text-xs font-bold" style={{ color: TEXT_HI }}>Configuración web</p>
+      <FieldRow label="Dominio" value={vals.domain} onChange={f('domain')} placeholder="ejemplo.com" />
+      <FieldRow label="Título SEO" value={vals.seo_title} onChange={f('seo_title')} />
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: TEXT_DIM }}>Meta descripción</p>
+        <textarea className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none resize-none"
+          style={{ background: '#112035', border: `1px solid ${BORDER}`, color: TEXT_HI, minHeight: 72 }}
+          value={vals.seo_description} onChange={e => setVals(p => ({ ...p, seo_description: e.target.value }))} />
+      </div>
+      <FieldRow label="Ítem del menú (separados por coma)" value={vals.nav_links} onChange={f('nav_links')} />
+      <PanelSaveBtn saving={saving} onSave={save} />
     </div>
   );
 }

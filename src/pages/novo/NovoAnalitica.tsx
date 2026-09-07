@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUpIcon, UsersIcon, TicketIcon, StarIcon } from 'lucide-react';
+import { TrendingUpIcon, UsersIcon, TicketIcon, StarIcon, DollarSignIcon } from 'lucide-react';
 import { KPICard } from '../../components/novo/ui/KPICard';
 import { MOCK_EVENTS } from '../../lib/novo/mock';
 import { formatCurrency } from '../../lib/novo/events';
@@ -26,6 +26,44 @@ const AUDIENCE_DATA = [
   { label: 'Enfermería',            pct: 8,  color: '#F59E0B'  },
   { label: 'Público general',       pct: 6,  color: '#3A5470'  },
 ];
+
+/* ── Tendencia mensual ─────────────────────────────────────── */
+const MONTHLY = [
+  { mes: 'Ene', registros: 12, ingresos: 2100000 },
+  { mes: 'Feb', registros: 28, ingresos: 4800000 },
+  { mes: 'Mar', registros: 45, ingresos: 7900000 },
+  { mes: 'Abr', registros: 62, ingresos: 10500000 },
+  { mes: 'May', registros: 38, ingresos: 6400000 },
+  { mes: 'Jun', registros: 91, ingresos: 16200000 },
+  { mes: 'Jul', registros: 74, ingresos: 12800000 },
+  { mes: 'Ago', registros: 118, ingresos: 20900000 },
+  { mes: 'Sep', registros: 203, ingresos: 35700000 },
+];
+const MAX_ING = Math.max(...MONTHLY.map(m => m.ingresos));
+const MAX_REG2 = Math.max(...MONTHLY.map(m => m.registros));
+
+function LineChart({ data, maxVal, color }: { data: number[]; maxVal: number; color: string }) {
+  const W = 500; const H = 100; const PAD = 10;
+  const xs = data.map((_, i) => PAD + (i / (data.length - 1)) * (W - PAD * 2));
+  const ys = data.map(v => H - PAD - ((v / maxVal) * (H - PAD * 2)));
+  const pathD = xs.map((x, i) => `${i === 0 ? 'M' : 'L'} ${x} ${ys[i]}`).join(' ');
+  const areaD = `${pathD} L ${xs[xs.length - 1]} ${H} L ${xs[0]} ${H} Z`;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
+      <defs>
+        <linearGradient id={`lg-${color.replace('#', '')}`} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+      <path d={areaD} fill={`url(#lg-${color.replace('#', '')})`} />
+      <path d={pathD} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+      {xs.map((x, i) => (
+        <circle key={i} cx={x} cy={ys[i]} r="3.5" fill={color} stroke="#112035" strokeWidth="1.5" />
+      ))}
+    </svg>
+  );
+}
 
 type Period = '2025' | 'Hormobiota VI' | 'La Eterna Primavera';
 const PERIODS: Period[] = ['2025', 'Hormobiota VI', 'La Eterna Primavera'];
@@ -161,6 +199,30 @@ export function NovoAnalitica() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tendencia mensual */}
+      <div className="mt-5 grid grid-cols-2 gap-5">
+        <div className="rounded-2xl p-5" style={{ background: '#112035', border: '1px solid #1e3450' }}>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm font-bold" style={{ color: '#E1EAF4' }}>Registros · 2025</p>
+            <span className="text-xs font-bold" style={{ color: '#00C9A0' }}>+72% vs año anterior</span>
+          </div>
+          <LineChart data={MONTHLY.map(m => m.registros)} maxVal={MAX_REG2} color="#00C9A0" />
+          <div className="mt-2 flex justify-between">
+            {MONTHLY.map(m => <span key={m.mes} className="text-[9px]" style={{ color: '#3A5470' }}>{m.mes}</span>)}
+          </div>
+        </div>
+        <div className="rounded-2xl p-5" style={{ background: '#112035', border: '1px solid #1e3450' }}>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm font-bold" style={{ color: '#E1EAF4' }}>Ingresos · 2025</p>
+            <span className="text-xs font-bold" style={{ color: '#5B8AF0' }}>+89% vs año anterior</span>
+          </div>
+          <LineChart data={MONTHLY.map(m => m.ingresos)} maxVal={MAX_ING} color="#5B8AF0" />
+          <div className="mt-2 flex justify-between">
+            {MONTHLY.map(m => <span key={m.mes} className="text-[9px]" style={{ color: '#3A5470' }}>{m.mes}</span>)}
           </div>
         </div>
       </div>
