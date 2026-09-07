@@ -287,35 +287,68 @@ export function Speakers() {
       </SectionTransition>
 
       {/* ── CTA final ── */}
-      <SectionTransition variant="sink" className="py-20"
-        style={{ background: 'linear-gradient(135deg, #061121 0%, #0a1f35 100%)' } as React.CSSProperties}>
-        <div className="mx-auto max-w-shell px-6 text-center">
-          <motion.h2
-            initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }} transition={{ duration: 0.3, ease: EASE_EMPHASIS }}
-            className="text-3xl font-bold text-white lg:text-4xl"
-            style={{ fontFamily: "'Sora', sans-serif" }}>
-            ¿Eres especialista médico?
-          </motion.h2>
-          <motion.p
-            initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }} transition={{ duration: 0.28, ease: EASE_EMPHASIS, delay: 0.1 }}
-            className="mt-4 text-base text-white/60 max-w-lg mx-auto">
-            Crea tu perfil en la plataforma, define tu disponibilidad y conecta con los organizadores de los mejores eventos médicos de Latinoamérica.
-          </motion.p>
-          <motion.div
-            initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }} transition={{ duration: 0.28, ease: EASE_EMPHASIS, delay: 0.18 }}
-            className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link to="/speaker/registro"
-              className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-brand-deep shadow-elev2 transition-transform duration-200 ease-emphasis hover:-translate-y-0.5">
-              <MicVocalIcon size={15} /> Crear mi perfil de speaker
-            </Link>
-            <Link to="/login"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-6 py-3 text-sm font-semibold text-white transition-all duration-200 ease-emphasis hover:bg-white/8">
-              Ya tengo cuenta → Acceder
-            </Link>
-          </motion.div>
+      <SectionTransition variant="sink">
+        {/* El fondo va aquí dentro, no en SectionTransition, para que el CSS se aplique */}
+        <div className="relative overflow-hidden py-24">
+          {/* Foto de fondo */}
+          <img
+            src={media.networking}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          {/* Overlay oscuro + gradiente de color de marca */}
+          <div className="absolute inset-0"
+            style={{ background: 'linear-gradient(135deg, rgba(6,17,33,0.92) 0%, rgba(10,31,53,0.88) 50%, rgba(0,80,60,0.80) 100%)' }}
+          />
+          {/* Patrón de puntos sutil */}
+          <div className="absolute inset-0 opacity-20"
+            style={{ backgroundImage: 'radial-gradient(rgba(0,201,160,0.6) 1px, transparent 1px)', backgroundSize: '28px 28px' }}
+          />
+
+          {/* Contenido */}
+          <div className="relative mx-auto max-w-shell px-6 text-center">
+            <motion.p
+              initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }} transition={{ duration: 0.26, ease: EASE_EMPHASIS }}
+              className="flex items-center justify-center gap-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/50 mb-5">
+              <span className="h-px w-9 bg-accent" aria-hidden="true" />
+              Portal del Speaker
+              <span className="h-px w-9 bg-accent" aria-hidden="true" />
+            </motion.p>
+
+            <motion.h2
+              initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }} transition={{ duration: 0.3, ease: EASE_EMPHASIS, delay: 0.06 }}
+              className="text-3xl font-bold text-white lg:text-4xl"
+              style={{ fontFamily: "'Sora', sans-serif", textShadow: '0 2px 20px rgba(0,0,0,0.5)' }}>
+              ¿Eres especialista médico?
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }} transition={{ duration: 0.28, ease: EASE_EMPHASIS, delay: 0.12 }}
+              className="mt-4 text-base max-w-lg mx-auto leading-relaxed"
+              style={{ color: 'rgba(255,255,255,0.72)' }}>
+              Crea tu perfil en la plataforma, define tu disponibilidad y conecta con los organizadores de los mejores eventos médicos de Latinoamérica.
+            </motion.p>
+            <motion.div
+              initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }} transition={{ duration: 0.28, ease: EASE_EMPHASIS, delay: 0.2 }}
+              className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <Link to="/speaker/registro"
+                className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-brand-deep shadow-elev2 transition-transform duration-200 ease-emphasis hover:-translate-y-0.5"
+                style={{ background: '#00C9A0' }}>
+                <MicVocalIcon size={15} /> Crear mi perfil de speaker
+              </Link>
+              <Link to="/login"
+                className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold transition-all duration-200 ease-emphasis"
+                style={{ border: '1px solid rgba(255,255,255,0.25)', color: '#fff', background: 'rgba(255,255,255,0.08)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.14)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}>
+                Ya tengo cuenta → Acceder
+              </Link>
+            </motion.div>
+          </div>
         </div>
       </SectionTransition>
     </PageTransition>
