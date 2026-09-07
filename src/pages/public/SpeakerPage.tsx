@@ -128,36 +128,39 @@ export function SpeakerPage() {
 
   return (
     <div className="min-h-screen" style={{ background: '#f8fafc' }}>
-      {/* Hero */}
-      <div className="relative h-52" style={{ background: gradient }}>
-        <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.3)' }} />
-        <div className="relative max-w-4xl mx-auto px-6 h-full flex items-end pb-4">
-          <Link to="/speakers" className="flex items-center gap-1.5 text-xs font-semibold text-white/80 hover:text-white mb-2 absolute top-5">
+      {/* Hero — pt-20 para dejar espacio al header fijo del PublicLayout */}
+      <div className="relative pt-20 pb-20" style={{ background: gradient }}>
+        <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.32)' }} />
+        <div className="relative max-w-4xl mx-auto px-6">
+          <Link to="/speakers" className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/80 hover:text-white">
             <ArrowLeftIcon size={14} /> Todos los speakers
           </Link>
+          <h1 className="mt-4 text-3xl font-bold text-white leading-tight" style={{ fontFamily: "'Sora', sans-serif" }}>
+            {speaker.nombre}
+          </h1>
+          <p className="mt-1 font-semibold" style={{ color: ACCENT }}>{speaker.especialidad}</p>
+          <div className="flex flex-wrap gap-4 mt-2">
+            <div className="flex items-center gap-1.5 text-sm text-white/70">
+              <BuildingIcon size={13} /> {speaker.institucion}
+            </div>
+            <div className="flex items-center gap-1.5 text-sm text-white/70">
+              <MapPinIcon size={13} /> {speaker.pais}
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 -mt-16 pb-20">
-        {/* Avatar + info principal */}
+      <div className="max-w-4xl mx-auto px-6 -mt-10 pb-20">
+        {/* Avatar + habilidades */}
         <div className="rounded-3xl p-6 mb-6" style={{ background: '#fff', boxShadow: '0 8px 40px rgba(0,0,0,0.08)' }}>
           <div className="flex flex-col sm:flex-row gap-6 items-start">
-            <div className="h-28 w-28 shrink-0 rounded-2xl flex items-center justify-center text-white text-3xl font-bold"
-              style={{ background: gradient }}>
-              {speaker.foto ? <img src={speaker.foto} alt={speaker.nombre} className="h-full w-full object-cover rounded-2xl" /> : initials}
+            <div className="h-28 w-28 shrink-0 rounded-2xl overflow-hidden flex items-center justify-center text-white text-3xl font-bold"
+              style={{ background: gradient, flexShrink: 0 }}>
+              {speaker.foto ? <img src={speaker.foto} alt={speaker.nombre} className="h-full w-full object-cover" /> : initials}
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-bold leading-tight" style={{ color: NAVY, fontFamily: "'Sora', sans-serif" }}>{speaker.nombre}</h1>
-              <p className="font-semibold mt-1" style={{ color: ACCENT }}>{speaker.especialidad}</p>
-              <div className="flex flex-wrap gap-3 mt-2">
-                <div className="flex items-center gap-1 text-sm" style={{ color: '#64748b' }}>
-                  <BuildingIcon size={13} /> {speaker.institucion}
-                </div>
-                <div className="flex items-center gap-1 text-sm" style={{ color: '#64748b' }}>
-                  <MapPinIcon size={13} /> {speaker.pais}
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-3">
+              <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#94a3b8' }}>Especialidades y temas</p>
+              <div className="flex flex-wrap gap-2">
                 {speaker.habilidades.map(h => (
                   <span key={h} className="rounded-full px-2.5 py-1 text-xs font-semibold"
                     style={{ background: 'rgba(0,201,160,0.1)', color: ACCENT }}>{h}</span>
