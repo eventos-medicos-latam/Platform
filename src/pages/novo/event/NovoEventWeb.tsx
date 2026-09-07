@@ -8,7 +8,7 @@ import {
   PlusIcon, TrashIcon, SaveIcon, ArrowRightIcon,
   ImageIcon, FileTextIcon, MapPinIcon, HelpCircleIcon,
   UsersIcon, CalendarDaysIcon, BuildingIcon, TicketIcon,
-  MegaphoneIcon, ZapIcon, PhotoIcon,
+  MegaphoneIcon, ZapIcon,
 } from 'lucide-react';
 import type { NovoEvent, NovoEventPublicationStatus } from '../../../types/novo';
 
@@ -62,7 +62,7 @@ const ALL_SECTIONS: WebSection[] = [
   { id: 'stands',       label: 'Stands / Exposición',   description: 'Mapa del área de exposición',                   icon: BuildingIcon,    enabled: false, status: 'empty' },
   { id: 'ubicacion',    label: 'Ubicación y mapa',       description: 'Dirección, cómo llegar, transporte',           icon: MapPinIcon,      enabled: true,  status: 'ok'   },
   { id: 'faq',          label: 'Preguntas frecuentes',   description: 'Preguntas y respuestas para asistentes',       icon: HelpCircleIcon,  enabled: false, status: 'empty', note: 'Sin preguntas configuradas' },
-  { id: 'galeria',      label: 'Galería',                description: 'Fotos del evento (previa o ediciones pasadas)', icon: PhotoIcon,       enabled: false, status: 'empty' },
+  { id: 'galeria',      label: 'Galería',                description: 'Fotos del evento (previa o ediciones pasadas)', icon: ImageIcon,       enabled: false, status: 'empty' },
   { id: 'cta',          label: 'CTA final / Cierre',     description: 'Llamado final a la acción antes del footer',   icon: MegaphoneIcon,   enabled: true,  status: 'ok'   },
   { id: 'certificacion',label: 'Certificación',          description: 'Información sobre el certificado de asistencia',icon: CheckCircleIcon, enabled: false, status: 'empty' },
   { id: 'resultados',   label: 'Resultados / Memorias',  description: 'Resumen y materiales post-evento',             icon: FileTextIcon,    enabled: false, status: 'empty' },
