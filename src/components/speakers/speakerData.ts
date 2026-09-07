@@ -18,7 +18,7 @@ export const MOCK_SPEAKERS: SpeakerPublic[] = [
   {
     id: 's1', slug: 'dra-carolina-mejia',
     nombre: 'Dra. Carolina Mejía',
-    foto: 'https://api.dicebear.com/9.x/notionists/svg?seed=carolina-mejia&backgroundColor=b6e3f4&scale=90',
+    foto: 'https://randomuser.me/api/portraits/women/44.jpg',
     especialidad: 'Endocrinología', institucion: 'Hospital Universitario San Ignacio', pais: 'Colombia',
     bio: 'Endocrinóloga con más de 15 años de experiencia clínica y docente en el manejo de diabetes mellitus, enfermedades tiroideas y obesidad. Investigadora principal en tres ensayos clínicos multicéntricos sobre terapias GLP-1. Docente de posgrado en la Pontificia Universidad Javeriana.',
     habilidades: ['Diabetes tipo 2', 'Tiroides', 'Obesidad', 'GLP-1', 'Investigación clínica', 'Educación médica'],
@@ -38,7 +38,7 @@ export const MOCK_SPEAKERS: SpeakerPublic[] = [
   {
     id: 's2', slug: 'dr-andres-torres',
     nombre: 'Dr. Andrés Torres',
-    foto: 'https://api.dicebear.com/9.x/notionists/svg?seed=andres-torres&backgroundColor=c0aede&scale=90',
+    foto: 'https://randomuser.me/api/portraits/men/32.jpg',
     especialidad: 'Cardiología Metabólica', institucion: 'Fundación Valle del Lili', pais: 'Colombia',
     bio: 'Cardiólogo especialista en el manejo de la enfermedad cardiovascular en pacientes con síndrome metabólico. Pionero en Colombia en la implementación de protocolos de rehabilitación cardíaca para pacientes diabéticos.',
     habilidades: ['Síndrome metabólico', 'Rehabilitación cardíaca', 'Riesgo cardiovascular', 'Medicina basada en evidencia'],
@@ -55,7 +55,7 @@ export const MOCK_SPEAKERS: SpeakerPublic[] = [
   {
     id: 's3', slug: 'dra-lucia-vargas',
     nombre: 'Dra. Lucía Vargas',
-    foto: 'https://api.dicebear.com/9.x/notionists/svg?seed=lucia-vargas&backgroundColor=d1d4f9&scale=90',
+    foto: 'https://randomuser.me/api/portraits/women/68.jpg',
     especialidad: 'Nutrición Clínica', institucion: 'Universidad de Antioquia', pais: 'Colombia',
     bio: 'Nutricionista y dietista especializada en nutrición clínica y terapia médica nutricional en enfermedades crónicas. Autora de más de 20 publicaciones científicas indexadas. Consultora de la OPS en Colombia para programas de alimentación saludable.',
     habilidades: ['Nutrición clínica', 'Dieta mediterránea', 'Microbiota intestinal', 'Divulgación científica'],
@@ -72,7 +72,7 @@ export const MOCK_SPEAKERS: SpeakerPublic[] = [
   {
     id: 's4', slug: 'dr-miguel-palacios',
     nombre: 'Dr. Miguel Palacios',
-    foto: 'https://api.dicebear.com/9.x/notionists/svg?seed=miguel-palacios&backgroundColor=fecdd3&scale=90',
+    foto: 'https://randomuser.me/api/portraits/men/55.jpg',
     especialidad: 'Medicina Interna', institucion: 'Clínica Las Américas', pais: 'Colombia',
     bio: 'Internista con énfasis en enfermedades autoinmunes y reumatología. Referente nacional en el manejo del lupus eritematoso sistémico y artritis reumatoide.',
     habilidades: ['Autoinmunidad', 'Reumatología', 'Lupus', 'Artritis reumatoide', 'Liderazgo médico'],
@@ -87,7 +87,7 @@ export const MOCK_SPEAKERS: SpeakerPublic[] = [
   {
     id: 's5', slug: 'dra-isabel-moreno',
     nombre: 'Dra. Isabel Moreno',
-    foto: 'https://api.dicebear.com/9.x/notionists/svg?seed=isabel-moreno&backgroundColor=bbf7d0&scale=90',
+    foto: 'https://randomuser.me/api/portraits/women/21.jpg',
     especialidad: 'Ginecología Endocrina', institucion: 'Hospital Pablo Tobón Uribe', pais: 'Colombia',
     bio: 'Ginecóloga especialista en salud hormonal femenina, menopausia y síndrome de ovario poliquístico. Pionera en Colombia en clínicas integrativas de salud femenina.',
     habilidades: ['Menopausia', 'SOP', 'Salud hormonal femenina', 'Telemedicina', 'Educación en salud'],
@@ -103,7 +103,7 @@ export const MOCK_SPEAKERS: SpeakerPublic[] = [
   {
     id: 's6', slug: 'dr-roberto-silva',
     nombre: 'Dr. Roberto Silva',
-    foto: 'https://api.dicebear.com/9.x/notionists/svg?seed=roberto-silva&backgroundColor=fed7aa&scale=90',
+    foto: 'https://randomuser.me/api/portraits/men/78.jpg',
     especialidad: 'Neurología', institucion: 'Instituto Neurológico de Colombia', pais: 'México',
     bio: 'Neurólogo con subespecialidad en neurología del movimiento y enfermedad de Parkinson. Investigador del CONICET con publicaciones en Nature Neurology y JAMA.',
     habilidades: ['Parkinson', 'Neurología del movimiento', 'Investigación traslacional', 'Divulgación científica'],

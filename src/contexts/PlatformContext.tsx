@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import type { AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
 import { featuredEditionId } from '../data/editions';
-export type SessionRole = 'admin' | 'empresa';
+export type SessionRole = 'admin' | 'empresa' | 'speaker';
 export interface Session {
   role: SessionRole;
   name: string;

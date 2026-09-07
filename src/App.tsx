@@ -88,6 +88,7 @@ import { PortalHelp } from './pages/portal/PortalHelp';
 import { PortalResources } from './pages/portal/PortalResources';
 import { SpeakerLayout } from './components/layout/SpeakerLayout';
 import { SpeakerHome } from './pages/speaker/SpeakerHome';
+import { SpeakerRegister } from './pages/speaker/SpeakerRegister';
 import { SpeakerPerfil } from './pages/speaker/SpeakerPerfil';
 import { SpeakerExperiencia } from './pages/speaker/SpeakerExperiencia';
 import { SpeakerPonencias } from './pages/speaker/SpeakerPonencias';
@@ -162,6 +163,9 @@ function AnimatedRoutes() {
             <Route path="configuracion" element={<Settings />} />
           </Route>
         </Route>
+
+        {/* Registro de speakers — fuera del layout autenticado */}
+        <Route path="/speaker/registro" element={<SpeakerRegister />} />
 
         {/* Portal de speakers */}
         <Route path="/speaker" element={<SpeakerLayout />}>

@@ -307,7 +307,7 @@ export function Speakers() {
             initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }} transition={{ duration: 0.28, ease: EASE_EMPHASIS, delay: 0.18 }}
             className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link to="/speaker"
+            <Link to="/speaker/registro"
               className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-brand-deep shadow-elev2 transition-transform duration-200 ease-emphasis hover:-translate-y-0.5">
               <MicVocalIcon size={15} /> Crear mi perfil de speaker
             </Link>

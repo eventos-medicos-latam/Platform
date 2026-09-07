@@ -33,7 +33,8 @@ export function Login() {
       .eq('id', data.user.id)
       .single() : { data: null };
     setSubmitting(false);
-    navigate(profile?.role === 'admin' ? '/admin' : '/portal');
+    const role = profile?.role;
+    navigate(role === 'admin' ? '/admin' : role === 'speaker' ? '/speaker' : '/portal');
   };
   return <div className="grid min-h-screen w-full lg:grid-cols-2">
       <div className="relative hidden overflow-hidden bg-brand-deep lg:block">
@@ -68,7 +69,7 @@ export function Login() {
           </div>
           <h1 className="mt-6 text-3xl font-bold tracking-tight text-brand lg:mt-0">Iniciar sesión</h1>
           <p className="mt-2 text-sm text-ink-muted">
-            El acceso es único: tus permisos definen lo que ves al entrar.
+            El acceso es único para administradores, empresas y speakers.
           </p>
 
           <form onSubmit={submit} className="mt-8">
@@ -90,9 +91,15 @@ export function Login() {
             </button>
           </form>
 
-          <Link to="/" className="mt-6 inline-block text-sm font-medium text-brand-support">
-            Volver al sitio público
-          </Link>
+          <div className="mt-6 flex flex-col gap-2">
+            <p className="text-sm text-ink-muted">
+              ¿Eres speaker y no tienes cuenta?{' '}
+              <Link to="/speaker/registro" className="font-semibold text-accent">Crear perfil de speaker</Link>
+            </p>
+            <Link to="/" className="text-sm font-medium text-brand-support">
+              Volver al sitio público
+            </Link>
+          </div>
         </motion.div>
       </div>
     </div>;

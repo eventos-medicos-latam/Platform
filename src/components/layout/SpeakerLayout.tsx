@@ -5,6 +5,7 @@ import {
   LayoutDashboardIcon, UserRoundIcon, BriefcaseIcon,
   PresentationIcon, EyeIcon, InboxIcon, LogOutIcon, MicIcon,
 } from 'lucide-react';
+import { Navigate } from 'react-router-dom';
 import { Logo } from '../ui/Logo';
 import { usePlatform } from '../../contexts/PlatformContext';
 
@@ -21,7 +22,13 @@ const BG   = '#0a1f35';
 const ACCENT = '#00C9A0';
 
 export function SpeakerLayout() {
-  const { session, signOut } = usePlatform();
+  const { session, sessionLoading, signOut } = usePlatform();
+
+  // Guard: solo speakers autenticados. Mientras carga, mostramos nada.
+  if (sessionLoading) return null;
+  if (!session || session.role !== 'speaker') {
+    return <Navigate to="/login" replace />;
+  }
   const name = session?.user?.user_metadata?.full_name ?? session?.user?.email ?? 'Speaker';
   const initials = name.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0]).join('').toUpperCase();
 
