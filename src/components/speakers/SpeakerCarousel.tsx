@@ -1,10 +1,8 @@
-import React, { useState, useCallback } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { ChevronLeftIcon, ChevronRightIcon, MapPinIcon, BuildingIcon } from 'lucide-react';
-import { SpeakerProfileModal } from './SpeakerProfileModal';
 import type { SpeakerPublic } from './speakerData';
 
 const ACCENT = '#00C9A0';
@@ -88,7 +86,6 @@ function SpeakerCard({ speaker, gradient, isFront, isAdjacent, onClick, onViewPr
 /* ── Carousel ── */
 export function SpeakerCarousel({ speakers, eventContext, title, subtitle }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
-  const [selected, setSelected]   = useState<SpeakerPublic | null>(null);
   const navigate = useNavigate();
   const goToProfile = useCallback((slug: string) => navigate(`/speakers/${slug}`), [navigate]);
   const N = speakers.length;
@@ -157,7 +154,7 @@ export function SpeakerCarousel({ speakers, eventContext, title, subtitle }: Pro
                   gradient={GRAD_PALETTE[i % GRAD_PALETTE.length]}
                   isFront={offset === 0}
                   isAdjacent={Math.abs(offset) === 1}
-                  onClick={() => offset === 0 ? setSelected(speaker) : (offset > 0 ? next() : prev())}
+                  onClick={() => offset === 0 ? goToProfile(speaker.slug) : (offset > 0 ? next() : prev())}
                   onViewProfile={() => goToProfile(speaker.slug)}
                 />
               </motion.div>
@@ -191,20 +188,6 @@ export function SpeakerCarousel({ speakers, eventContext, title, subtitle }: Pro
         ))}
       </div>
 
-      {/* Modal — renderizado en document.body via Portal para evitar
-          que el transform del SectionTransition padre lo corte */}
-      {createPortal(
-        <AnimatePresence>
-          {selected && (
-            <SpeakerProfileModal
-              speaker={selected}
-              eventContext={eventContext}
-              onClose={() => setSelected(null)}
-            />
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
     </div>
   );
 }
