@@ -48,6 +48,7 @@ import { Store } from './pages/public/Store';
 import { Contact } from './pages/public/Contact';
 import { Speakers } from './pages/public/Speakers';
 import { SpeakerPage } from './pages/public/SpeakerPage';
+import { HabitosAlPlato } from './pages/public/HabitosAlPlato';
 import { PortalSpeakers } from './pages/portal/PortalSpeakers';
 import { Legal } from './pages/public/Legal';
 import { EventHome } from './pages/event/EventHome';
@@ -111,6 +112,7 @@ function AnimatedRoutes() {
           <Route path="/tienda" element={<Store />} />
           <Route path="/speakers" element={<Speakers />} />
           <Route path="/speakers/:slug" element={<SpeakerPage />} />
+          <Route path="/habitos-al-plato" element={<HabitosAlPlato />} />
           <Route path="/contacto" element={<Contact />} />
           <Route path="/legal" element={<Legal />} />
         </Route>

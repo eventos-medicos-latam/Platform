@@ -16,9 +16,9 @@ export const media = {
   /** Logo oficial de HormoBiota 2.0. Lockup vertical (símbolo + palabra + claim).
    *  Principal: versión para fondos claros. Sobre superficies oscuras se usa
    *  la versión de fondos oscuros; nunca se recolorea ni se invierte. */
-  logoHormobiota: "/Hombobiota2_logo_Fondos_Claros.png",
+  logoHormobiota: "/Hombobiota2_logook.png",
 
-  logoHormobiotaDark: "/Hombobiota2_logo_Fondos_oscuros.png",
+  logoHormobiotaDark: "/Hombobiota2_logook_oscuros.png",
 
   /** Trayectoria: una imagen por edición realizada. */
   legacyInflamacion: "/8ab2f475-596c-4a26-9a03-0206a8452934.jpg",
