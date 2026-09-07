@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -190,16 +191,20 @@ export function SpeakerCarousel({ speakers, eventContext, title, subtitle }: Pro
         ))}
       </div>
 
-      {/* Modal */}
-      <AnimatePresence>
-        {selected && (
-          <SpeakerProfileModal
-            speaker={selected}
-            eventContext={eventContext}
-            onClose={() => setSelected(null)}
-          />
-        )}
-      </AnimatePresence>
+      {/* Modal — renderizado en document.body via Portal para evitar
+          que el transform del SectionTransition padre lo corte */}
+      {createPortal(
+        <AnimatePresence>
+          {selected && (
+            <SpeakerProfileModal
+              speaker={selected}
+              eventContext={eventContext}
+              onClose={() => setSelected(null)}
+            />
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }
