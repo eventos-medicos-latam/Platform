@@ -9,6 +9,15 @@ export const eventFamilies: EventFamily[] = [
   description:
   'Familia de congresos de Eventos Médicos LATAM dedicada a la relación entre microbiota, sistema endocrino y longevidad. Cada edición amplía el mapa de conexiones entre sistemas.',
   since: 2026
+},
+{
+  id: 'fam-eterna-primavera',
+  slug: 'eterna-primavera',
+  name: 'La Eterna Primavera',
+  tagline: 'Salud hormonal femenina en todas sus etapas',
+  description:
+  'Congreso de Eventos Médicos LATAM dedicado a la salud hormonal de la mujer: menopausia, SOP, tiroides y bienestar hormonal abordados desde la evidencia y con un enfoque integral.',
+  since: 2023
 }];
 
 
@@ -83,6 +92,65 @@ const historicAxis: TrackAxis = {
 };
 
 export const editions: Edition[] = [
+{
+  id: 'ed-eterna-primavera-2026',
+  familyId: 'fam-eterna-primavera',
+  slug: 'eterna-primavera-2026',
+  name: 'La Eterna Primavera de tus Hormonas',
+  editionLabel: 'Edición 2026 · Noviembre',
+  year: 2026,
+  claim: 'Salud hormonal femenina en todas sus etapas',
+  conceptLead: 'Entender las hormonas es entender a la mujer.',
+  concept: [
+  'La Eterna Primavera 2026 reúne a profesionales de la salud alrededor de la salud hormonal femenina: los ejes que más impactan la calidad de vida de la mujer a lo largo de sus etapas.',
+  'Menopausia, SOP, tiroides, salud ósea y bienestar hormonal abordados con evidencia actualizada y un enfoque integral que conecta cuerpo, mente y ciclo de vida.'],
+
+  status: 'proximamente',
+  startDate: '2026-11-07',
+  endDate: '2026-11-07',
+  dateLabel: '7 de noviembre de 2026',
+  venue: {
+    name: 'Medellín, Colombia',
+    address: 'PENDIENTE',
+    city: 'Medellín',
+    country: 'Colombia',
+    notes: 'Sede exacta en definición. Transmisión en línea disponible.'
+  },
+  modality: 'hibrido',
+  accentRgb: '210 90 140',
+  heroKicker: 'Congreso internacional · Salud hormonal femenina',
+  sections: [
+  'hero',
+  'concepto',
+  'publico',
+  'agenda',
+  'speakers',
+  'beneficios',
+  'tickets',
+  'certificacion',
+  'patrocinadores',
+  'aliados',
+  'faq',
+  'cta'],
+
+  trackAxis: historicAxis,
+  audience: [
+  'Ginecólogas y ginecólogos',
+  'Endocrinólogas y endocrinólogos',
+  'Médicos generales y de familia',
+  'Nutricionistas y dietistas',
+  'Médicos en medicina funcional e integrativa',
+  'Profesionales de salud femenina'],
+
+  benefits: [
+  'Programa académico con enfoque en salud hormonal femenina',
+  'Certificado de asistencia',
+  'Networking con especialistas de la región',
+  'Memorias digitales del congreso'],
+
+  certification: 'PENDIENTE',
+  capacity: 'PENDIENTE',
+},
 {
   id: 'ed-hormobiota-2027',
   familyId: 'fam-hormobiota',

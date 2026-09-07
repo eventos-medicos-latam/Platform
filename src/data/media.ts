@@ -35,12 +35,22 @@ export const media = {
   hormobiotaHero: "/d4f3ab70-d106-434e-a5aa-86a250795de7.jpg",
 
   /** Médica dictando una charla virtual a varios colegas: agenda digital. */
-  webinarHost: "/27e83e58-5f9f-4da5-889f-29eb38c00e6e.jpg"
+  webinarHost: "/27e83e58-5f9f-4da5-889f-29eb38c00e6e.jpg",
+
+  /** Logo La Eterna Primavera — versión para fondos oscuros (uso principal en posters). */
+  logoEternaPrimavera: "/Eterna_primavera_fondos oscuros.png",
+
+  /** Logo La Eterna Primavera — versión para fondos claros. */
+  logoEternaPrimaveraLight: "/Eterna_primavera_fondos claros.png",
+
+  /** Fondo para La Eterna Primavera (placeholder hasta imagen oficial). */
+  eternaPrimaveraHero: "/60338d4a-a991-4e02-b6cb-cb2fb0903c21.jpg",
 
 } as const;
 
 /** Imagen asociada a cada edición. */
 export const editionMedia: Record<string, string> = {
   'ed-hormobiota-2027': media.hormobiotaHero,
-  'ed-hormobiota-2026': media.legacyHormobiota
+  'ed-hormobiota-2026': media.legacyHormobiota,
+  'ed-eterna-primavera-2026': media.eternaPrimaveraHero,
 };

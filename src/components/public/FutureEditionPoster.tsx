@@ -77,7 +77,7 @@ export function FutureEditionPoster({
   }}>
       {/* --- Fotografía de marca: vive debajo del holograma --- */}
       <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
-        <motion.img src={media.hormobiotaHero} alt="" draggable={false} className="absolute -inset-[6%] h-[112%] w-[112%] object-cover" style={reduce ? undefined : {
+        <motion.img src={event.heroImage ?? media.hormobiotaHero} alt="" draggable={false} className="absolute -inset-[6%] h-[112%] w-[112%] object-cover" style={reduce ? undefined : {
         x: photoX,
         y: photoY
       }} animate={reduce ? undefined : {
@@ -167,7 +167,7 @@ export function FutureEditionPoster({
       }} style={{
         transformOrigin: 'center top'
       }}>
-          <img src={media.logoHormobiotaDark} alt="HormoBiota 2.0 — donde se unen las hormonas con la microbiota" className="h-auto max-h-full w-[54%] max-w-[380px] object-contain sm:w-[62%]" draggable={false} />
+          <img src={event.logo ?? media.logoHormobiotaDark} alt={event.name} className="h-auto max-h-full w-[54%] max-w-[380px] object-contain sm:w-[62%]" draggable={false} />
         </motion.div>
 
         {/* Pie en reposo: fecha y lugar, más la invitación a explorar */}
@@ -225,7 +225,7 @@ export function FutureEditionPoster({
               <Link to={event.href} onClick={(e) => e.stopPropagation()} className="group mt-4 inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white shadow-elev3 transition-transform duration-200 ease-emphasis hover:-translate-y-0.5 sm:mt-6" style={{
             backgroundColor: 'rgb(var(--tone-futuro))'
           }}>
-                Ver HormoBiota 2.0
+                Ver {event.name}
                 <ArrowRightIcon size={16} className="transition-transform duration-200 ease-emphasis group-hover:translate-x-1" />
               </Link>
             </motion.div>}
@@ -237,7 +237,7 @@ export function FutureEditionPoster({
             <Link to={event.href} className="mt-5 inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white" style={{
           backgroundColor: 'rgb(var(--tone-futuro))'
         }}>
-              Ver HormoBiota 2.0
+              Ver {event.name}
               <ArrowRightIcon size={16} />
             </Link>
           </div> : null}

@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CalendarDaysIcon, ChevronDownIcon, HandshakeIcon, HomeIcon,
-  MailIcon, MenuIcon, MicVocalIcon, SparklesIcon, UtensilsCrossedIcon, XIcon, BoxIcon,
+  MailIcon, MenuIcon, MicVocalIcon, SparklesIcon, UtensilsCrossedIcon, XIcon, type LucideIcon,
 } from "lucide-react";
 import { Logo } from "../ui/Logo";
 import { editions, featuredEditionId, getFamily } from "../../data/editions";
@@ -13,7 +13,7 @@ interface NavChild { to: string; label: string }
 interface NavItem {
   to: string;
   label: string;
-  icon: BoxIcon;
+  icon: LucideIcon;
   children?: NavChild[];
 }
 

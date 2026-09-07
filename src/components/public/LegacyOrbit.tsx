@@ -70,7 +70,7 @@ export function LegacyOrbit() {
               Trayectoria
             </p>
             <h2 className="mt-4 max-w-2xl text-[clamp(1.9rem,4vw,3.2rem)] font-bold leading-[1.05] tracking-tight">
-              Cinco ediciones,
+              {total} ediciones,
               <span className="block font-normal text-white/50">una sola tesis en construcción</span>
             </h2>
           </div>
@@ -128,7 +128,7 @@ export function LegacyOrbit() {
           {/* Años */}
           <ol className="mt-3 flex justify-between" aria-hidden="true">
             {legacyEvents.map((event, index) => <li key={event.id} className={`text-[11px] font-semibold tabular-nums transition-colors duration-200 ${index === active ? 'text-hb-violet' : 'text-white/40'}`}>
-                {event.year}
+                {event.monthLabel ? `${event.year} ${event.monthLabel}` : event.year}
               </li>)}
           </ol>
         </div>
