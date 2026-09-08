@@ -112,6 +112,10 @@ export interface Edition {
   benefits: string[];
   certification: string;
   capacity: string;
+  /** Imagen personalizada para el panel de concepto. Fallback: media.doctorPortrait. */
+  conceptImage?: string;
+  /** Texto sobre la imagen en el panel de concepto. */
+  conceptImageCaption?: string;
   previousEditionId?: string;
   nextEditionId?: string;
   results?: EditionResult[];

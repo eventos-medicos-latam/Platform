@@ -115,10 +115,10 @@ export const legacyEvents: LegacyEvent[] = [
     monthLabel: 'Nov',
     topic: 'La Eterna Primavera',
     name: 'La Eterna Primavera de tus Hormonas',
-    claim: 'Salud hormonal femenina en todas sus etapas',
+    claim: 'Hormonas, intestino y bienestar: la conexión que lo cambia todo',
     description:
-      'Un congreso diseñado para la mujer y los profesionales que la acompañan: menopausia, SOP, tiroides y bienestar hormonal abordados desde la evidencia y con un enfoque integral.',
-    highlights: ['Salud hormonal femenina', 'Menopausia y perimenopausia', 'SOP y tiroides', '7 Nov 2026 · Medellín · Presencial + Virtual'],
+      'Un congreso para quienes tienen preguntas sobre su salud hormonal: hombres y mujeres que quieren entender cómo las hormonas, el intestino y la alimentación determinan cómo se sienten cada día. Lenguaje claro, ciencia real.',
+    highlights: ['Hormonas e intestino', 'Alimentación y bienestar', 'Para público general', '7 Nov 2026 · Medellín · Presencial + Virtual'],
     image: media.eternaPrimaveraHero,
     logo: media.logoEternaPrimavera,
     heroImage: media.eternaPrimaveraHero,

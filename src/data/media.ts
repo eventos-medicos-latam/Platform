@@ -38,13 +38,13 @@ export const media = {
   webinarHost: "/27e83e58-5f9f-4da5-889f-29eb38c00e6e.jpg",
 
   /** Logo La Eterna Primavera — versión para fondos oscuros (uso principal en posters). */
-  logoEternaPrimavera: "/Eterna_primavera_fondos oscuros.png",
+  logoEternaPrimavera: "/lA_ETERNA_PRIMAVERA_fondos ocuros..png",
 
   /** Logo La Eterna Primavera — versión para fondos claros. */
-  logoEternaPrimaveraLight: "/Eterna_primavera_fondos claros.png",
+  logoEternaPrimaveraLight: "/lA_ETERNA_PRIMAVERA_fondos claros..png",
 
-  /** Fondo para La Eterna Primavera — auditorio genérico hasta imagen oficial del evento. */
-  eternaPrimaveraHero: "/d8d0dcc7-a602-4d33-8984-942935dfe42c.jpg",
+  /** Fondo oficial de La Eterna Primavera. */
+  eternaPrimaveraHero: "/la_eterna_fondos.png",
 
 } as const;
 

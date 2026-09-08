@@ -5,8 +5,6 @@ import { ArrowRightIcon, BadgeCheckIcon, CheckIcon, MegaphoneIcon, UsersRoundIco
 import type { AllyRole } from '../event/SponsorRegistrationSection';
 import { EASE_EMPHASIS } from '../../utils/motion';
 
-const target = '/eventos/hormobiota/hormobiota-2-2027/registro';
-
 /** Modalidades de alianza institucional abiertas a postulación. Los planes
  * comerciales (Pop Up/Conexión/Protagonista) ya cubren "quiero patrocinar
  * como marca" — estas son las que no son un paquete comercial. */
@@ -52,10 +50,16 @@ const steps = [{
  * popup de registro que los planes comerciales, ya con este tipo de alianza
  * preseleccionado — no hay un formulario aparte aquí.
  */
-export function AllyApplication() {
+interface AllyApplicationProps {
+  /** URL de registro del evento seleccionado. Si no se pasa, va al contacto genérico. */
+  registrationHref?: string;
+}
+
+export function AllyApplication({ registrationHref }: AllyApplicationProps) {
   const [role, setRole] = useState<AllyRole>('sociedad-medica');
   const navigate = useNavigate();
   const selected = tiers.find((tier) => tier.role === role) ?? tiers[0];
+  const target = registrationHref ?? '/contacto?motivo=alianza';
   return <section className="tint-blue" aria-labelledby="ser-aliado">
       <div className="mx-auto max-w-shell px-6 py-16 lg:py-20">
         <div className="max-w-3xl">
@@ -67,7 +71,7 @@ export function AllyApplication() {
             <span className="block font-normal text-ink-muted">no es comprar un espacio</span>
           </h2>
           <p className="mt-6 text-lg leading-relaxed text-ink">
-            Cada organización que acompaña Hormobiota entra por una razón distinta: unas aportan aval
+            Cada organización que acompaña Eventos Médicos LATAM entra por una razón distinta: unas aportan aval
             científico, otras producción académica, otras acceso a la comunidad profesional. Definimos
             juntos el rol antes de hablar de cifras, y nada se publica mientras el acuerdo esté en
             negociación.
@@ -146,7 +150,7 @@ export function AllyApplication() {
                 </li>)}
             </ol>
 
-            <button type="button" onClick={() => navigate(`${target}?tipo=${role}#registro`)} className="group mt-8 inline-flex items-center gap-2 rounded-full bg-brand px-6 py-3.5 text-sm font-semibold text-white shadow-elev2 transition-transform duration-200 ease-emphasis hover:-translate-y-0.5">
+            <button type="button" onClick={() => navigate(registrationHref ? `${target}?tipo=${role}#registro` : `${target}&tipo=${role}`)} className="group mt-8 inline-flex items-center gap-2 rounded-full bg-brand px-6 py-3.5 text-sm font-semibold text-white shadow-elev2 transition-transform duration-200 ease-emphasis hover:-translate-y-0.5">
               Postularme como {selected.label.toLowerCase()}
               <ArrowRightIcon size={15} className="transition-transform duration-200 ease-emphasis group-hover:translate-x-0.5" />
             </button>

@@ -167,9 +167,9 @@ export function EventHome() {
           y: conceptY
         }} className="overflow-hidden rounded-[2rem] border border-white bg-white/90 shadow-elev4 backdrop-blur">
             <div className="grid lg:grid-cols-[0.85fr_1.15fr]">
-              {/* Retrato: la sección deja de ser solo texto */}
+              {/* Imagen de concepto: dinámica por edición */}
               <div className="relative isolate min-h-[280px] overflow-hidden lg:min-h-full">
-                <img src={media.doctorPortrait} alt="Profesional de la salud en consulta" className="absolute inset-0 h-full w-full object-cover" />
+                <img src={edition.conceptImage ?? media.doctorPortrait} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover object-top" />
                 <div className="absolute inset-0" aria-hidden="true" style={{
                 background: 'linear-gradient(160deg, rgba(26,26,61,0.72) 0%, rgba(26,26,61,0.25) 45%, rgba(214,51,132,0.28) 100%)'
               }} />
@@ -178,7 +178,7 @@ export function EventHome() {
                     Concepto
                   </p>
                   <p className="max-w-xs text-lg font-semibold leading-snug text-white drop-shadow">
-                    Para el profesional que atiende pacientes reales, no para el archivo.
+                    {edition.conceptImageCaption ?? 'Para el profesional que atiende pacientes reales, no para el archivo.'}
                   </p>
                 </div>
               </div>

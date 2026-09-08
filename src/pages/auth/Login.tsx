@@ -69,10 +69,22 @@ export function Login() {
           </div>
           <h1 className="mt-6 text-3xl font-bold tracking-tight text-brand lg:mt-0">Iniciar sesión</h1>
           <p className="mt-2 text-sm text-ink-muted">
-            El acceso es único para administradores, empresas y speakers.
+            Acceso para administradores, empresas aliadas y speakers.
           </p>
 
-          <form onSubmit={submit} className="mt-8">
+          <div className="mt-5 flex gap-2">
+            {[
+              { label: 'Administrador', color: 'bg-brand-soft text-brand' },
+              { label: 'Empresa aliada', color: 'bg-accent/10 text-accent' },
+              { label: 'Speaker', color: 'bg-purple-50 text-purple-700' },
+            ].map(({ label, color }) => (
+              <span key={label} className={`rounded-full px-3 py-1 text-[11px] font-semibold ${color}`}>
+                {label}
+              </span>
+            ))}
+          </div>
+
+          <form onSubmit={submit} className="mt-6">
             <div className="space-y-4">
               <label className="block">
                 <span className="mb-1.5 block text-xs font-medium text-ink-muted">Correo</span>
@@ -93,8 +105,12 @@ export function Login() {
 
           <div className="mt-6 flex flex-col gap-2">
             <p className="text-sm text-ink-muted">
-              ¿Eres speaker y no tienes cuenta?{' '}
+              ¿Eres speaker y aún no tienes cuenta?{' '}
               <Link to="/speaker/registro" className="font-semibold text-accent">Crear perfil de speaker</Link>
+            </p>
+            <p className="text-sm text-ink-muted">
+              ¿Eres empresa aliada o necesitas acceso?{' '}
+              <Link to="/contacto?motivo=acceso-portal" className="font-semibold text-accent">Solicitar acceso</Link>
             </p>
             <Link to="/" className="text-sm font-medium text-brand-support">
               Volver al sitio público

@@ -20,8 +20,8 @@ export const eventFamilies: EventFamily[] = [
   description:
   'Congreso de Eventos Médicos LATAM dedicado a la salud hormonal de la mujer: menopausia, SOP, tiroides y bienestar hormonal abordados desde la evidencia y con un enfoque integral.',
   since: 2023,
-  logoDark: '/Eterna_primavera_fondos oscuros.png',
-  logoLight: '/Eterna_primavera_fondos claros.png',
+  logoDark: '/lA_ETERNA_PRIMAVERA_fondos ocuros..png',
+  logoLight: '/lA_ETERNA_PRIMAVERA_fondos claros..png',
 }];
 
 
@@ -103,11 +103,11 @@ export const editions: Edition[] = [
   name: 'La Eterna Primavera de tus Hormonas',
   editionLabel: 'Edición 2026 · Noviembre',
   year: 2026,
-  claim: 'Salud hormonal femenina en todas sus etapas',
-  conceptLead: 'Entender las hormonas es entender a la mujer.',
+  claim: 'Hormonas, intestino y bienestar: la conexión que lo cambia todo',
+  conceptLead: 'Cuando las hormonas funcionan bien, todo funciona bien.',
   concept: [
-  'La Eterna Primavera 2026 reúne a profesionales de la salud alrededor de la salud hormonal femenina: los ejes que más impactan la calidad de vida de la mujer a lo largo de sus etapas.',
-  'Menopausia, SOP, tiroides, salud ósea y bienestar hormonal abordados con evidencia actualizada y un enfoque integral que conecta cuerpo, mente y ciclo de vida.'],
+  'La Eterna Primavera 2026 es un espacio creado para quienes tienen preguntas sobre su salud hormonal: pacientes, hombres y mujeres que quieren entender cómo las hormonas, el intestino y la alimentación determinan cómo nos sentimos cada día.',
+  'Inflamación, peso, energía, sueño, estado de ánimo: aprende qué dice la ciencia en un lenguaje claro y práctico, con especialistas que explican lo complejo de forma que puedes aplicar en tu vida.'],
 
   status: 'proximamente',
   startDate: '2026-11-07',
@@ -122,7 +122,7 @@ export const editions: Edition[] = [
   },
   modality: 'hibrido',
   accentRgb: '210 90 140',
-  heroKicker: 'Congreso internacional · Salud hormonal femenina',
+  heroKicker: 'Congreso · Hormonas, intestino y bienestar',
   sections: [
   'hero',
   'concepto',
@@ -138,18 +138,21 @@ export const editions: Edition[] = [
   'cta'],
 
   trackAxis: historicAxis,
+  conceptImage: '/Kary_Juanita.png',
+  conceptImageCaption: 'Para quienes quieren entender su cuerpo, no solo tratarlo.',
   audience: [
-  'Ginecólogas y ginecólogos',
-  'Endocrinólogas y endocrinólogos',
-  'Médicos generales y de familia',
-  'Nutricionistas y dietistas',
-  'Médicos en medicina funcional e integrativa',
-  'Profesionales de salud femenina'],
+  'Personas con dudas sobre sus hormonas o metabolismo',
+  'Pacientes con hipotiroidismo, POMS o resistencia a la insulina',
+  'Hombres y mujeres interesados en la salud hormonal',
+  'Personas con interés en nutrición, intestino e inflamación',
+  'Quienes buscan mejorar su bienestar desde la alimentación',
+  'Profesionales de la salud que acompañan a sus pacientes'],
 
   benefits: [
-  'Programa académico con enfoque en salud hormonal femenina',
+  'Conferencias en lenguaje claro, sin tecnicismos',
+  'Respuestas a las preguntas que más se hacen sobre hormonas',
+  'Conexión con personas que viven los mismos procesos',
   'Certificado de asistencia',
-  'Networking con especialistas de la región',
   'Memorias digitales del congreso'],
 
   certification: 'PENDIENTE',
