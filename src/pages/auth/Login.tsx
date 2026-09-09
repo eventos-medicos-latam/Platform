@@ -109,8 +109,8 @@ export function Login() {
               <Link to="/speaker/registro" className="font-semibold text-accent">Crear perfil de speaker</Link>
             </p>
             <p className="text-sm text-ink-muted">
-              ¿Eres empresa aliada o necesitas acceso?{' '}
-              <Link to="/contacto?motivo=acceso-portal" className="font-semibold text-accent">Solicitar acceso</Link>
+              ¿Eres empresa aliada y quieres participar?{' '}
+              <Link to="/aliados#planes" className="font-semibold text-accent">Ver planes y postularme</Link>
             </p>
             <Link to="/" className="text-sm font-medium text-brand-support">
               Volver al sitio público

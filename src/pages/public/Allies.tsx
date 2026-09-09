@@ -2,8 +2,8 @@ import React from 'react';
 import { PageTransition } from '../../components/motion/PageTransition';
 import { AlliesCarousel } from '../../components/public/AlliesCarousel';
 import { AllyApplication } from '../../components/public/AllyApplication';
+import { AllyPlansSection } from '../../components/public/AllyPlansSection';
 import { PageHero } from '../../components/public/PageHero';
-import { PlansSection } from '../../components/public/PlansSection';
 import { media } from '../../data/media';
 export function Allies() {
   return <PageTransition>
@@ -17,7 +17,7 @@ export function Allies() {
 
       <AlliesCarousel onlyPublished={false} showLink={false} />
 
-      <PlansSection planIds={['protagonista', 'conexion']} eyebrow="Marcas y empresas del sector" titleLight="Dos formas de acompañar" titleBold="la conversación científica" description="Las marcas que buscan stand, presencia digital y posicionamiento académico entran por el Paquete Protagonista o el Paquete Conexión. Toca un plan para ver todo lo que incluye y pasa al registro." />
+      <AllyPlansSection />
 
       <AllyApplication />
     </PageTransition>;

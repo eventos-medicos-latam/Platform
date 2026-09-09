@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRightIcon, BadgeCheckIcon, CheckIcon, MegaphoneIcon, UsersRoundIcon } from 'lucide-react';
+import { ArrowRightIcon, BadgeCheckIcon, CalendarIcon, CheckIcon, MegaphoneIcon, UsersRoundIcon } from 'lucide-react';
 import type { AllyRole } from '../event/SponsorRegistrationSection';
 import { EASE_EMPHASIS } from '../../utils/motion';
+import { AllyRegistrationDrawer } from './AllyRegistrationDrawer';
 
 /** Modalidades de alianza institucional abiertas a postulación. Los planes
  * comerciales (Pop Up/Conexión/Protagonista) ya cubren "quiero patrocinar
@@ -57,9 +58,10 @@ interface AllyApplicationProps {
 
 export function AllyApplication({ registrationHref }: AllyApplicationProps) {
   const [role, setRole] = useState<AllyRole>('sociedad-medica');
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const navigate = useNavigate();
   const selected = tiers.find((tier) => tier.role === role) ?? tiers[0];
-  const target = registrationHref ?? '/contacto?motivo=alianza';
+  void registrationHref;
   return <section className="tint-blue" aria-labelledby="ser-aliado">
       <div className="mx-auto max-w-shell px-6 py-16 lg:py-20">
         <div className="max-w-3xl">
@@ -150,10 +152,24 @@ export function AllyApplication({ registrationHref }: AllyApplicationProps) {
                 </li>)}
             </ol>
 
-            <button type="button" onClick={() => navigate(registrationHref ? `${target}?tipo=${role}#registro` : `${target}&tipo=${role}`)} className="group mt-8 inline-flex items-center gap-2 rounded-full bg-brand px-6 py-3.5 text-sm font-semibold text-white shadow-elev2 transition-transform duration-200 ease-emphasis hover:-translate-y-0.5">
-              Postularme como {selected.label.toLowerCase()}
-              <ArrowRightIcon size={15} className="transition-transform duration-200 ease-emphasis group-hover:translate-x-0.5" />
-            </button>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <button type="button" onClick={() => setDrawerOpen(true)}
+                className="group inline-flex items-center gap-2 rounded-full bg-brand px-6 py-3.5 text-sm font-semibold text-white shadow-elev2 transition-transform duration-200 ease-emphasis hover:-translate-y-0.5">
+                Quiero ser aliado
+                <ArrowRightIcon size={15} className="transition-transform duration-200 ease-emphasis group-hover:translate-x-0.5" />
+              </button>
+              <button type="button" onClick={() => navigate('/contacto?motivo=alianza')}
+                className="group inline-flex items-center gap-2 rounded-full border border-brand/30 bg-white px-6 py-3.5 text-sm font-semibold text-brand shadow-elev1 transition-transform duration-200 ease-emphasis hover:-translate-y-0.5">
+                <CalendarIcon size={15} />
+                Agenda una sesión comercial
+              </button>
+            </div>
+            <AllyRegistrationDrawer
+              open={drawerOpen}
+              onClose={() => setDrawerOpen(false)}
+              allyRole={role}
+              allyRoleLabel={selected.label}
+            />
           </div>
         </div>
       </div>
