@@ -301,6 +301,11 @@ export function getEditionBySlug(familySlug: string, editionSlug: string): Editi
   return editions.find((edition) => edition.familyId === family.id && edition.slug === editionSlug);
 }
 
+/** Cruza el slug Novo (`/e/:slug`) con el catálogo de micrositios diseñados. */
+export function getEditionByNovoSlug(slug: string): Edition | undefined {
+  return editions.find((edition) => edition.slug === slug);
+}
+
 export function getFamily(id: string): EventFamily | undefined {
   return eventFamilies.find((family) => family.id === id);
 }

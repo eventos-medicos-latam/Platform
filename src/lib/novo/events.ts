@@ -56,21 +56,61 @@ export const DEFAULT_EVENT_SECTIONS: EventSettingsPatch['sections'] = {
 
 export type EventWebFaq = { q: string; a: string };
 
+export type EventWebTrackIcon = 'gut' | 'hormone' | 'immune' | 'sleep' | 'cell' | 'skin';
+
+export type EventWebEje = {
+  id: string;
+  name: string;
+  subtitle?: string;
+  description?: string;
+  icon?: EventWebTrackIcon;
+};
+
+export type EventWebAlly = { name: string; logo_url?: string };
+export type EventWebStat = { label: string; value: string };
+
 export type EventWebContent = {
   hero_title?: string;
   hero_subtitle?: string;
+  hero_kicker?: string;
+  hero_logo?: string;
   hero_cta_label?: string;
   hero_cta_url?: string;
   hero_image?: string;
   concepto_title?: string;
+  concepto_lead?: string;
   concepto_body?: string;
   concepto_image?: string;
+  concepto_caption?: string;
+  publico_title?: string;
+  publico_items?: string[];
+  beneficios_title?: string;
+  beneficios_items?: string[];
+  ejes_kicker?: string;
+  ejes_title?: string;
+  ejes_subtitle?: string;
+  ejes_label?: string;
+  ejes_question?: string;
+  ejes_items?: EventWebEje[];
+  experiencia_name?: string;
+  experiencia_duration?: string;
+  experiencia_body?: string;
+  experiencia_channels?: string[];
+  certificacion_body?: string;
+  patrocinadores_title?: string;
+  patrocinadores_body?: string;
+  aliados_title?: string;
+  aliados_items?: EventWebAlly[];
+  stands_title?: string;
+  stands_body?: string;
   ubicacion_venue?: string;
   ubicacion_address?: string;
   ubicacion_city?: string;
   ubicacion_maps?: string;
   ubicacion_transport?: string;
   faq_items?: EventWebFaq[];
+  resultados_title?: string;
+  resultados_items?: EventWebStat[];
   cta_title?: string;
   cta_body?: string;
   cta_label?: string;

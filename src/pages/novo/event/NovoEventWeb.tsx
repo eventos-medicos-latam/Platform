@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useOutletContext, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -8,41 +8,23 @@ import {
   PlusIcon, TrashIcon, SaveIcon, ArrowRightIcon,
   ImageIcon, FileTextIcon, MapPinIcon, HelpCircleIcon,
   UsersIcon, CalendarDaysIcon, BuildingIcon, TicketIcon,
-  MegaphoneIcon, ZapIcon,
+  MegaphoneIcon, ZapIcon, LayersIcon, RouteIcon, AwardIcon,
 } from 'lucide-react';
 import type { NovoEventOutlet, NovoEventPublicationStatus } from '../../../types/novo';
 import {
   DEFAULT_EVENT_SECTIONS, getEventSettings, patchEvent, upsertEventSettings,
-  type EventSettingsPatch,
+  type EventSettingsPatch, type EventWebAlly, type EventWebContent, type EventWebEje, type EventWebStat,
 } from '../../../lib/novo/events';
+import { catalogExtraDefaults, catalogWebDefaults, mergeWebContent, TRACK_ICON_OPTIONS } from '../../../lib/novo/webContent';
 import { listSpeakers, listEventSpeakerIds, setEventSpeakerIds, type CatalogSpeaker } from '../../../lib/novo/speakers';
 
 interface EventContext extends NovoEventOutlet {}
 
-/* ── Tipos de sección ───────────────────────────────────── */
 type SectionId =
-  | 'hero' | 'concepto' | 'agenda' | 'speakers' | 'tickets'
+  | 'hero' | 'concepto' | 'ejes' | 'publico' | 'beneficios' | 'experiencia'
+  | 'agenda' | 'speakers' | 'tickets'
   | 'patrocinadores' | 'aliados' | 'stands' | 'ubicacion'
   | 'faq' | 'galeria' | 'cta' | 'certificacion' | 'resultados';
-
-interface FaqItem { q: string; a: string }
-
-interface SectionContent {
-  /* hero */
-  hero_title?: string; hero_subtitle?: string; hero_cta_label?: string; hero_cta_url?: string; hero_image?: string;
-  /* concepto */
-  concepto_title?: string; concepto_body?: string; concepto_image?: string;
-  /* ubicacion */
-  ubicacion_venue?: string; ubicacion_address?: string; ubicacion_city?: string; ubicacion_maps?: string; ubicacion_transport?: string;
-  /* faq */
-  faq_items?: FaqItem[];
-  /* cta */
-  cta_title?: string; cta_body?: string; cta_label?: string; cta_url?: string;
-  /* galeria */
-  galeria_images?: string[];
-  /* seo */
-  seo_title?: string; seo_description?: string; seo_image?: string;
-}
 
 interface WebSection {
   id: SectionId;
@@ -79,32 +61,35 @@ function sectionsToDb(list: WebSection[]): EventSettingsPatch['sections'] {
 }
 
 const ALL_SECTIONS: WebSection[] = [
-  { id: 'hero',         label: 'Hero / Portada',         description: 'Imagen principal, título y CTA del evento',     icon: ImageIcon,       enabled: true,  required: true,  status: 'ok'   },
-  { id: 'concepto',     label: 'Acerca del evento',      description: 'Descripción, objetivos y propuesta de valor',   icon: FileTextIcon,    enabled: true,  status: 'ok'   },
-  { id: 'agenda',       label: 'Agenda pública',         description: 'Programa del evento (toma datos de Agenda)',    icon: CalendarDaysIcon,enabled: true,  status: 'warn', note: 'Algunas sesiones sin confirmar' },
-  { id: 'speakers',     label: 'Ponentes',               description: 'Grilla de speakers (toma datos de Speakers)',   icon: UsersIcon,       enabled: true,  status: 'ok'   },
-  { id: 'tickets',      label: 'Tickets / Inscripción',  description: 'Tarifas, tipos y botón de registro',           icon: TicketIcon,      enabled: true,  status: 'ok'   },
-  { id: 'patrocinadores',label:'Patrocinadores',          description: 'Logos por tier de patrocinio',                 icon: BuildingIcon,    enabled: true,  status: 'warn', note: 'Logos faltantes en algunos planes' },
-  { id: 'aliados',      label: 'Aliados / Apoyan',       description: 'Instituciones y organizaciones aliadas',        icon: ZapIcon,         enabled: false, status: 'empty' },
-  { id: 'stands',       label: 'Stands / Exposición',   description: 'Mapa del área de exposición',                   icon: BuildingIcon,    enabled: false, status: 'empty' },
-  { id: 'ubicacion',    label: 'Ubicación y mapa',       description: 'Dirección, cómo llegar, transporte',           icon: MapPinIcon,      enabled: true,  status: 'ok'   },
-  { id: 'faq',          label: 'Preguntas frecuentes',   description: 'Preguntas y respuestas para asistentes',       icon: HelpCircleIcon,  enabled: false, status: 'empty', note: 'Sin preguntas configuradas' },
-  { id: 'galeria',      label: 'Galería',                description: 'Fotos del evento (previa o ediciones pasadas)', icon: ImageIcon,       enabled: false, status: 'empty' },
-  { id: 'cta',          label: 'CTA final / Cierre',     description: 'Llamado final a la acción antes del footer',   icon: MegaphoneIcon,   enabled: true,  status: 'ok'   },
-  { id: 'certificacion',label: 'Certificación',          description: 'Información sobre el certificado de asistencia',icon: CheckCircleIcon, enabled: false, status: 'empty' },
-  { id: 'resultados',   label: 'Resultados / Memorias',  description: 'Resumen y materiales post-evento',             icon: FileTextIcon,    enabled: false, status: 'empty' },
+  { id: 'hero',           label: 'Hero / Portada',        description: 'Logo, kicker, título, claim e imagen',          icon: ImageIcon,        enabled: true,  required: true,  status: 'ok' },
+  { id: 'concepto',       label: 'Acerca del evento',     description: 'Frase gancho, texto, imagen y pie de foto',     icon: FileTextIcon,     enabled: true,  status: 'ok' },
+  { id: 'ejes',           label: 'Ejes / Programa',       description: 'Puentes o tracks del programa académico',       icon: LayersIcon,       enabled: false, status: 'empty' },
+  { id: 'publico',        label: 'Público',               description: 'Lista “¿Para quién es?”',                       icon: UsersIcon,        enabled: true,  status: 'empty' },
+  { id: 'beneficios',     label: 'Qué incluye',           description: 'Beneficios que ve el asistente',                 icon: CheckCircleIcon,  enabled: true,  status: 'empty' },
+  { id: 'experiencia',    label: 'Experiencia previa',    description: 'Ruta o contenido antes del evento',              icon: RouteIcon,        enabled: false, status: 'empty' },
+  { id: 'agenda',         label: 'Agenda pública',        description: 'Programa del evento (toma datos de Agenda)',     icon: CalendarDaysIcon, enabled: true,  status: 'ok' },
+  { id: 'speakers',       label: 'Ponentes',              description: 'Grilla de speakers (toma datos de Speakers)',    icon: UsersIcon,        enabled: true,  status: 'ok' },
+  { id: 'tickets',        label: 'Tickets / Inscripción', description: 'Tarifas, tipos y botón de registro',            icon: TicketIcon,       enabled: true,  status: 'ok' },
+  { id: 'patrocinadores', label: 'Patrocinadores',        description: 'Texto de la sección; logos en Patrocinadores',  icon: BuildingIcon,     enabled: true,  status: 'ok' },
+  { id: 'aliados',        label: 'Aliados / Apoyan',      description: 'Instituciones y logos de apoyo',                 icon: ZapIcon,          enabled: false, status: 'empty' },
+  { id: 'stands',         label: 'Stands / Exposición',   description: 'Texto de la sección; mapa en Stands',            icon: BuildingIcon,     enabled: false, status: 'empty' },
+  { id: 'ubicacion',      label: 'Ubicación y mapa',      description: 'Dirección, cómo llegar, transporte',            icon: MapPinIcon,       enabled: true,  status: 'ok' },
+  { id: 'faq',            label: 'Preguntas frecuentes',  description: 'Preguntas y respuestas para asistentes',        icon: HelpCircleIcon,   enabled: true,  status: 'empty' },
+  { id: 'galeria',        label: 'Galería',               description: 'Fotos del evento o ediciones pasadas',          icon: ImageIcon,        enabled: false, status: 'empty' },
+  { id: 'cta',            label: 'CTA final / Cierre',    description: 'Llamado final a la acción antes del footer',    icon: MegaphoneIcon,    enabled: true,  status: 'ok' },
+  { id: 'certificacion',  label: 'Certificación',         description: 'Texto del certificado de asistencia',            icon: AwardIcon,        enabled: false, status: 'empty' },
+  { id: 'resultados',     label: 'Resultados / Memorias', description: 'Cifras y materiales post-evento',                icon: FileTextIcon,     enabled: false, status: 'empty' },
 ];
 
-/* ── Estado de publicación ──────────────────────────────── */
 const PUB_CONFIG: Record<NovoEventPublicationStatus, {
   label: string; color: string; bg: string; border: string; description: string;
   next?: NovoEventPublicationStatus; nextLabel?: string;
   prev?: NovoEventPublicationStatus; prevLabel?: string;
 }> = {
-  borrador:      { label: 'Borrador',      color: '#F59E0B', bg: 'rgba(245,158,11,.12)',  border: 'rgba(245,158,11,.3)',  description: 'Solo visible para administradores.',      next: 'vista-previa', nextLabel: 'Enviar a vista previa' },
-  'vista-previa':{ label: 'Vista previa',  color: '#5B8AF0', bg: 'rgba(91,138,240,.12)',  border: 'rgba(91,138,240,.3)',  description: 'Visible con enlace privado de vista previa.', next: 'publicado', nextLabel: 'Publicar', prev: 'borrador', prevLabel: 'Volver a borrador' },
-  publicado:     { label: 'Publicado',     color: '#00C9A0', bg: 'rgba(0,201,160,.12)',   border: 'rgba(0,201,160,.3)',   description: 'Visible al público en el sitio web.',     next: 'oculto',       nextLabel: 'Ocultar página' },
-  oculto:        { label: 'Oculto',        color: '#3A5470', bg: 'rgba(58,84,112,.2)',    border: 'rgba(58,84,112,.3)',   description: 'Retirada del sitio, datos conservados.',  next: 'publicado',    nextLabel: 'Republicar' },
+  borrador:       { label: 'Borrador',      color: '#F59E0B', bg: 'rgba(245,158,11,.12)', border: 'rgba(245,158,11,.3)', description: 'Solo visible para administradores.',      next: 'vista-previa', nextLabel: 'Enviar a vista previa' },
+  'vista-previa': { label: 'Vista previa',  color: '#5B8AF0', bg: 'rgba(91,138,240,.12)', border: 'rgba(91,138,240,.3)', description: 'Visible con enlace privado de vista previa.', next: 'publicado', nextLabel: 'Publicar', prev: 'borrador', prevLabel: 'Volver a borrador' },
+  publicado:      { label: 'Publicado',     color: '#00C9A0', bg: 'rgba(0,201,160,.12)',  border: 'rgba(0,201,160,.3)',  description: 'Visible al público en el sitio web.',     next: 'oculto', nextLabel: 'Ocultar página' },
+  oculto:         { label: 'Oculto',        color: '#3A5470', bg: 'rgba(58,84,112,.2)',   border: 'rgba(58,84,112,.3)',  description: 'Retirada del sitio, datos conservados.',  next: 'publicado', nextLabel: 'Republicar' },
 };
 
 const STATUS_CFG = {
@@ -113,7 +98,6 @@ const STATUS_CFG = {
   empty: { icon: XCircleIcon,     color: '#2a4a6b' },
 };
 
-/* ── Estilos comunes ─────────────────────────────────────── */
 const BG      = '#112035';
 const BG_DEEP = '#0d1829';
 const BORDER  = '#1e3450';
@@ -121,6 +105,10 @@ const ACCENT  = '#00C9A0';
 const TEXT_HI = '#E1EAF4';
 const TEXT_LO = '#7A9CB8';
 const TEXT_DIM = '#3A5470';
+
+function filled(value?: string) {
+  return Boolean((value ?? '').trim());
+}
 
 function SInput({ value, onChange, placeholder, type = 'text' }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
   return (
@@ -150,22 +138,136 @@ function SField({ label, children }: { label: string; children: React.ReactNode 
   return <div className="space-y-1.5"><SLabel>{label}</SLabel>{children}</div>;
 }
 
-/* ══════════════════════════════════════════════════════════ */
+function StringListEditor({
+  items, onChange, placeholder, addLabel = 'Agregar',
+}: {
+  items: string[];
+  onChange: (next: string[]) => void;
+  placeholder: string;
+  addLabel?: string;
+}) {
+  return (
+    <div className="space-y-2">
+      {items.map((item, i) => (
+        <div key={i} className="flex gap-2">
+          <SInput value={item} onChange={v => onChange(items.map((cur, idx) => idx === i ? v : cur))} placeholder={placeholder} />
+          <button type="button" onClick={() => onChange(items.filter((_, idx) => idx !== i))}
+            className="rounded-lg px-2.5" style={{ background: 'rgba(242,68,99,.1)', color: '#F24463', border: '1px solid rgba(242,68,99,.2)' }}>
+            <TrashIcon size={12} />
+          </button>
+        </div>
+      ))}
+      <button type="button" onClick={() => onChange([...items, ''])}
+        className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
+        style={{ background: 'rgba(0,201,160,.1)', color: ACCENT }}>
+        <PlusIcon size={11} /> {addLabel}
+      </button>
+    </div>
+  );
+}
+
+function ModuleLink({ to, children }: { to: string; children: React.ReactNode }) {
+  return (
+    <Link to={to}
+      className="flex items-center justify-between w-full rounded-xl px-4 py-3 text-xs font-semibold transition-all"
+      style={{ background: 'rgba(0,201,160,.08)', color: ACCENT, border: '1px solid rgba(0,201,160,.2)' }}>
+      {children} <ChevronRightIcon size={13} />
+    </Link>
+  );
+}
+
+function annotate(list: WebSection[], content: EventWebContent): WebSection[] {
+  const audience = (content.publico_items ?? []).filter(filled);
+  const benefits = (content.beneficios_items ?? []).filter(filled);
+  const ejes = (content.ejes_items ?? []).filter(item => filled(item.name));
+  const faqs = (content.faq_items ?? []).filter(item => filled(item.q));
+  const gallery = (content.galeria_images ?? []).filter(filled);
+  const allies = (content.aliados_items ?? []).filter(item => filled(item.name) || filled(item.logo_url));
+  const stats = (content.resultados_items ?? []).filter(item => filled(item.label) || filled(item.value));
+  const channels = (content.experiencia_channels ?? []).filter(filled);
+
+  const byId: Record<SectionId, { status: WebSection['status']; note?: string }> = {
+    hero: {
+      status: filled(content.hero_title) ? 'ok' : 'warn',
+      note: filled(content.hero_kicker) ? undefined : 'Sin kicker',
+    },
+    concepto: {
+      status: filled(content.concepto_lead) || filled(content.concepto_body) ? 'ok' : 'empty',
+    },
+    ejes: {
+      status: ejes.length ? 'ok' : 'empty',
+      note: ejes.length ? `${ejes.length} ejes` : 'Sin ejes: la sección no se muestra',
+    },
+    publico: {
+      status: audience.length ? 'ok' : 'empty',
+      note: audience.length ? `${audience.length} perfiles` : undefined,
+    },
+    beneficios: {
+      status: benefits.length ? 'ok' : 'empty',
+      note: benefits.length ? `${benefits.length} beneficios` : undefined,
+    },
+    experiencia: {
+      status: filled(content.experiencia_name) ? 'ok' : 'empty',
+      note: channels.length ? channels.join(' · ') : undefined,
+    },
+    agenda: { status: 'ok', note: 'Datos en Agenda' },
+    speakers: { status: 'ok', note: 'Datos en Speakers' },
+    tickets: { status: 'ok', note: 'Datos en Tickets' },
+    patrocinadores: { status: 'ok', note: 'Logos en Patrocinadores' },
+    aliados: {
+      status: allies.length ? 'ok' : 'empty',
+      note: allies.length ? `${allies.length} aliados` : undefined,
+    },
+    stands: { status: filled(content.stands_body) ? 'ok' : 'empty' },
+    ubicacion: {
+      status: filled(content.ubicacion_venue) || filled(content.ubicacion_city) ? 'ok' : 'warn',
+    },
+    faq: {
+      status: faqs.length ? 'ok' : 'empty',
+      note: faqs.length ? `${faqs.length} preguntas` : 'Sin preguntas configuradas',
+    },
+    galeria: {
+      status: gallery.length ? 'ok' : 'empty',
+    },
+    cta: {
+      status: filled(content.cta_title) ? 'ok' : 'warn',
+    },
+    certificacion: {
+      status: filled(content.certificacion_body) ? 'ok' : 'empty',
+    },
+    resultados: {
+      status: stats.length ? 'ok' : 'empty',
+    },
+  };
+
+  return list.map(sec => ({ ...sec, ...byId[sec.id] }));
+}
+
 export function NovoEventWeb() {
   const { event, onEventChange } = useOutletContext<EventContext>();
 
   const [pubStatus, setPubStatus]   = useState<NovoEventPublicationStatus>(event.publication_status ?? 'borrador');
   const [sections, setSections]     = useState<WebSection[]>(ALL_SECTIONS);
   const [selected, setSelected]     = useState<SectionId | 'seo' | null>(null);
-  const [content, setContent]       = useState<SectionContent>({
-    hero_title: event.name, hero_subtitle: event.tagline ?? '', hero_cta_label: 'Inscríbete ahora',
-    concepto_title: 'Acerca del evento', concepto_body: event.description ?? '',
-    ubicacion_venue: event.venue_name ?? '', ubicacion_city: event.venue_city ?? '',
-    faq_items: [{ q: '¿Cuál es el aforo?', a: `${event.max_capacity ?? 'Consultar'} asistentes.` }],
-    cta_title: '¿Listo para asistir?', cta_label: 'Reservar mi lugar',
-    seo_title: event.name, seo_description: event.description ?? '',
+  const [content, setContent]       = useState<EventWebContent>(() => ({
+    hero_title: event.name,
+    hero_subtitle: event.tagline ?? '',
+    hero_cta_label: 'Inscríbete ahora',
+    concepto_title: `De qué se trata ${event.name}`,
+    concepto_body: event.description ?? '',
+    ubicacion_venue: event.venue_name ?? '',
+    ubicacion_city: event.venue_city ?? '',
+    ubicacion_address: event.venue_address ?? '',
+    cta_title: `Nos vemos en ${event.venue_city || 'Medellín'}`,
+    cta_label: 'Reservar mi lugar',
+    seo_title: event.name,
+    seo_description: event.description ?? '',
+    faq_items: [],
     galeria_images: [],
-  });
+    publico_items: [],
+    beneficios_items: [],
+    ejes_items: [],
+  }));
   const [saving, setSaving]         = useState(false);
   const [saved,  setSaved]          = useState(false);
   const [error, setError]           = useState<string | null>(null);
@@ -173,20 +275,37 @@ export function NovoEventWeb() {
   const [catalogSpeakers, setCatalogSpeakers] = useState<CatalogSpeaker[]>([]);
   const [speakersLoaded, setSpeakersLoaded] = useState(false);
 
+  const shownSections = useMemo(() => annotate(sections, content), [sections, content]);
+
   useEffect(() => {
+    const catalog = catalogWebDefaults(event.slug);
+    const extraDefaults = catalogExtraDefaults(event.slug);
     getEventSettings(event.id)
       .then(row => {
-        if (!row) return;
-        const web = (row.custom.web ?? {}) as { extra?: Record<string, boolean>; content?: SectionContent };
+        const web = (row?.custom.web ?? {}) as { extra?: Record<string, boolean>; content?: EventWebContent };
+        const legacy = !(web.content && 'publico_items' in web.content);
+        setContent(prev => mergeWebContent(web.content, { ...prev, ...catalog }));
         setSections(ALL_SECTIONS.map(sec => {
           const dbKey = UI_TO_DB[sec.id];
-          if (dbKey) return { ...sec, enabled: row.sections[dbKey] };
-          return { ...sec, enabled: web.extra?.[sec.id] ?? sec.enabled };
+          if (dbKey) {
+            if (!row) return { ...sec, enabled: DEFAULT_EVENT_SECTIONS[dbKey] };
+            if (dbKey === 'faq' && legacy && (catalog.faq_items?.length ?? 0) > 0) {
+              return { ...sec, enabled: true };
+            }
+            return { ...sec, enabled: row.sections[dbKey] };
+          }
+          if (legacy) return { ...sec, enabled: extraDefaults[sec.id] ?? web.extra?.[sec.id] ?? sec.enabled };
+          return { ...sec, enabled: web.extra?.[sec.id] ?? extraDefaults[sec.id] ?? sec.enabled };
         }));
-        if (web.content) setContent(prev => ({ ...prev, ...web.content }));
       })
-      .catch(() => { /* deja defaults */ });
-  }, [event.id]);
+      .catch(() => {
+        setContent(prev => ({ ...prev, ...catalog }));
+        setSections(ALL_SECTIONS.map(sec => ({
+          ...sec,
+          enabled: extraDefaults[sec.id] ?? sec.enabled,
+        })));
+      });
+  }, [event.id, event.slug]);
 
   useEffect(() => {
     listSpeakers().then(setCatalogSpeakers).catch(() => setCatalogSpeakers([]));
@@ -201,10 +320,10 @@ export function NovoEventWeb() {
     setSections(prev => prev.map(s => s.id !== id || s.required ? s : { ...s, enabled: !s.enabled }));
   };
 
-  const c = (k: keyof SectionContent) => (v: string) =>
+  const c = (k: keyof EventWebContent) => (v: string) =>
     setContent(p => ({ ...p, [k]: v }));
 
-  const persistWeb = async (nextStatus: NovoEventPublicationStatus, nextSections: WebSection[], nextContent: SectionContent) => {
+  const persistWeb = async (nextStatus: NovoEventPublicationStatus, nextSections: WebSection[], nextContent: EventWebContent) => {
     const extra: Record<string, boolean> = {};
     for (const sec of nextSections) {
       if (!UI_TO_DB[sec.id]) extra[sec.id] = sec.enabled;
@@ -249,12 +368,10 @@ export function NovoEventWeb() {
     }
   };
 
-  const enabledOk   = sections.filter(s => s.enabled && s.status === 'ok').length;
-  const enabledWarn = sections.filter(s => s.enabled && s.status === 'warn').length;
-  const enabledAll  = sections.filter(s => s.enabled).length;
+  const enabledOk   = shownSections.filter(s => s.enabled && s.status === 'ok').length;
+  const enabledAll  = shownSections.filter(s => s.enabled).length;
   const readiness   = enabledAll > 0 ? Math.round((enabledOk / enabledAll) * 100) : 0;
 
-  /* ── Editor de sección seleccionada ──────────────────── */
   const renderEditor = () => {
     if (!selected) return null;
 
@@ -279,16 +396,18 @@ export function NovoEventWeb() {
       </div>
     );
 
-    const sec = sections.find(s => s.id === selected);
+    const sec = shownSections.find(s => s.id === selected);
     if (!sec) return null;
 
     if (selected === 'hero') return (
       <div className="space-y-4">
         <p className="text-xs font-bold" style={{ color: TEXT_HI }}>Hero / Portada</p>
+        <SField label="Logo (fondo oscuro)"><SInput value={content.hero_logo ?? ''} onChange={c('hero_logo')} placeholder="/logo.png o https://..." /></SField>
+        <SField label="Kicker (línea chica arriba del título)"><SInput value={content.hero_kicker ?? ''} onChange={c('hero_kicker')} placeholder="Congreso internacional · Educación médica continua" /></SField>
         <SField label="Título principal"><SInput value={content.hero_title ?? ''} onChange={c('hero_title')} /></SField>
-        <SField label="Subtítulo"><SInput value={content.hero_subtitle ?? ''} onChange={c('hero_subtitle')} /></SField>
+        <SField label="Claim / subtítulo"><SInput value={content.hero_subtitle ?? ''} onChange={c('hero_subtitle')} /></SField>
         <SField label="Texto del botón CTA"><SInput value={content.hero_cta_label ?? ''} onChange={c('hero_cta_label')} placeholder="Inscríbete ahora" /></SField>
-        <SField label="URL del CTA"><SInput value={content.hero_cta_url ?? ''} onChange={c('hero_cta_url')} placeholder="https://..." /></SField>
+        <SField label="URL del CTA"><SInput value={content.hero_cta_url ?? ''} onChange={c('hero_cta_url')} placeholder="Vacío = inscripción del evento" /></SField>
         <SField label="URL imagen de fondo"><SInput value={content.hero_image ?? ''} onChange={c('hero_image')} placeholder="https://..." /></SField>
       </div>
     );
@@ -296,11 +415,107 @@ export function NovoEventWeb() {
     if (selected === 'concepto') return (
       <div className="space-y-4">
         <p className="text-xs font-bold" style={{ color: TEXT_HI }}>Acerca del evento</p>
-        <SField label="Título de la sección"><SInput value={content.concepto_title ?? ''} onChange={c('concepto_title')} /></SField>
-        <SField label="Descripción / cuerpo">
-          <STextarea value={content.concepto_body ?? ''} onChange={c('concepto_body')} rows={5} placeholder="Descripción completa del evento…" />
+        <SField label="Etiqueta de sección"><SInput value={content.concepto_title ?? ''} onChange={c('concepto_title')} placeholder={`De qué se trata ${event.name}`} /></SField>
+        <SField label="Frase gancho (título grande)"><STextarea value={content.concepto_lead ?? ''} onChange={c('concepto_lead')} rows={2} placeholder="La medicina del siglo XXI ya no trata órganos aislados." /></SField>
+        <SField label="Cuerpo (un párrafo por línea)">
+          <STextarea value={content.concepto_body ?? ''} onChange={c('concepto_body')} rows={6} placeholder="Descripción completa del evento…" />
         </SField>
         <SField label="URL imagen ilustrativa"><SInput value={content.concepto_image ?? ''} onChange={c('concepto_image')} placeholder="https://..." /></SField>
+        <SField label="Pie de la imagen"><SInput value={content.concepto_caption ?? ''} onChange={c('concepto_caption')} placeholder="Para quienes quieren entender su cuerpo…" /></SField>
+      </div>
+    );
+
+    if (selected === 'publico') return (
+      <div className="space-y-4">
+        <p className="text-xs font-bold" style={{ color: TEXT_HI }}>Público</p>
+        <SField label="Título"><SInput value={content.publico_title ?? ''} onChange={c('publico_title')} placeholder="¿Para quién es?" /></SField>
+        <SField label="Perfiles">
+          <StringListEditor
+            items={content.publico_items ?? []}
+            onChange={publico_items => setContent(p => ({ ...p, publico_items }))}
+            placeholder="Médicos generales y especialistas"
+          />
+        </SField>
+      </div>
+    );
+
+    if (selected === 'beneficios') return (
+      <div className="space-y-4">
+        <p className="text-xs font-bold" style={{ color: TEXT_HI }}>Qué incluye</p>
+        <SField label="Título"><SInput value={content.beneficios_title ?? ''} onChange={c('beneficios_title')} placeholder="Qué incluye" /></SField>
+        <SField label="Beneficios">
+          <StringListEditor
+            items={content.beneficios_items ?? []}
+            onChange={beneficios_items => setContent(p => ({ ...p, beneficios_items }))}
+            placeholder="Certificado de asistencia"
+          />
+        </SField>
+      </div>
+    );
+
+    if (selected === 'ejes') {
+      const items = content.ejes_items ?? [];
+      const update = (i: number, patch: Partial<EventWebEje>) =>
+        setContent(p => ({ ...p, ejes_items: (p.ejes_items ?? []).map((item, idx) => idx === i ? { ...item, ...patch } : item) }));
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold" style={{ color: TEXT_HI }}>Ejes / Programa</p>
+            <button type="button"
+              onClick={() => setContent(p => ({ ...p, ejes_items: [...(p.ejes_items ?? []), { id: `eje-${Date.now()}`, name: '', subtitle: '', description: '', icon: 'gut' }] }))}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
+              style={{ background: 'rgba(0,201,160,.1)', color: ACCENT }}>
+              <PlusIcon size={11} /> Agregar eje
+            </button>
+          </div>
+          <SField label="Kicker"><SInput value={content.ejes_kicker ?? ''} onChange={c('ejes_kicker')} placeholder="Programa académico" /></SField>
+          <SField label="Título (plural)"><SInput value={content.ejes_title ?? ''} onChange={c('ejes_title')} placeholder="Los seis puentes" /></SField>
+          <SField label="Subtítulo"><SInput value={content.ejes_subtitle ?? ''} onChange={c('ejes_subtitle')} placeholder="un recorrido, no una lista" /></SField>
+          <SField label="Etiqueta singular"><SInput value={content.ejes_label ?? ''} onChange={c('ejes_label')} placeholder="Puente" /></SField>
+          {items.map((item, i) => (
+            <div key={item.id || i} className="rounded-xl p-3 space-y-2" style={{ background: BG_DEEP, border: `1px solid ${BORDER}` }}>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{content.ejes_label || 'Eje'} {i + 1}</p>
+                <button type="button" onClick={() => setContent(p => ({ ...p, ejes_items: (p.ejes_items ?? []).filter((_, idx) => idx !== i) }))}>
+                  <TrashIcon size={11} style={{ color: '#F24463' }} />
+                </button>
+              </div>
+              <SInput value={item.name} onChange={v => update(i, { name: v })} placeholder="Sistema gastrointestinal" />
+              <SInput value={item.subtitle ?? ''} onChange={v => update(i, { subtitle: v })} placeholder="Origen y cimiento" />
+              <STextarea value={item.description ?? ''} onChange={v => update(i, { description: v })} rows={3} placeholder="Descripción del eje…" />
+              <select
+                value={item.icon ?? 'gut'}
+                onChange={e => update(i, { icon: e.target.value as EventWebEje['icon'] })}
+                className="w-full rounded-xl px-3 py-2 text-sm outline-none"
+                style={{ background: BG, border: `1px solid ${BORDER}`, color: TEXT_HI }}
+              >
+                {TRACK_ICON_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+              </select>
+            </div>
+          ))}
+          {items.length === 0 && (
+            <p className="text-xs rounded-xl py-6 text-center" style={{ color: TEXT_DIM, border: `1px dashed ${BORDER}` }}>
+              Sin ejes. En Eterna se deja vacío; en Hormobiota son los seis puentes.
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    if (selected === 'experiencia') return (
+      <div className="space-y-4">
+        <p className="text-xs font-bold" style={{ color: TEXT_HI }}>Experiencia previa</p>
+        <SField label="Nombre"><SInput value={content.experiencia_name ?? ''} onChange={c('experiencia_name')} placeholder="Ruta Hormobiota" /></SField>
+        <SField label="Duración"><SInput value={content.experiencia_duration ?? ''} onChange={c('experiencia_duration')} placeholder="21 días antes del congreso" /></SField>
+        <SField label="Descripción"><STextarea value={content.experiencia_body ?? ''} onChange={c('experiencia_body')} rows={4} /></SField>
+        <SField label="Canales">
+          <StringListEditor
+            items={content.experiencia_channels ?? []}
+            onChange={experiencia_channels => setContent(p => ({ ...p, experiencia_channels }))}
+            placeholder="WhatsApp"
+            addLabel="Agregar canal"
+          />
+        </SField>
       </div>
     );
 
@@ -327,7 +542,7 @@ export function NovoEventWeb() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold" style={{ color: TEXT_HI }}>Preguntas frecuentes</p>
-            <button onClick={addItem} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
+            <button type="button" onClick={addItem} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
               style={{ background: 'rgba(0,201,160,.1)', color: ACCENT }}>
               <PlusIcon size={11} /> Agregar
             </button>
@@ -336,7 +551,7 @@ export function NovoEventWeb() {
             <div key={i} className="rounded-xl p-3 space-y-2" style={{ background: BG_DEEP, border: `1px solid ${BORDER}` }}>
               <div className="flex items-center justify-between mb-1">
                 <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Pregunta {i + 1}</p>
-                <button onClick={() => removeItem(i)}><TrashIcon size={11} style={{ color: '#F24463' }} /></button>
+                <button type="button" onClick={() => removeItem(i)}><TrashIcon size={11} style={{ color: '#F24463' }} /></button>
               </div>
               <SInput value={item.q} onChange={v => updateItem(i, 'q', v)} placeholder="¿Cuál es el costo del evento?" />
               <STextarea value={item.a} onChange={v => updateItem(i, 'a', v)} rows={2} placeholder="Respuesta…" />
@@ -357,7 +572,7 @@ export function NovoEventWeb() {
         <SField label="Título"><SInput value={content.cta_title ?? ''} onChange={c('cta_title')} placeholder="¿Listo para asistir?" /></SField>
         <SField label="Texto de apoyo"><STextarea value={content.cta_body ?? ''} onChange={c('cta_body')} rows={2} placeholder="No dejes pasar esta oportunidad…" /></SField>
         <SField label="Texto del botón"><SInput value={content.cta_label ?? ''} onChange={c('cta_label')} placeholder="Reservar mi lugar" /></SField>
-        <SField label="URL del botón"><SInput value={content.cta_url ?? ''} onChange={c('cta_url')} placeholder="https://..." /></SField>
+        <SField label="URL del botón"><SInput value={content.cta_url ?? ''} onChange={c('cta_url')} placeholder="Vacío = inscripción del evento" /></SField>
       </div>
     );
 
@@ -367,7 +582,7 @@ export function NovoEventWeb() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold" style={{ color: TEXT_HI }}>Galería de imágenes</p>
-            <button onClick={() => setContent(p => ({ ...p, galeria_images: [...(p.galeria_images ?? []), ''] }))}
+            <button type="button" onClick={() => setContent(p => ({ ...p, galeria_images: [...(p.galeria_images ?? []), ''] }))}
               className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
               style={{ background: 'rgba(0,201,160,.1)', color: ACCENT }}>
               <PlusIcon size={11} /> Agregar URL
@@ -376,7 +591,7 @@ export function NovoEventWeb() {
           {imgs.map((url, i) => (
             <div key={i} className="flex gap-2">
               <SInput value={url} onChange={v => setContent(p => ({ ...p, galeria_images: (p.galeria_images ?? []).map((u, idx) => idx === i ? v : u) }))} placeholder="https://..." />
-              <button onClick={() => setContent(p => ({ ...p, galeria_images: (p.galeria_images ?? []).filter((_, idx) => idx !== i) }))}
+              <button type="button" onClick={() => setContent(p => ({ ...p, galeria_images: (p.galeria_images ?? []).filter((_, idx) => idx !== i) }))}
                 className="rounded-lg px-2.5" style={{ background: 'rgba(242,68,99,.1)', color: '#F24463', border: '1px solid rgba(242,68,99,.2)' }}>
                 <TrashIcon size={12} />
               </button>
@@ -386,33 +601,104 @@ export function NovoEventWeb() {
       );
     }
 
-    /* Secciones que solo tienen toggle (agenda, speakers, tickets, patrocinadores, etc.) */
+    if (selected === 'certificacion') return (
+      <div className="space-y-4">
+        <p className="text-xs font-bold" style={{ color: TEXT_HI }}>Certificación</p>
+        <SField label="Texto público">
+          <STextarea value={content.certificacion_body ?? ''} onChange={c('certificacion_body')} rows={4}
+            placeholder="Este evento otorga certificado de asistencia. Entidad certificadora y horas en definición." />
+        </SField>
+        <p className="text-[10px]" style={{ color: TEXT_DIM }}>El switch de “tiene certificado” sigue en Información del evento.</p>
+      </div>
+    );
+
+    if (selected === 'resultados') {
+      const items = content.resultados_items ?? [];
+      const update = (i: number, patch: Partial<EventWebStat>) =>
+        setContent(p => ({ ...p, resultados_items: (p.resultados_items ?? []).map((item, idx) => idx === i ? { ...item, ...patch } : item) }));
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold" style={{ color: TEXT_HI }}>Resultados / Memorias</p>
+            <button type="button"
+              onClick={() => setContent(p => ({ ...p, resultados_items: [...(p.resultados_items ?? []), { label: '', value: '' }] }))}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
+              style={{ background: 'rgba(0,201,160,.1)', color: ACCENT }}>
+              <PlusIcon size={11} /> Agregar
+            </button>
+          </div>
+          <SField label="Título"><SInput value={content.resultados_title ?? ''} onChange={c('resultados_title')} placeholder="Resultados" /></SField>
+          {items.map((item, i) => (
+            <div key={i} className="flex gap-2">
+              <SInput value={item.label} onChange={v => update(i, { label: v })} placeholder="Asistentes" />
+              <SInput value={item.value} onChange={v => update(i, { value: v })} placeholder="850" />
+              <button type="button" onClick={() => setContent(p => ({ ...p, resultados_items: (p.resultados_items ?? []).filter((_, idx) => idx !== i) }))}
+                className="rounded-lg px-2.5" style={{ background: 'rgba(242,68,99,.1)', color: '#F24463' }}>
+                <TrashIcon size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (selected === 'aliados') {
+      const items = content.aliados_items ?? [];
+      const update = (i: number, patch: Partial<EventWebAlly>) =>
+        setContent(p => ({ ...p, aliados_items: (p.aliados_items ?? []).map((item, idx) => idx === i ? { ...item, ...patch } : item) }));
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold" style={{ color: TEXT_HI }}>Aliados / Apoyan</p>
+            <button type="button"
+              onClick={() => setContent(p => ({ ...p, aliados_items: [...(p.aliados_items ?? []), { name: '', logo_url: '' }] }))}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
+              style={{ background: 'rgba(0,201,160,.1)', color: ACCENT }}>
+              <PlusIcon size={11} /> Agregar
+            </button>
+          </div>
+          <SField label="Título"><SInput value={content.aliados_title ?? ''} onChange={c('aliados_title')} placeholder="Nos apoyan" /></SField>
+          {items.map((item, i) => (
+            <div key={i} className="rounded-xl p-3 space-y-2" style={{ background: BG_DEEP, border: `1px solid ${BORDER}` }}>
+              <div className="flex justify-end">
+                <button type="button" onClick={() => setContent(p => ({ ...p, aliados_items: (p.aliados_items ?? []).filter((_, idx) => idx !== i) }))}>
+                  <TrashIcon size={11} style={{ color: '#F24463' }} />
+                </button>
+              </div>
+              <SInput value={item.name} onChange={v => update(i, { name: v })} placeholder="Nombre de la institución" />
+              <SInput value={item.logo_url ?? ''} onChange={v => update(i, { logo_url: v })} placeholder="URL del logo" />
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (selected === 'patrocinadores') return (
+      <div className="space-y-4">
+        <p className="text-xs font-bold" style={{ color: TEXT_HI }}>Patrocinadores</p>
+        <SField label="Título"><SInput value={content.patrocinadores_title ?? ''} onChange={c('patrocinadores_title')} placeholder="Patrocinadores" /></SField>
+        <SField label="Texto de apoyo"><STextarea value={content.patrocinadores_body ?? ''} onChange={c('patrocinadores_body')} rows={3} /></SField>
+        <ModuleLink to={`/novo/eventos/${event.id}/patrocinadores`}>Ir a Patrocinadores del evento</ModuleLink>
+      </div>
+    );
+
+    if (selected === 'stands') return (
+      <div className="space-y-4">
+        <p className="text-xs font-bold" style={{ color: TEXT_HI }}>Stands / Exposición</p>
+        <SField label="Título"><SInput value={content.stands_title ?? ''} onChange={c('stands_title')} placeholder="Área de exposición" /></SField>
+        <SField label="Texto de apoyo"><STextarea value={content.stands_body ?? ''} onChange={c('stands_body')} rows={3} /></SField>
+        <ModuleLink to={`/novo/eventos/${event.id}/stands`}>Ir a Stands del evento</ModuleLink>
+      </div>
+    );
+
     return (
       <div className="space-y-3">
         <p className="text-xs font-bold" style={{ color: TEXT_HI }}>{sec.label}</p>
         <div className="rounded-xl p-4" style={{ background: BG_DEEP, border: `1px solid ${BORDER}` }}>
           <p className="text-xs" style={{ color: TEXT_LO }}>{sec.description}</p>
-          {sec.note && (
-            <div className="mt-3 flex items-start gap-2 rounded-lg p-2.5" style={{ background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.2)' }}>
-              <AlertCircleIcon size={13} style={{ color: '#F59E0B', flexShrink: 0, marginTop: 1 }} />
-              <p className="text-xs" style={{ color: '#F59E0B' }}>{sec.note}</p>
-            </div>
-          )}
         </div>
-        {selected === 'agenda' && (
-          <Link to={`/novo/eventos/${event.id}/agenda`}
-            className="flex items-center justify-between w-full rounded-xl px-4 py-3 text-xs font-semibold transition-all"
-            style={{ background: 'rgba(0,201,160,.08)', color: ACCENT, border: `1px solid rgba(0,201,160,.2)` }}>
-            Ir a Agenda del evento <ChevronRightIcon size={13} />
-          </Link>
-        )}
-        {selected === 'tickets' && (
-          <Link to={`/novo/eventos/${event.id}/tickets`}
-            className="flex items-center justify-between w-full rounded-xl px-4 py-3 text-xs font-semibold transition-all"
-            style={{ background: 'rgba(0,201,160,.08)', color: ACCENT, border: `1px solid rgba(0,201,160,.2)` }}>
-            Ir a Tickets del evento <ChevronRightIcon size={13} />
-          </Link>
-        )}
+        {selected === 'agenda' && <ModuleLink to={`/novo/eventos/${event.id}/agenda`}>Ir a Agenda del evento</ModuleLink>}
+        {selected === 'tickets' && <ModuleLink to={`/novo/eventos/${event.id}/tickets`}>Ir a Tickets del evento</ModuleLink>}
         {selected === 'speakers' && (
           <div className="space-y-3">
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Speakers asignados a este evento</p>
@@ -429,7 +715,7 @@ export function NovoEventWeb() {
                   <div key={sp.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all"
                     style={{ background: assigned ? 'rgba(0,201,160,.08)' : BG_DEEP, border: `1px solid ${assigned ? 'rgba(0,201,160,.3)' : BORDER}` }}>
                     <div className="h-8 w-8 shrink-0 rounded-lg flex items-center justify-center text-[10px] font-bold text-white"
-                      style={{ background: `linear-gradient(135deg,#1a4a7a,#2d6fae)` }}>{initials}</div>
+                      style={{ background: 'linear-gradient(135deg,#1a4a7a,#2d6fae)' }}>{initials}</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold truncate" style={{ color: TEXT_HI }}>{sp.name}</p>
                       <p className="text-[10px] truncate" style={{ color: TEXT_LO }}>{sp.specialty || 'Conferencista'}</p>
@@ -444,19 +730,12 @@ export function NovoEventWeb() {
                 );
               })}
             </div>
-            <Link to={`/novo/speakers`}
+            <Link to="/novo/speakers"
               className="flex items-center justify-between w-full rounded-xl px-4 py-3 text-xs font-semibold transition-all"
               style={{ background: 'rgba(0,201,160,.06)', color: TEXT_LO, border: `1px solid ${BORDER}` }}>
               Gestionar speakers globales <ChevronRightIcon size={13} />
             </Link>
           </div>
-        )}
-        {selected === 'patrocinadores' && (
-          <Link to={`/novo/eventos/${event.id}/patrocinadores`}
-            className="flex items-center justify-between w-full rounded-xl px-4 py-3 text-xs font-semibold transition-all"
-            style={{ background: 'rgba(0,201,160,.08)', color: ACCENT, border: `1px solid rgba(0,201,160,.2)` }}>
-            Ir a Patrocinadores del evento <ChevronRightIcon size={13} />
-          </Link>
         )}
       </div>
     );
@@ -464,7 +743,6 @@ export function NovoEventWeb() {
 
   return (
     <div>
-      {/* ── Header ───────────────────────────────────────── */}
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: ACCENT }}>{event.name}</p>
@@ -479,7 +757,7 @@ export function NovoEventWeb() {
           </a>
           <motion.button whileTap={{ scale: 0.96 }} onClick={handleSave} disabled={saving}
             className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-semibold"
-            style={{ background: saved ? 'rgba(0,201,160,.18)' : 'rgba(0,201,160,.12)', color: ACCENT, border: `1px solid rgba(0,201,160,.3)` }}>
+            style={{ background: saved ? 'rgba(0,201,160,.18)' : 'rgba(0,201,160,.12)', color: ACCENT, border: '1px solid rgba(0,201,160,.3)' }}>
             <SaveIcon size={13} />
             {saving ? 'Guardando…' : saved ? '¡Guardado!' : 'Guardar cambios'}
           </motion.button>
@@ -488,10 +766,7 @@ export function NovoEventWeb() {
       {error && <p className="mb-4 text-sm" style={{ color: '#F24463' }}>{error}</p>}
 
       <div className="flex gap-5">
-
-        {/* ── Lista de secciones ──────────────────────────── */}
         <div className="flex-1 min-w-0">
-          {/* Estado de publicación */}
           <div className="mb-4 rounded-2xl p-4" style={{ background: BG, border: `1px solid ${BORDER}` }}>
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-center gap-3">
@@ -512,14 +787,14 @@ export function NovoEventWeb() {
               </div>
               <div className="flex items-center gap-2">
                 {cfg.prev && (
-                  <button onClick={() => changePubStatus(cfg.prev!)}
+                  <button type="button" onClick={() => changePubStatus(cfg.prev!)}
                     className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
                     style={{ background: '#182d47', color: TEXT_LO, border: `1px solid ${BORDER}` }}>
                     {cfg.prevLabel}
                   </button>
                 )}
                 {cfg.next && (
-                  <button onClick={() => changePubStatus(cfg.next!)}
+                  <button type="button" onClick={() => changePubStatus(cfg.next!)}
                     className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all active:scale-95"
                     style={{ background: cfg.color, color: '#0d1829' }}>
                     {cfg.nextLabel} <ArrowRightIcon size={12} />
@@ -527,21 +802,19 @@ export function NovoEventWeb() {
                 )}
               </div>
             </div>
-            {/* Barra de progreso de secciones */}
             <div className="mt-3 h-1 w-full overflow-hidden rounded-full" style={{ background: BORDER }}>
               <div className="h-full rounded-full transition-all duration-700"
                 style={{ width: `${readiness}%`, background: readiness === 100 ? ACCENT : '#F59E0B' }} />
             </div>
           </div>
 
-          {/* Cabecera de columna */}
           <div className="grid px-4 py-2 mb-2 text-[10px] font-bold uppercase tracking-widest"
             style={{ gridTemplateColumns: '1fr auto auto auto', color: TEXT_DIM }}>
             <span>Sección</span><span>Estado</span><span>Editar</span><span>Activa</span>
           </div>
 
           <div className="space-y-1.5">
-            {sections.map((sec, i) => {
+            {shownSections.map((sec, i) => {
               const si   = STATUS_CFG[sec.status];
               const isSelected = selected === sec.id;
               return (
@@ -557,7 +830,6 @@ export function NovoEventWeb() {
                     border: `1px solid ${isSelected ? 'rgba(0,201,160,.25)' : BORDER}`,
                     opacity: sec.enabled ? 1 : 0.55,
                   }}>
-                  {/* Info */}
                   <div className="flex items-center gap-3 min-w-0">
                     <GripVerticalIcon size={12} style={{ color: TEXT_DIM, flexShrink: 0 }} />
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
@@ -572,16 +844,14 @@ export function NovoEventWeb() {
                             style={{ background: 'rgba(91,138,240,.15)', color: '#5B8AF0' }}>Requerida</span>
                         )}
                       </div>
-                      {sec.note && <p className="text-[10px] mt-0.5 truncate" style={{ color: '#F59E0B' }}>{sec.note}</p>}
+                      {sec.note && <p className="text-[10px] mt-0.5 truncate" style={{ color: sec.status === 'warn' ? '#F59E0B' : TEXT_DIM }}>{sec.note}</p>}
                       {!sec.note && <p className="text-[10px] mt-0.5 truncate" style={{ color: TEXT_DIM }}>{sec.description}</p>}
                     </div>
                   </div>
 
-                  {/* Estado */}
                   <si.icon size={14} style={{ color: si.color }} />
 
-                  {/* Editar */}
-                  <button onClick={() => setSelected(isSelected ? null : sec.id)}
+                  <button type="button" onClick={() => setSelected(isSelected ? null : sec.id)}
                     className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all"
                     style={{
                       background: isSelected ? 'rgba(0,201,160,.1)' : '#182d47',
@@ -591,8 +861,7 @@ export function NovoEventWeb() {
                     <PencilIcon size={11} />
                   </button>
 
-                  {/* Toggle */}
-                  <button onClick={() => !sec.required && toggleSection(sec.id)}
+                  <button type="button" onClick={() => !sec.required && toggleSection(sec.id)}
                     className="relative h-5 w-9 rounded-full transition-colors shrink-0"
                     style={{ background: sec.enabled ? ACCENT : '#1e3450', cursor: sec.required ? 'not-allowed' : 'pointer' }}
                     title={sec.required ? 'Sección requerida' : sec.enabled ? 'Desactivar' : 'Activar'}>
@@ -604,8 +873,7 @@ export function NovoEventWeb() {
             })}
           </div>
 
-          {/* SEO */}
-          <button onClick={() => setSelected(selected === 'seo' ? null : 'seo')}
+          <button type="button" onClick={() => setSelected(selected === 'seo' ? null : 'seo')}
             className="mt-3 flex w-full items-center justify-between rounded-2xl px-5 py-3.5 transition-all"
             style={{
               background: selected === 'seo' ? 'rgba(91,138,240,.08)' : BG,
@@ -622,13 +890,12 @@ export function NovoEventWeb() {
           </button>
         </div>
 
-        {/* ── Panel editor lateral ─────────────────────────── */}
         <AnimatePresence>
           {selected && (
             <motion.div
               key={selected}
               initial={{ opacity: 0, x: 24, width: 0 }}
-              animate={{ opacity: 1, x: 0, width: 300 }}
+              animate={{ opacity: 1, x: 0, width: 400 }}
               exit={{ opacity: 0, x: 24, width: 0 }}
               transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
               className="shrink-0 overflow-hidden rounded-2xl"
@@ -636,9 +903,9 @@ export function NovoEventWeb() {
               <div className="p-5 h-full overflow-y-auto" style={{ maxHeight: '80vh' }}>
                 {renderEditor()}
                 <div className="mt-5 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
-                  <button onClick={handleSave}
+                  <button type="button" onClick={handleSave}
                     className="w-full rounded-xl py-2.5 text-xs font-semibold transition-all active:scale-95"
-                    style={{ background: 'rgba(0,201,160,.12)', color: ACCENT, border: `1px solid rgba(0,201,160,.25)` }}>
+                    style={{ background: 'rgba(0,201,160,.12)', color: ACCENT, border: '1px solid rgba(0,201,160,.25)' }}>
                     Guardar sección
                   </button>
                 </div>
