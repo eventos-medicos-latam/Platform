@@ -16,6 +16,7 @@ import {
   createEventSponsor, deleteEventSponsor, listEventSponsors, updateEventSponsor,
   type EventSponsorRow, type PlanTier, type SponsorStatus,
 } from '../../../lib/novo/sponsors';
+import { NovoPlanRequestsPanel } from '../../../components/novo/sponsors/NovoPlanRequestsPanel';
 import type { NovoEvent } from '../../../types/novo';
 
 interface EventContext { event: NovoEvent }
@@ -166,7 +167,7 @@ export function NovoEventPatrocinadores() {
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#00C9A0' }}>{event.name}</p>
           <h1 className="text-xl font-bold" style={{ color: '#E1EAF4', fontFamily: "'Sora', sans-serif" }}>Patrocinadores</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#7A9CB8' }}>Empresas · planes · beneficios · pagos</p>
+          <p className="text-sm mt-0.5" style={{ color: '#7A9CB8' }}>Empresas · postulaciones web · planes · pagos</p>
         </div>
         <div className="flex items-center gap-2">
           <Link
@@ -196,6 +197,28 @@ export function NovoEventPatrocinadores() {
         <KPICard label="Ingresos patro."   value={`$${(ingresos / 1_000_000).toFixed(1)}M`} icon={DollarSignIcon}  accent="#FF7043" delay={0.1}  />
         <KPICard label="Pagos pendientes"  value={pending.toString()}        icon={AlertCircleIcon} accent="#F59E0B" delay={0.15} />
       </div>
+
+      <NovoPlanRequestsPanel
+        event={event}
+        companies={companies}
+        onConvert={(draft) => {
+          setEditing(null);
+          setError(null);
+          const co = companies.find(c => c.id === draft.company_id);
+          setForm({
+            ...EMPTY_FORM,
+            company_id: draft.company_id,
+            logo: co?.logo ?? '',
+            contact_name: draft.contact_name || co?.contacto_nombre || '',
+            contact_email: draft.contact_email || co?.contacto_email || '',
+            contact_tel: draft.contact_tel || co?.contacto_tel || '',
+            notas: draft.notas,
+            status: draft.status,
+            plan: draft.plan,
+          });
+          setModalOpen(true);
+        }}
+      />
 
       {/* Filtro */}
       <div className="mb-4 flex rounded-xl overflow-hidden" style={{ border: '1px solid #1e3450', width: 'fit-content' }}>

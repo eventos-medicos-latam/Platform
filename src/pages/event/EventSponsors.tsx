@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
-import { CheckIcon, MinusIcon } from 'lucide-react';
+import { BuildingIcon, CheckIcon, MinusIcon } from 'lucide-react';
 import type { Edition } from '../../types/event';
 import type { PlanId } from '../../types/participation';
 import { PageTransition } from '../../components/motion/PageTransition';
 import { DisplayTitle } from '../../components/ui/DisplayTitle';
 import { EventPageHeader } from '../../components/event/EventPageHeader';
 import { PlanShowcase } from '../../components/event/PlanShowcase';
-import { SponsorRegistrationSection, type SponsorType } from '../../components/event/SponsorRegistrationSection';
+import { AllyPlanRequestDrawer } from '../../components/public/AllyPlanRequestDrawer';
 import { SponsorBanner } from '../../components/public/SponsorBanner';
 import { Reveal, RevealItem } from '../../components/motion/Reveal';
 import { media } from '../../data/media';
@@ -22,9 +22,8 @@ interface PublishedParticipation {
 
 /**
  * Registro de patrocinio. Todo nace del plan: el espacio, el puente y el
- * speaker se derivan de él, nunca al revés. El tipo elegido vive en la URL
- * (`?tipo=`), no en estado local, para que sobreviva el viaje de ida y
- * vuelta al checkout de Wompi.
+ * speaker se derivan de él, nunca al revés. El formulario se abre en un
+ * panel lateral, el mismo de /aliados.
  */
 export function EventSponsors() {
   const {
@@ -33,8 +32,9 @@ export function EventSponsors() {
     edition: Edition;
   }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tipo = searchParams.get('tipo') as SponsorType | null;
   const activePlanId = (searchParams.get('ver') as PlanId | null) ?? null;
+  const [formOpen, setFormOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null);
   const [published, setPublished] = useState<PublishedParticipation[]>([]);
   useEffect(() => {
     supabase
@@ -64,11 +64,23 @@ export function EventSponsors() {
     if (id) next.set('ver', id); else next.delete('ver');
     setSearchParams(next, { replace: true });
   };
-  const chooseType = (id: SponsorType) => {
-    const next = new URLSearchParams(searchParams);
-    next.set('tipo', id);
-    setSearchParams(next);
+  const openForm = (id?: PlanId) => {
+    setSelectedPlan(id ?? null);
+    setFormOpen(true);
   };
+
+  useEffect(() => {
+    const tipo = searchParams.get('tipo');
+    if (tipo === 'protagonista' || tipo === 'conexion' || tipo === 'pop-up') {
+      setSelectedPlan(tipo);
+      setFormOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('tipo');
+      setSearchParams(next, { replace: true });
+    }
+    // Solo al entrar con un enlace viejo (?tipo=).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return <PageTransition>
       <EventPageHeader eyebrow="Registro" image={media.networking} parts={[{
@@ -102,17 +114,36 @@ export function EventSponsors() {
           tone: 'bold'
         }]} />
           <p className="mt-5 max-w-2xl text-base leading-relaxed text-ink">
-            Toca un plan para ver todo lo que incluye. Cuando decidas, el registro se abre debajo —
-            un formulario y listo.
+            Toca un plan para ver todo lo que incluye. Cuando decidas, el registro se abre a un lado.
           </p>
 
           <div className="mt-10">
-            <PlanShowcase activeId={activePlanId} onSelect={(id) => setVer(activePlanId === id ? null : id)} ctaLabel="Ir al registro" onCta={(id) => chooseType(id)} />
+            <PlanShowcase activeId={activePlanId} onSelect={(id) => setVer(activePlanId === id ? null : id)} ctaLabel="Postularme a este plan" onCta={(id) => openForm(id)} />
+          </div>
+
+          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-between sm:gap-0">
+            <p className="text-sm text-ink-muted">
+              Los precios y cupos pueden variar por edición. El equipo comercial confirma disponibilidad.
+            </p>
+            <button
+              type="button"
+              onClick={() => openForm()}
+              className="flex shrink-0 items-center gap-2 rounded-full border border-brand/30 bg-white px-5 py-2.5 text-sm font-semibold text-brand shadow-elev1 transition-shadow hover:shadow-elev2"
+            >
+              <BuildingIcon size={15} />
+              Registrar mi empresa
+            </button>
           </div>
         </div>
       </section>
 
-      <SponsorRegistrationSection editionId={edition.id} type={tipo} />
+      <AllyPlanRequestDrawer
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        editionId={edition.id}
+        editionName={edition.name}
+        planId={selectedPlan}
+      />
 
       {/* Comparativo */}
       <section className="surface-deep relative isolate overflow-hidden text-white">
