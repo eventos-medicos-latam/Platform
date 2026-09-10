@@ -138,7 +138,7 @@ export function Digital() {
               <DigitalCalendar events={events} selectedId={selected?.id} onSelect={pick} milestone={{
               dates: ['2027-04-23', '2027-04-24'],
               label: 'Hormobiota 2 · Congreso presencial',
-              href: '/eventos/hormobiota/hormobiota-2-2027'
+              href: '/e/hormobiota-2-2027'
             }} />
 
               {selected ? <motion.div key={selected.id} initial={{

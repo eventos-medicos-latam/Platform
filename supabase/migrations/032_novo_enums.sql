@@ -1,82 +1,134 @@
 -- =========================================================
 -- NOVO ARCHITECTURE — Enumeraciones universales
 -- No borra nada del schema legacy; coexiste con él.
+-- CREATE TYPE no admite IF NOT EXISTS en Postgres.
 -- =========================================================
 
-create type if not exists novo_event_type as enum (
-  'congreso', 'webinar', 'masterclass', 'simposio',
-  'lanzamiento', 'conversatorio', 'curso', 'otro'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_event_type AS ENUM (
+    'congreso', 'webinar', 'masterclass', 'simposio',
+    'lanzamiento', 'conversatorio', 'curso', 'otro'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-create type if not exists novo_event_modality as enum (
-  'presencial', 'virtual', 'hibrido'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_event_modality AS ENUM (
+    'presencial', 'virtual', 'hibrido'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-create type if not exists novo_event_audience as enum (
-  'profesionales', 'pacientes', 'ambos', 'general'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_event_audience AS ENUM (
+    'profesionales', 'pacientes', 'ambos', 'general'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-create type if not exists novo_event_operational_status as enum (
-  'borrador', 'proximo', 'activo', 'finalizado', 'cancelado', 'archivado'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_event_operational_status AS ENUM (
+    'borrador', 'proximo', 'activo', 'finalizado', 'cancelado', 'archivado'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-create type if not exists novo_event_publication_status as enum (
-  'borrador', 'vista-previa', 'publicado', 'oculto'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_event_publication_status AS ENUM (
+    'borrador', 'vista-previa', 'publicado', 'oculto'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-create type if not exists novo_identifier_type as enum (
-  'email', 'telefono', 'whatsapp', 'documento',
-  'auth_user_id', 'ghl_contact_id', 'qr_id', 'hotmart_id', 'otro'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_identifier_type AS ENUM (
+    'email', 'telefono', 'whatsapp', 'documento',
+    'auth_user_id', 'ghl_contact_id', 'qr_id', 'hotmart_id', 'otro'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-create type if not exists novo_person_classification as enum (
-  'profesional', 'paciente', 'publico-general', 'speaker',
-  'colaborador', 'invitado', 'staff-eml', 'comunidad',
-  'comprador', 'moderador', 'otro'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_person_classification AS ENUM (
+    'profesional', 'paciente', 'publico-general', 'speaker',
+    'colaborador', 'invitado', 'staff-eml', 'comunidad',
+    'comprador', 'moderador', 'otro'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-create type if not exists novo_product_category as enum (
-  'participacion', 'stand', 'ticket', 'evento-digital',
-  'infoproducto', 'servicio-corporativo', 'otro'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_product_category AS ENUM (
+    'participacion', 'stand', 'ticket', 'evento-digital',
+    'infoproducto', 'servicio-corporativo', 'certificado', 'otro'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-create type if not exists novo_agreement_status as enum (
-  'borrador', 'en-negociacion', 'aprobado', 'cerrado', 'cancelado'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_agreement_status AS ENUM (
+    'borrador', 'en-negociacion', 'aprobado', 'cerrado', 'cancelado'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-create type if not exists novo_agreement_origin as enum (
-  'evento', 'corporativo'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_agreement_origin AS ENUM (
+    'evento', 'corporativo'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-create type if not exists novo_payment_method as enum (
-  'wompi', 'transferencia', 'efectivo', 'manual', 'otro'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_payment_method AS ENUM (
+    'wompi', 'transferencia', 'efectivo', 'manual', 'otro'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-create type if not exists novo_registration_type as enum (
-  'compra', 'invitacion', 'cortesia', 'colaborador',
-  'sponsor', 'importacion', 'manual'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_registration_type AS ENUM (
+    'compra', 'invitacion', 'cortesia', 'colaborador',
+    'sponsor', 'importacion', 'manual'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-create type if not exists novo_registration_origin as enum (
-  'web', 'social', 'portal-empresa', 'eml', 'campana',
-  'importacion', 'qr', 'otro'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_registration_origin AS ENUM (
+    'web', 'social', 'portal-empresa', 'eml', 'campana',
+    'importacion', 'qr', 'otro'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-create type if not exists novo_qr_interaction_rule as enum (
-  'una-vez', 'una-vez-dia', 'multiples', 'ilimitado', 'por-actividad'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_qr_interaction_rule AS ENUM (
+    'una-vez', 'una-vez-dia', 'multiples', 'ilimitado', 'por-actividad'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-create type if not exists novo_system_event_family as enum (
-  'auth', 'registro', 'ticket', 'pago', 'factura',
-  'waitlist', 'evento', 'post-evento', 'certificado',
-  'empresa', 'speaker', 'qr', 'stand', 'cupones'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_system_event_family AS ENUM (
+    'auth', 'registro', 'ticket', 'pago', 'factura',
+    'waitlist', 'evento', 'post-evento', 'certificado',
+    'empresa', 'speaker', 'qr', 'stand', 'cupones'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-create type if not exists novo_stand_unit_status as enum (
-  'disponible', 'reservado', 'vendido', 'bloqueado', 'no-disponible'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_stand_unit_status AS ENUM (
+    'disponible', 'reservado', 'vendido', 'bloqueado', 'no-disponible'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-create type if not exists novo_platform_role as enum (
-  'super-admin', 'admin-operativo', 'asesor-comercial',
-  'staff-qr', 'empresa', 'speaker', 'soporte', 'developer'
-);
+DO $$ BEGIN
+  CREATE TYPE novo_platform_role AS ENUM (
+    'super-admin', 'admin-operativo', 'asesor-comercial',
+    'staff-qr', 'empresa', 'speaker', 'soporte', 'developer'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

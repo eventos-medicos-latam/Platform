@@ -107,9 +107,14 @@ create table if not exists coupon_redemptions (
   redeemed_at         timestamptz not null default now()
 );
 
-alter table ticket_entitlements
-  add constraint ticket_entitlements_coupon_fk
-  foreign key (coupon_id) references coupons(id);
+do $$ begin
+  alter table ticket_entitlements
+    add constraint ticket_entitlements_coupon_fk
+    foreign key (coupon_id) references coupons(id);
+exception
+  when duplicate_object then null;
+  when undefined_table then null;
+end $$;
 
 -- =========================================================
 -- RLS

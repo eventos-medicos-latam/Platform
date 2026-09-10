@@ -81,10 +81,13 @@ Deno.serve(async (req) => {
     const admin = supabaseAdmin();
     const reference: string = transaction.reference;
 
-    // Esquema de referencia: HB-REG-<registration.id> para tickets,
+    // Esquema de referencia: HB-REG-<registration.id> para tickets Hormobiota,
+    // NV-TKT-<uuid> para tickets Novo (event_registrations.wompi_reference),
     // HB-PAY-<company_payment.id> para una cuota, HB-BAL-<participation.id>
-    // para liquidar el saldo restante, HB-SPONSOR-<plan_request.id> para
-    // quien paga de una vez al registrarse como patrocinador.
+    // para liquidar el saldo restante de una edición, HB-EALL-<company_payment.id>
+    // para liquidar todas las cuotas pendientes del mismo evento Novo,
+    // HB-SPONSOR-<plan_request.id> para quien paga de una vez al registrarse
+    // como patrocinador.
     if (reference.startsWith('HB-PAY-')) {
       if (mappedStatus !== 'approved') {
         // company_payments no tiene un estado "rechazado" equivalente;
@@ -107,6 +110,119 @@ Deno.serve(async (req) => {
         console.error('wompi-webhook: error actualizando company_payment', error);
         return new Response('Error interno', { status: 500 });
       }
+      return new Response('ok', { headers: corsHeaders });
+    }
+
+    // Pago de todas las cuotas pendientes del mismo evento (Novo) o edición.
+    // HB-EALL-<company_payment.id> usa esa fila como semilla de company_id + event_id/edition_id.
+    if (reference.startsWith('HB-EALL-')) {
+      if (mappedStatus !== 'approved') {
+        return new Response('ok', { headers: corsHeaders });
+      }
+      const paymentId = reference.slice('HB-EALL-'.length);
+      const { data: seed, error: seedError } = await admin
+        .from('company_payments')
+        .select('id, company_id, event_id, edition_id')
+        .eq('id', paymentId)
+        .single();
+
+      if (seedError || !seed) {
+        console.error('wompi-webhook: cuota semilla no encontrada para HB-EALL', seedError);
+        return new Response('Error interno', { status: 500 });
+      }
+
+      const paidAt = new Date().toISOString();
+      let markQuery = admin
+        .from('company_payments')
+        .update({
+          status: 'pagado',
+          payment_method: 'wompi',
+          paid_at: paidAt,
+          wompi_transaction_id: transaction.id ?? null,
+          paid_reference: reference,
+        })
+        .eq('company_id', seed.company_id)
+        .neq('status', 'pagado');
+
+      if (seed.event_id) {
+        markQuery = markQuery.eq('event_id', seed.event_id);
+      } else if (seed.edition_id) {
+        markQuery = markQuery.eq('edition_id', seed.edition_id);
+      } else {
+        markQuery = markQuery.eq('id', paymentId);
+      }
+
+      const { error: markError } = await markQuery;
+      if (markError) {
+        console.error('wompi-webhook: error marcando cuotas HB-EALL', markError);
+        return new Response('Error interno', { status: 500 });
+      }
+
+      const { error: refError } = await admin
+        .from('company_payments')
+        .update({ wompi_reference: reference })
+        .eq('id', paymentId);
+
+      if (refError) {
+        console.error('wompi-webhook: error guardando referencia HB-EALL', refError);
+      }
+
+      return new Response('ok', { headers: corsHeaders });
+    }
+
+    // Compra de ticket Novo (persona). NV-TKT-<uuid> queda en event_registrations.wompi_reference.
+    if (reference.startsWith('NV-TKT-')) {
+      if (mappedStatus !== 'approved') {
+        return new Response('ok', { headers: corsHeaders });
+      }
+      const { data: registration, error: findError } = await admin
+        .from('event_registrations')
+        .select('id, person_id, event_id, ticket_type_id, amount_paid')
+        .eq('wompi_reference', reference)
+        .maybeSingle();
+
+      if (findError || !registration) {
+        console.error('wompi-webhook: inscripción Novo no encontrada para NV-TKT', findError);
+        return new Response('Error interno', { status: 500 });
+      }
+
+      const amountInCents = Number(transaction.amount_in_cents ?? 0);
+      const amount = amountInCents > 0 ? amountInCents / 100 : Number(registration.amount_paid) || 0;
+
+      const { error: updateError } = await admin
+        .from('event_registrations')
+        .update({
+          status: 'confirmado',
+          amount_paid: amount,
+        })
+        .eq('id', registration.id);
+
+      if (updateError) {
+        console.error('wompi-webhook: error confirmando inscripción Novo', updateError);
+        return new Response('Error interno', { status: 500 });
+      }
+
+      if (registration.ticket_type_id) {
+        const { data: existingEntitlement } = await admin
+          .from('ticket_entitlements')
+          .select('id')
+          .eq('registration_id', registration.id)
+          .maybeSingle();
+        if (!existingEntitlement) {
+          const { error: entError } = await admin.from('ticket_entitlements').insert({
+            registration_id: registration.id,
+            ticket_type_id: registration.ticket_type_id,
+            person_id: registration.person_id,
+            event_id: registration.event_id,
+            price_paid: amount,
+            status: 'activo',
+          });
+          if (entError) {
+            console.error('wompi-webhook: error creando entitlement Novo', entError);
+          }
+        }
+      }
+
       return new Response('ok', { headers: corsHeaders });
     }
 

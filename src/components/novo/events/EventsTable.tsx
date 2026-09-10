@@ -7,7 +7,8 @@ import {
 } from 'lucide-react';
 import type { NovoEvent, NovoEventOperationalStatus, NovoEventType, NovoEventModality, NovoEventAudience } from '../../../types/novo';
 import { EventStatusPill, ModalityBadge } from '../ui/StatusPill';
-import { formatDate, formatCurrency } from '../../../lib/novo/events';
+import { formatDate, formatCurrency, createEvent, updateEvent, deleteEvent } from '../../../lib/novo/events';
+import { listCompanies, type NovoCompany } from '../../../lib/novo/companies';
 import { RowActions } from '../ui/RowActions';
 import {
   NovoModal, ModalBtn,
@@ -81,7 +82,7 @@ const EMPTY_FORM = {
   /* Capacidad y certificado */
   max_capacity: '', has_certificate: 'false', certificate_send_at: '',
   /* Contratante */
-  contracting_company: '',
+  contracting_company_id: '',
   /* Identidad visual */
   cover_image_url: '', logo_url: '', primary_color: '#00C9A0', accent_color: '#5B8AF0',
 };
@@ -96,16 +97,22 @@ interface Props {
 
 export function EventsTable({ events: initialEvents }: Props) {
   const [events, setEvents] = useState<NovoEvent[]>(initialEvents);
+  const [companies, setCompanies] = useState<NovoCompany[]>([]);
   const [filter, setFilter] = useState<NovoEventOperationalStatus | 'todos'>('todos');
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<NovoEvent | null>(null);
   const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   React.useEffect(() => {
-    if (initialEvents.length > 0) setEvents(initialEvents);
+    setEvents(initialEvents);
   }, [initialEvents]);
+
+  React.useEffect(() => {
+    listCompanies().then(setCompanies).catch(() => setCompanies([]));
+  }, []);
 
   const f = (k: keyof Form) => (v: string) => setForm(p => ({ ...p, [k]: v }));
 
@@ -128,73 +135,71 @@ export function EventsTable({ events: initialEvents }: Props) {
       max_capacity: String(ev.max_capacity ?? ''),
       has_certificate: String(ev.has_certificate),
       certificate_send_at: ev.certificate_send_at?.split('T')[0] ?? '',
-      contracting_company: ev.contracting_company?.name ?? '',
+      contracting_company_id: ev.contracting_company_id ?? ev.contracting_company?.id ?? '',
       cover_image_url: ev.cover_image_url ?? '', logo_url: ev.logo_url ?? '',
       primary_color: ev.primary_color ?? '#00C9A0', accent_color: ev.accent_color ?? '#5B8AF0',
     });
     setModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!form.name || !form.start_date) return;
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
-      const slug = form.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    setError(null);
+    const payload = {
+      name: form.name,
+      tagline: form.tagline || null,
+      description: form.description || null,
+      event_type: form.event_type,
+      modality: form.modality,
+      audience: form.audience,
+      operational_status: form.operational_status,
+      is_public: form.is_public === 'true',
+      is_free: form.is_free === 'true',
+      is_featured: form.is_featured === 'true',
+      start_date: form.start_date,
+      end_date: form.end_date || form.start_date,
+      start_time: form.start_time || null,
+      end_time: form.end_time || null,
+      venue_name: form.venue_name || null,
+      venue_city: form.venue_city || null,
+      venue_address: form.venue_address || null,
+      venue_country: form.venue_country || 'Colombia',
+      platform_name: form.platform_name || null,
+      platform_url: form.platform_url || null,
+      max_capacity: form.max_capacity ? Number(form.max_capacity) : null,
+      has_certificate: form.has_certificate === 'true',
+      certificate_send_at: form.certificate_send_at || null,
+      contracting_company_id: form.contracting_company_id || null,
+      cover_image_url: form.cover_image_url || null,
+      logo_url: form.logo_url || null,
+      primary_color: form.primary_color || null,
+      accent_color: form.accent_color || null,
+    };
+    try {
       if (editing) {
-        setEvents(prev => prev.map(e => e.id !== editing.id ? e : {
-          ...e,
-          name: form.name, tagline: form.tagline || undefined,
-          description: form.description || undefined,
-          event_type: form.event_type, modality: form.modality,
-          audience: form.audience, operational_status: form.operational_status,
-          is_public: form.is_public === 'true', is_free: form.is_free === 'true',
-          is_featured: form.is_featured === 'true',
-          start_date: form.start_date, end_date: form.end_date,
-          start_time: form.start_time || undefined, end_time: form.end_time || undefined,
-          venue_name: form.venue_name || undefined, venue_city: form.venue_city || undefined,
-          venue_address: form.venue_address || undefined, venue_country: form.venue_country || undefined,
-          platform_name: form.platform_name || undefined, platform_url: form.platform_url || undefined,
-          max_capacity: form.max_capacity ? Number(form.max_capacity) : undefined,
-          has_certificate: form.has_certificate === 'true',
-          certificate_send_at: form.certificate_send_at || undefined,
-          cover_image_url: form.cover_image_url || undefined, logo_url: form.logo_url || undefined,
-          primary_color: form.primary_color || undefined, accent_color: form.accent_color || undefined,
-          updated_at: new Date().toISOString(),
-        }));
+        const saved = await updateEvent(editing.id, payload);
+        setEvents(prev => prev.map(e => e.id !== editing.id ? e : saved));
       } else {
-        const newEv: NovoEvent = {
-          id: `ev-${Date.now()}`, slug,
-          name: form.name, tagline: form.tagline || undefined,
-          description: form.description || undefined,
-          event_type: form.event_type, modality: form.modality,
-          audience: form.audience, operational_status: form.operational_status,
-          publication_status: 'borrador',
-          is_public: form.is_public === 'true', is_free: form.is_free === 'true',
-          is_featured: form.is_featured === 'true',
-          start_date: form.start_date || new Date().toISOString(),
-          end_date: form.end_date || new Date().toISOString(),
-          start_time: form.start_time || undefined, end_time: form.end_time || undefined,
-          timezone: 'America/Bogota',
-          venue_name: form.venue_name || undefined, venue_city: form.venue_city || undefined,
-          venue_address: form.venue_address || undefined, venue_country: form.venue_country || undefined,
-          platform_name: form.platform_name || undefined, platform_url: form.platform_url || undefined,
-          max_capacity: form.max_capacity ? Number(form.max_capacity) : undefined,
-          has_certificate: form.has_certificate === 'true',
-          certificate_send_at: form.certificate_send_at || undefined,
-          cover_image_url: form.cover_image_url || undefined, logo_url: form.logo_url || undefined,
-          primary_color: form.primary_color || undefined, accent_color: form.accent_color || undefined,
-          registrations_count: 0,
-          created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-        };
-        setEvents(prev => [newEv, ...prev]);
+        const saved = await createEvent(payload);
+        setEvents(prev => [saved, ...prev]);
       }
       setModalOpen(false);
-    }, 700);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el evento.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar este evento?')) return;
-    setEvents(prev => prev.filter(e => e.id !== id));
+    try {
+      await deleteEvent(id);
+      setEvents(prev => prev.filter(e => e.id !== id));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'No se pudo eliminar.');
+    }
   };
 
   const filtered = events.filter(e => {
@@ -345,13 +350,16 @@ export function EventsTable({ events: initialEvents }: Props) {
         footer={
           <>
             <ModalBtn variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
-            <ModalBtn variant="primary" onClick={handleSave} disabled={saving || !form.name}>
+            <ModalBtn variant="primary" onClick={handleSave} disabled={saving || !form.name || !form.start_date}>
               {saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Crear evento'}
             </ModalBtn>
           </>
         }
       >
         <div className="space-y-5">
+          {error && (
+            <p className="text-sm" style={{ color: '#F24463' }}>{error}</p>
+          )}
 
           {/* ── 1. Identidad ── */}
           <FormSection title="Identidad del evento">
@@ -481,8 +489,14 @@ export function EventsTable({ events: initialEvents }: Props) {
                   placeholder="500" />
               </FormField>
               <FormField label="Empresa contratante">
-                <FormInput value={form.contracting_company} onChange={f('contracting_company')}
-                  placeholder="EML, clínica, institución…" />
+                <FormSelect
+                  value={form.contracting_company_id}
+                  onChange={f('contracting_company_id')}
+                  options={[
+                    { value: '', label: 'EML (propio)' },
+                    ...companies.map(c => ({ value: c.id, label: c.name })),
+                  ]}
+                />
               </FormField>
               <FormField label="Certificado">
                 <FormSelect value={form.has_certificate} onChange={f('has_certificate')}

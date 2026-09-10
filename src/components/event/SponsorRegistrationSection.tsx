@@ -5,6 +5,7 @@ import type { PlanId } from '../../types/participation';
 import { participationPlans } from '../../data/plans';
 import { countries, defaultCountry } from '../../data/countries';
 import { supabase } from '../../lib/supabaseClient';
+import { buildWompiCheckoutUrl } from '../../lib/wompi';
 
 export type AllyRole = 'sociedad-medica' | 'aliado-academico' | 'media-partner';
 export type SponsorType = PlanId | AllyRole;
@@ -122,14 +123,13 @@ export function SponsorRegistrationSection({ editionId, type }: { editionId: str
     if (!signature || !publicKey) { setError('El pago en línea todavía no está disponible. Elige "prefiero que me contacten".'); return; }
     const redirectUrl = new URL(window.location.href);
     redirectUrl.searchParams.set('pago', 'exitoso');
-    const checkoutUrl = new URL('https://checkout.wompi.co/p/');
-    checkoutUrl.searchParams.set('public-key', publicKey);
-    checkoutUrl.searchParams.set('currency', 'COP');
-    checkoutUrl.searchParams.set('amount-in-cents', String(amountInCents));
-    checkoutUrl.searchParams.set('reference', reference);
-    checkoutUrl.searchParams.set('signature:integrity', signature);
-    checkoutUrl.searchParams.set('redirect-url', redirectUrl.toString());
-    window.location.href = checkoutUrl.toString();
+    window.location.href = buildWompiCheckoutUrl({
+      publicKey,
+      amountInCents,
+      reference,
+      signature,
+      redirectUrl: redirectUrl.toString(),
+    });
   };
 
   const field = 'w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-150 ease-emphasis focus:border-brand';

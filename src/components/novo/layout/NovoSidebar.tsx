@@ -1,11 +1,11 @@
 import React from 'react';
-import { NavLink, Link } from 'react-router-dom';
+import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   LayoutDashboardIcon, CalendarDaysIcon, UsersIcon, MicIcon,
   BuildingIcon, ShoppingBagIcon, LayoutPanelLeftIcon, WalletIcon,
   TvIcon, GlobeIcon, FolderIcon, HeadphonesIcon,
-  SettingsIcon, LogOutIcon, ChevronRightIcon,
+  SettingsIcon, LogOutIcon, ChevronRightIcon, Trash2Icon,
 } from 'lucide-react';
 import { usePlatform } from '../../../contexts/PlatformContext';
 
@@ -47,6 +47,7 @@ const NAV = [
   {
     group: 'Sistema',
     items: [
+      { to: '/novo/papelera',      label: 'Papelera',      icon: Trash2Icon },
       { to: '/novo/configuracion', label: 'Configuración', icon: SettingsIcon },
     ],
   },
@@ -57,6 +58,7 @@ const SIDEBAR_BORDER = 'rgba(255,255,255,0.08)';
 
 export function NovoSidebar() {
   const { session, signOut } = usePlatform();
+  const navigate = useNavigate();
 
   return (
     <aside
@@ -166,7 +168,10 @@ export function NovoSidebar() {
         </div>
         <button
           type="button"
-          onClick={signOut}
+          onClick={() => {
+            signOut();
+            navigate('/login');
+          }}
           className="flex items-center gap-1.5 text-xs font-medium transition-all opacity-40 hover:opacity-80 text-white rounded-lg px-2 py-1.5 w-full hover:bg-white/5"
         >
           <LogOutIcon size={12} />

@@ -9,11 +9,12 @@ import { formatCop, formatNumber } from '../../utils/format';
 import { participationStatusMeta, requirementStatusMeta, StatusBadge } from '../../components/ui/StatusBadge';
 import { EASE_EMPHASIS } from '../../utils/motion';
 import { supabase } from '../../lib/supabaseClient';
+import { listCompanyPaymentsForCompany } from '../../lib/companyPayments';
 
 interface BannerSlot { tier: string; impressions: number; clicks: number; active: boolean; }
 interface Participation { stand_id: string | null; included_tickets: number; banner_tier: string | null; agreed_amount: number | null; paid_amount: number; status: keyof typeof participationStatusMeta; activations: string[] | null; plan_id: string; }
 interface Requirement { id: string; title: string; due_date: string | null; status: keyof typeof requirementStatusMeta; }
-interface Payment { id: string; concept: string; due_date: string | null; amount: number; }
+interface Payment { id: string; concept: string; due_date: string | null; amount: number; event_name: string; }
 interface DocumentRow { id: string; name: string; status: string; }
 interface Activity { id: string; date: string; actor: string; action: string; }
 interface Plan { name: string; }
@@ -34,17 +35,27 @@ export function PortalHome() {
   useEffect(() => {
     if (!companyId) return;
     (async () => {
-      const [{ data: participationRow }, { data: reqRows }, { data: paymentRows }, { data: docRows }, { data: activityRows }, { data: slotRow }] = await Promise.all([
+      const [{ data: participationRow }, { data: reqRows }, paymentRows, { data: docRows }, { data: activityRows }, { data: slotRow }] = await Promise.all([
         supabase.from('participations').select('stand_id, included_tickets, banner_tier, agreed_amount, paid_amount, status, activations, plan_id').eq('company_id', companyId).eq('edition_id', activeEditionId).maybeSingle(),
         supabase.from('requirements').select('id, title, due_date, status').eq('company_id', companyId).eq('edition_id', activeEditionId).in('status', ['pendiente', 'en-proceso', 'en-revision', 'requiere-cambios']).order('due_date'),
-        supabase.from('company_payments').select('id, concept, due_date, amount').eq('company_id', companyId).eq('edition_id', activeEditionId).neq('status', 'pagado').order('due_date'),
+        listCompanyPaymentsForCompany(companyId),
         supabase.from('company_documents').select('id, name, status').eq('company_id', companyId).eq('edition_id', activeEditionId).neq('status', 'aprobado'),
         supabase.from('activity_log').select('id, date, actor, action').eq('company_id', companyId).order('date', { ascending: false }).limit(5),
         supabase.from('banner_slots').select('tier, impressions, clicks, active').eq('company_id', companyId).eq('edition_id', activeEditionId).maybeSingle()
       ]);
       setParticipation(participationRow ?? null);
       setPending(reqRows ?? []);
-      setPayments(paymentRows ?? []);
+      setPayments(
+        paymentRows
+          .filter((row) => row.status !== 'pagado')
+          .map((row) => ({
+            id: row.id,
+            concept: row.concept,
+            due_date: row.due_date,
+            amount: row.amount,
+            event_name: row.event_name,
+          })),
+      );
       setDocuments(docRows ?? []);
       setActivity(activityRows ?? []);
       setSlot(slotRow ?? null);
@@ -59,15 +70,40 @@ export function PortalHome() {
     return <ModuleHeader eyebrow="Portal" title="Bienvenido" description="Tu usuario todavía no está vinculado a una empresa. Contacta al equipo organizador." />;
   }
 
+  const pendingTotal = payments.reduce((sum, payment) => sum + payment.amount, 0);
+
   if (!participation) {
-    return <Panel title="Sin participación activa">
-        <p className="px-5 py-10 text-center text-sm text-ink-muted">
-          Esta empresa no tiene participación registrada en la edición seleccionada.
-        </p>
-      </Panel>;
+    return <>
+      <ModuleHeader
+        eyebrow="Portal"
+        title={session?.name ?? 'Tu empresa'}
+        description="Pagos pendientes de los eventos en los que estás registrado. El detalle de cada cuota está en Pagos."
+      />
+      <Panel
+        emphasis
+        title="Pendientes por evento"
+        description={payments.length === 0 ? 'Sin cuotas abiertas' : `${payments.length} cuota${payments.length === 1 ? '' : 's'} por pagar`}
+        actions={pendingTotal > 0 ? <Link to="/portal/pagos" className="rounded-lg bg-brand px-3.5 py-2 text-xs font-semibold text-white">Pagar ahora</Link> : null}
+      >
+        <ul className="divide-y divide-line">
+          {payments.length === 0 ? (
+            <li className="px-5 py-8 text-center text-sm text-ink-muted">No hay pagos pendientes. Cuando el organizador registre una cuota, aparecerá aquí.</li>
+          ) : payments.map((payment) => (
+            <li key={payment.id} className="flex items-center gap-3 px-5 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-brand">{payment.concept}</p>
+                <p className="text-xs text-ink-muted">{payment.event_name} · Vence {payment.due_date ?? '—'}</p>
+              </div>
+              <span className="text-sm font-semibold text-brand">{formatCop(payment.amount)}</span>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+    </>;
   }
 
   const balance = (participation.agreed_amount ?? 0) - participation.paid_amount;
+  const visibleBalance = pendingTotal > 0 ? pendingTotal : Math.max(balance, 0);
   const meta = participationStatusMeta[participation.status];
   const progress = participation.agreed_amount ? participation.paid_amount / participation.agreed_amount : 0;
 
@@ -120,7 +156,7 @@ export function PortalHome() {
 
           <div className="min-w-[220px]">
             <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-white/55">Saldo pendiente</p>
-            <p className="mt-1 text-[28px] font-extrabold tabular-nums">{formatCop(balance)}</p>
+            <p className="mt-1 text-[28px] font-extrabold tabular-nums">{formatCop(visibleBalance)}</p>
             <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-white/20">
               <motion.div className="h-full rounded-full bg-gradient-to-r from-[#ffd166] to-[#ff8fab]" initial={{ scaleX: 0 }} animate={{ scaleX: progress }} style={{ transformOrigin: 'left' }} transition={{ duration: 0.5, ease: EASE_EMPHASIS }} />
             </div>
@@ -131,7 +167,7 @@ export function PortalHome() {
         </div>
 
         <div className="relative mt-6 flex flex-wrap gap-2.5">
-          {balance > 0 ? <Link to="/portal/pagos" className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-brand-deep shadow-elev2 transition-transform duration-200 ease-emphasis hover:-translate-y-0.5">
+          {visibleBalance > 0 ? <Link to="/portal/pagos" className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-brand-deep shadow-elev2 transition-transform duration-200 ease-emphasis hover:-translate-y-0.5">
               <CreditCardIcon size={15} /> Pagar ahora
             </Link> : null}
           {pending.length > 0 ? <Link to="/portal/perfil#requerimientos" className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white transition-transform duration-200 ease-emphasis hover:-translate-y-0.5 hover:bg-white/15">
@@ -217,7 +253,7 @@ export function PortalHome() {
             {payments.length === 0 ? <li className="px-5 py-4 text-sm text-ink-muted">Sin pagos pendientes.</li> : payments.map((payment) => <li key={payment.id} className="flex items-center gap-3 px-5 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-brand">{payment.concept}</p>
-                    <p className="text-xs text-ink-muted">Vence {payment.due_date ?? '—'}</p>
+                    <p className="text-xs text-ink-muted">{payment.event_name} · Vence {payment.due_date ?? '—'}</p>
                   </div>
                   <span className="text-sm font-semibold text-brand">
                     {formatCop(payment.amount)}

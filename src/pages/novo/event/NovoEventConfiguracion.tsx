@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   SettingsIcon, SaveIcon, TargetIcon, ShieldIcon, QrCodeIcon,
@@ -7,9 +7,10 @@ import {
   XCircleIcon, AlertCircleIcon, CopyIcon, ArchiveIcon, BanIcon,
   TrendingUpIcon, UsersIcon, DollarSignIcon, PresentationIcon,
 } from 'lucide-react';
-import type { NovoEvent } from '../../../types/novo';
+import type { NovoEventOutlet } from '../../../types/novo';
+import { duplicateEvent, DEFAULT_EVENT_SECTIONS, getEventSettings, patchEvent, upsertEventSettings } from '../../../lib/novo/events';
 
-interface EventContext { event: NovoEvent }
+interface EventContext extends NovoEventOutlet {}
 
 /* ── Paleta ─────────────────────────────────────────────── */
 const BG      = '#112035';
@@ -127,72 +128,152 @@ function KpiCard({ label, current, target, icon: Icon, color, format }: {
 }
 
 /* ══════════════════════════════════════════════════════════ */
+const INIT_ACCESS = {
+  registro_publico:    true,
+  lista_espera:        true,
+  requiere_aprobacion: false,
+  permite_invitados:   false,
+  alerta_capacidad:    true,
+};
+
+const INIT_QR = {
+  check_in:           true,
+  sesiones:           true,
+  stands:             false,
+  patrocinadores:     false,
+  validacion_id:      false,
+};
+
+const INIT_PRIVACY = {
+  compartir_patrocinadores: false,
+  grabar_sesiones:          false,
+  fotografia_asistentes:    true,
+  almacenar_nit:            false,
+  newsletter:               true,
+  retener_datos_meses:      '12',
+};
+
+const INIT_CERT = {
+  horas_credito:  '8',
+  firmante_nombre: '',
+  firmante_cargo:  '',
+  auto_envio:     false,
+  dias_espera:    '3',
+  template:       'clasico',
+};
+
+type OpsCustom = {
+  access: typeof INIT_ACCESS;
+  qr: typeof INIT_QR;
+  qrTipo: 'unico' | 'tipo';
+  privacy: typeof INIT_PRIVACY;
+  cert: typeof INIT_CERT;
+  alertaPorc: string;
+};
+
 export function NovoEventConfiguracion() {
-  const { event } = useOutletContext<EventContext>();
+  const { event, onEventChange } = useOutletContext<EventContext>();
+  const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   const [saved,  setSaved]  = useState(false);
+  const [error, setError]   = useState<string | null>(null);
 
   /* ── Metas / KPIs ─────────────────────────────────────── */
   const [goals, setGoals] = useState({
-    registros:    String(event.goals?.registros    ?? 150),
-    ingresos:     String(event.goals?.ingresos     ?? 18000000),
-    ponentes:     String(event.goals?.ponentes      ?? 12),
-    stands:       String(event.goals?.stands        ?? 30),
-    patrocinadores: String(event.goals?.patrocinadores ?? 8),
+    registros:    String(event.goals?.registros    ?? ''),
+    ingresos:     String(event.goals?.ingresos     ?? ''),
+    ponentes:     String(event.goals?.ponentes      ?? ''),
+    stands:       String(event.goals?.stands        ?? ''),
+    patrocinadores: String(event.goals?.patrocinadores ?? ''),
   });
 
   /* ── Capacidad y acceso ─────────────────────────────────── */
-  const [capacity, setCapacity]       = useState(String(event.max_capacity ?? 150));
+  const [capacity, setCapacity]       = useState(String(event.max_capacity ?? ''));
   const [alertaPorc, setAlertaPorc]   = useState('85');
 
   /* ── Flags de acceso ───────────────────────────────────── */
-  const [access, setAccess] = useState({
-    registro_publico:    true,
-    lista_espera:        true,
-    requiere_aprobacion: false,
-    permite_invitados:   false,
-    alerta_capacidad:    true,
-  });
+  const [access, setAccess] = useState(INIT_ACCESS);
 
   /* ── QR e interacciones ─────────────────────────────────── */
-  const [qr, setQr] = useState({
-    check_in:           true,
-    sesiones:           true,
-    stands:             false,
-    patrocinadores:     false,
-    validacion_id:      false,
-  });
+  const [qr, setQr] = useState(INIT_QR);
   const [qrTipo, setQrTipo] = useState<'unico' | 'tipo'>('unico');
 
   /* ── Privacidad y consentimientos ──────────────────────── */
-  const [privacy, setPrivacy] = useState({
-    compartir_patrocinadores: false,
-    grabar_sesiones:          false,
-    fotografia_asistentes:    true,
-    almacenar_nit:            false,
-    newsletter:               true,
-    retener_datos_meses:      '12',
-  });
+  const [privacy, setPrivacy] = useState(INIT_PRIVACY);
 
   /* ── Certificado ────────────────────────────────────────── */
-  const [cert, setCert] = useState({
-    horas_credito:  '8',
-    firmante_nombre: 'Dr. Carlos Mendoza',
-    firmante_cargo:  'Director Científico',
-    auto_envio:     false,
-    dias_espera:    '3',
-    template:       'clasico',
-  });
+  const [cert, setCert] = useState(INIT_CERT);
   const certUpdate = (k: keyof typeof cert) => (v: string | boolean) =>
     setCert(p => ({ ...p, [k]: v }));
+
+  useEffect(() => {
+    getEventSettings(event.id).then(row => {
+      const ops = row?.custom.ops as OpsCustom | undefined;
+      if (!ops) return;
+      if (ops.access) setAccess({ ...INIT_ACCESS, ...ops.access });
+      if (ops.qr) setQr({ ...INIT_QR, ...ops.qr });
+      if (ops.qrTipo) setQrTipo(ops.qrTipo);
+      if (ops.privacy) setPrivacy({ ...INIT_PRIVACY, ...ops.privacy });
+      if (ops.cert) setCert({ ...INIT_CERT, ...ops.cert });
+      if (ops.alertaPorc) setAlertaPorc(ops.alertaPorc);
+    }).catch(() => { /* defaults */ });
+  }, [event.id]);
 
   /* ── Danger zone ────────────────────────────────────────── */
   const [dangerAction, setDangerAction] = useState<null | 'archivar' | 'cancelar' | 'duplicar'>(null);
 
   /* ── Save ───────────────────────────────────────────────── */
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => { setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2500); }, 800);
+    setError(null);
+    try {
+      const nextGoals = {
+        registros: Number(goals.registros) || 0,
+        ingresos: Number(goals.ingresos) || 0,
+        ponentes: Number(goals.ponentes) || 0,
+        stands: Number(goals.stands) || 0,
+        patrocinadores: Number(goals.patrocinadores) || 0,
+      };
+      const savedEvent = await patchEvent(event.id, {
+        max_capacity: capacity ? Number(capacity) : null,
+        goals: nextGoals,
+      });
+      onEventChange(savedEvent);
+      const current = await getEventSettings(event.id);
+      await upsertEventSettings(event.id, {
+        sections: current?.sections ?? DEFAULT_EVENT_SECTIONS,
+        custom: {
+          ...(current?.custom ?? {}),
+          ops: { access, qr, qrTipo, privacy, cert, alertaPorc } satisfies OpsCustom,
+        },
+      });
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar la configuración.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmDanger = async () => {
+    if (!dangerAction) return;
+    setError(null);
+    try {
+      if (dangerAction === 'duplicar') {
+        const copy = await duplicateEvent(event);
+        setDangerAction(null);
+        navigate(`/novo/eventos/${copy.id}/configuracion`);
+        return;
+      }
+      const status = dangerAction === 'archivar' ? 'archivado' : 'cancelado';
+      const savedEvent = await patchEvent(event.id, { operational_status: status });
+      onEventChange(savedEvent);
+      setDangerAction(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo completar la acción.');
+      setDangerAction(null);
+    }
   };
 
   /* ── Checklist ──────────────────────────────────────────── */
@@ -232,6 +313,7 @@ export function NovoEventConfiguracion() {
           {saving ? 'Guardando…' : saved ? '¡Guardado!' : 'Guardar cambios'}
         </motion.button>
       </div>
+      {error && <p className="mb-4 text-sm" style={{ color: DANGER }}>{error}</p>}
 
       <div className="grid gap-5" style={{ gridTemplateColumns: '1fr 300px' }}>
 
@@ -574,7 +656,7 @@ export function NovoEventConfiguracion() {
                   style={{ background: '#182d47', color: TEXT_LO, border: `1px solid ${BORDER}` }}>
                   Cancelar
                 </button>
-                <button onClick={() => setDangerAction(null)}
+                <button onClick={confirmDanger}
                   className="flex-1 rounded-xl py-2.5 text-sm font-semibold"
                   style={{
                     background: dangerAction === 'cancelar' ? 'rgba(242,68,99,.12)' : dangerAction === 'archivar' ? 'rgba(245,158,11,.12)' : 'rgba(0,201,160,.12)',

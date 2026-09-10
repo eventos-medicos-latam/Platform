@@ -4,6 +4,7 @@ import { Panel } from '../admin/Panel';
 import { usePlatform } from '../../contexts/PlatformContext';
 import { formatCop, withVat } from '../../utils/format';
 import { supabase } from '../../lib/supabaseClient';
+import { buildWompiCheckoutUrl } from '../../lib/wompi';
 
 interface EventTicket { id: string; name: string; price: number | null; vat_rate: number; }
 
@@ -86,14 +87,13 @@ export function ExtraTicketsPanel() {
       setBuyError('El cobro por Wompi todavía no está configurado. Contacta al equipo organizador.');
       return;
     }
-    const checkoutUrl = new URL('https://checkout.wompi.co/p/');
-    checkoutUrl.searchParams.set('public-key', publicKey);
-    checkoutUrl.searchParams.set('currency', 'COP');
-    checkoutUrl.searchParams.set('amount-in-cents', String(Math.round(extraTicketAmount * 100)));
-    checkoutUrl.searchParams.set('reference', reference);
-    checkoutUrl.searchParams.set('signature:integrity', signature);
-    checkoutUrl.searchParams.set('redirect-url', window.location.href);
-    window.location.href = checkoutUrl.toString();
+    window.location.href = buildWompiCheckoutUrl({
+      publicKey,
+      amountInCents: Math.round(extraTicketAmount * 100),
+      reference,
+      signature,
+      redirectUrl: window.location.href,
+    });
   };
 
   if (!companyId) return null;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -12,63 +12,38 @@ import {
   NovoModal, ModalBtn,
   FormField, FormInput, FormSelect, FormSection,
 } from '../../../components/novo/ui/NovoModal';
-import type { NovoEvent } from '../../../types/novo';
+import { formatCurrency } from '../../../lib/novo/events';
+import type { NovoEventOutlet } from '../../../types/novo';
+import type { NovoRegistrationType } from '../../../types/novo';
+import { listCompanies, type NovoCompany } from '../../../lib/novo/companies';
+import {
+  createRegistration, deleteRegistration, listRegistrations, setRegistrationStatus, updateRegistration,
+  type EventRegistrationRow, type RegistrationStatus,
+} from '../../../lib/novo/registrations';
 
-interface EventContext { event: NovoEvent }
-
-type TicketStatus = 'confirmado' | 'pendiente' | 'cancelado' | 'lista_espera';
-type TicketType   = 'medico' | 'estudiante' | 'industria' | 'cortesia';
-
-interface Registration {
-  id: string;
-  name: string;
-  email: string;
-  company: string;
-  ticket_type: TicketType;
-  status: TicketStatus;
-  registered_at: string;
-  amount: number;
-  qr_code: string;
-}
-
-const INIT_REGS: Registration[] = [
-  { id: 'r001', name: 'Dra. Valentina Ospina',  email: 'vospina@hospital.com',    company: 'Hospital Pablo Tobón',   ticket_type: 'medico',     status: 'confirmado',   registered_at: '2026-08-10', amount: 180000, qr_code: 'QR-001' },
-  { id: 'r002', name: 'Dr. Andrés Mejía',        email: 'amejia@clinica.com',      company: 'Clínica Medellín',       ticket_type: 'medico',     status: 'confirmado',   registered_at: '2026-08-12', amount: 180000, qr_code: 'QR-002' },
-  { id: 'r003', name: 'Laura Gómez',             email: 'lgomez@uni.edu.co',       company: 'Univ. de Antioquia',     ticket_type: 'estudiante', status: 'pendiente',    registered_at: '2026-08-15', amount: 80000,  qr_code: 'QR-003' },
-  { id: 'r004', name: 'Felipe Restrepo',         email: 'frestrepo@roche.com',     company: 'Roche',                  ticket_type: 'industria',  status: 'confirmado',   registered_at: '2026-08-16', amount: 250000, qr_code: 'QR-004' },
-  { id: 'r005', name: 'Dra. Camila Ríos',        email: 'crios@eps.com.co',        company: 'EPS Sanitas',            ticket_type: 'medico',     status: 'confirmado',   registered_at: '2026-08-17', amount: 180000, qr_code: 'QR-005' },
-  { id: 'r006', name: 'Marcos Velásquez',        email: 'mvelasquez@pfizer.com',   company: 'Pfizer Colombia',        ticket_type: 'industria',  status: 'lista_espera', registered_at: '2026-08-18', amount: 250000, qr_code: 'QR-006' },
-  { id: 'r007', name: 'Alejandra Morales',       email: 'amorales@gmail.com',      company: 'Independiente',          ticket_type: 'medico',     status: 'cancelado',    registered_at: '2026-08-19', amount: 180000, qr_code: 'QR-007' },
-  { id: 'r008', name: 'Dr. Juan Esteban Vargas', email: 'jevargas@hospital.com',   company: 'Hospital San Vicente',   ticket_type: 'medico',     status: 'confirmado',   registered_at: '2026-08-20', amount: 180000, qr_code: 'QR-008' },
-  { id: 'r009', name: 'Sofía Castro',            email: 'scastro@novasc.com',      company: 'Novartis Colombia',      ticket_type: 'cortesia',   status: 'confirmado',   registered_at: '2026-08-21', amount: 0,      qr_code: 'QR-009' },
-  { id: 'r010', name: 'Ricardo Patiño',          email: 'rpati@uni.edu.co',        company: 'Univ. CES',              ticket_type: 'estudiante', status: 'pendiente',    registered_at: '2026-08-22', amount: 80000,  qr_code: 'QR-010' },
-];
-
-const STATUS_CONFIG: Record<TicketStatus, { label: string; color: string; bg: string }> = {
-  confirmado:   { label: 'Confirmado',   color: '#00C9A0', bg: 'rgba(0,201,160,.12)'   },
-  pendiente:    { label: 'Pendiente',    color: '#F59E0B', bg: 'rgba(245,158,11,.12)'  },
-  cancelado:    { label: 'Cancelado',    color: '#F24463', bg: 'rgba(242,68,99,.12)'   },
-  lista_espera: { label: 'Lista espera', color: '#A78BFA', bg: 'rgba(167,139,250,.12)' },
+const STATUS_CONFIG: Record<RegistrationStatus, { label: string; color: string; bg: string }> = {
+  confirmado: { label: 'Confirmado', color: '#00C9A0', bg: 'rgba(0,201,160,.12)' },
+  asistio:    { label: 'Asistió',    color: '#5B8AF0', bg: 'rgba(91,138,240,.12)' },
+  espera:     { label: 'En espera',  color: '#F59E0B', bg: 'rgba(245,158,11,.12)' },
+  cancelado:  { label: 'Cancelado',  color: '#F24463', bg: 'rgba(242,68,99,.12)' },
 };
 
-const TYPE_CONFIG: Record<TicketType, { label: string; color: string }> = {
-  medico:     { label: 'Médico',     color: '#5B8AF0' },
-  estudiante: { label: 'Estudiante', color: '#00C9A0' },
-  industria:  { label: 'Industria',  color: '#FF7043' },
-  cortesia:   { label: 'Cortesía',   color: '#A78BFA' },
+const TYPE_CONFIG: Record<NovoRegistrationType, { label: string; color: string }> = {
+  compra:      { label: 'Compra',      color: '#00C9A0' },
+  invitacion:  { label: 'Invitación',  color: '#7A9CB8' },
+  cortesia:    { label: 'Cortesía',    color: '#A78BFA' },
+  sponsor:     { label: 'Sponsor',     color: '#FF7043' },
+  colaborador: { label: 'Colaborador', color: '#5B8AF0' },
+  importacion: { label: 'Importación', color: '#F59E0B' },
+  manual:      { label: 'Manual',      color: '#7A9CB8' },
 };
 
 const TYPE_OPTIONS = Object.entries(TYPE_CONFIG).map(([v, c]) => ({ value: v, label: c.label }));
 const STATUS_OPTIONS = Object.entries(STATUS_CONFIG).map(([v, c]) => ({ value: v, label: c.label }));
+const ALL_STATUSES: RegistrationStatus[] = ['confirmado', 'asistio', 'espera', 'cancelado'];
 
-const ALL_STATUSES: TicketStatus[] = ['confirmado', 'pendiente', 'cancelado', 'lista_espera'];
-
-const fmt = (n: number) =>
-  n === 0 ? 'Cortesía' : `$${n.toLocaleString('es-CO')}`;
-
-const initials = (name: string) =>
-  name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
-
+const fmt = (n: number) => n === 0 ? '—' : formatCurrency(n);
+const initials = (name: string) => name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
 const GRADIENTS = [
   'linear-gradient(135deg,#1a4a7a,#2d6fae)',
   'linear-gradient(135deg,#1a6b5a,#00C9A0)',
@@ -78,76 +53,110 @@ const GRADIENTS = [
 ];
 
 const EMPTY_FORM = {
-  name: '', email: '', company: '',
-  ticket_type: 'medico' as TicketType,
-  status: 'pendiente' as TicketStatus,
-  amount: '180000',
+  name: '', email: '', company: '', company_id: '', phone: '',
+  registration_type: 'compra' as NovoRegistrationType,
+  status: 'confirmado' as RegistrationStatus,
+  amount: '0',
 };
 
 export function NovoEventInscripciones() {
-  const { event } = useOutletContext<EventContext>();
-  const [registrations, setRegistrations] = useState<Registration[]>(INIT_REGS);
-  const [statusFilter, setStatusFilter] = useState<TicketStatus | 'todos'>('todos');
+  const { event } = useOutletContext<NovoEventOutlet>();
+  const [registrations, setRegistrations] = useState<EventRegistrationRow[]>([]);
+  const [companies, setCompanies] = useState<NovoCompany[]>([]);
+  const [statusFilter, setStatusFilter] = useState<RegistrationStatus | 'todos'>('todos');
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState<Registration | null>(null);
+  const [selected, setSelected] = useState<EventRegistrationRow | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<Registration | null>(null);
+  const [editing, setEditing] = useState<EventRegistrationRow | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const f = (k: keyof typeof EMPTY_FORM) => (v: string) => setForm(p => ({ ...p, [k]: v }));
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setModalOpen(true); };
-  const openEdit = (r: Registration) => {
+  const reload = () => listRegistrations(event.id).then(setRegistrations).catch((err) => {
+    setRegistrations([]);
+    setError(err instanceof Error ? err.message : 'No se pudieron cargar las inscripciones.');
+  });
+
+  useEffect(() => {
+    listCompanies().then(setCompanies).catch(() => setCompanies([]));
+  }, []);
+
+  useEffect(() => {
+    reload();
+    setSelected(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event.id]);
+
+  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setError(null); setModalOpen(true); };
+  const openEdit = (r: EventRegistrationRow) => {
     setEditing(r);
-    setForm({ name: r.name, email: r.email, company: r.company, ticket_type: r.ticket_type, status: r.status, amount: String(r.amount) });
+    setError(null);
+    setForm({
+      name: r.full_name, email: r.email, company: r.company, company_id: r.company_id ?? '',
+      phone: r.phone, registration_type: r.registration_type, status: r.status, amount: String(r.amount_paid),
+    });
     setModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
-      if (editing) {
-        const updated = { ...editing, name: form.name, email: form.email, company: form.company, ticket_type: form.ticket_type, status: form.status, amount: Number(form.amount) };
-        setRegistrations(prev => prev.map(r => r.id !== editing.id ? r : updated));
-        if (selected?.id === editing.id) setSelected(updated);
-      } else {
-        const newR: Registration = {
-          id: `r-${Date.now()}`,
-          name: form.name, email: form.email, company: form.company,
-          ticket_type: form.ticket_type, status: form.status,
-          amount: Number(form.amount),
-          registered_at: new Date().toISOString().split('T')[0],
-          qr_code: `QR-${Date.now()}`,
-        };
-        setRegistrations(prev => [newR, ...prev]);
-      }
+    setError(null);
+    const input = {
+      full_name: form.name,
+      email: form.email,
+      phone: form.phone,
+      specialty: '',
+      company: form.company,
+      company_id: form.company_id || null,
+      event_id: event.id,
+      registration_type: form.registration_type,
+      origin: 'eml' as const,
+      amount_paid: Number(form.amount) || 0,
+      status: form.status,
+      notes: '',
+    };
+    try {
+      const saved = editing
+        ? await updateRegistration(editing.id, editing.person_id, input)
+        : await createRegistration(input);
+      setRegistrations(prev => editing ? prev.map(r => r.id !== editing.id ? r : saved) : [saved, ...prev]);
+      if (selected?.id === editing?.id) setSelected(saved);
       setModalOpen(false);
-    }, 600);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar la inscripción.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm('¿Eliminar este registro?')) return;
-    setRegistrations(prev => prev.filter(r => r.id !== id));
-    if (selected?.id === id) setSelected(null);
+  const handleDelete = async (id: string) => {
+    if (!confirm('¿Eliminar este registro? La persona se conserva.')) return;
+    try {
+      await deleteRegistration(id);
+      setRegistrations(prev => prev.filter(r => r.id !== id));
+      if (selected?.id === id) setSelected(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar.');
+    }
   };
 
-  const handleDuplicate = (r: Registration) => {
-    const copy: Registration = { ...r, id: `r-${Date.now()}`, status: 'pendiente', qr_code: `QR-${Date.now()}` };
-    setRegistrations(prev => [copy, ...prev]);
-  };
-
-  const handleCancelReg = (id: string) => {
-    setRegistrations(prev => prev.map(r => r.id !== id ? r : { ...r, status: 'cancelado' }));
-    if (selected?.id === id) setSelected(s => s ? { ...s, status: 'cancelado' } : null);
+  const handleCancelReg = async (id: string) => {
+    try {
+      await setRegistrationStatus(id, 'cancelado');
+      setRegistrations(prev => prev.map(r => r.id !== id ? r : { ...r, status: 'cancelado', attended: false }));
+      if (selected?.id === id) setSelected(s => s ? { ...s, status: 'cancelado', attended: false } : null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo cancelar.');
+    }
   };
 
   const exportCSV = () => {
-    const headers = ['Nombre', 'Email', 'Empresa', 'Ticket', 'Estado', 'Monto', 'Fecha'];
-    const rows = registrations.map(r => [r.name, r.email, r.company, r.ticket_type, r.status, r.amount, r.registered_at]);
+    const headers = ['Nombre', 'Email', 'Empresa', 'Tipo', 'Estado', 'Monto', 'Fecha'];
+    const rows = registrations.map(r => [r.full_name, r.email, r.company, r.registration_type, r.status, r.amount_paid, r.created_at]);
     const csv = [headers, ...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = `inscripciones-${event.id}.csv`; a.click();
@@ -157,17 +166,17 @@ export function NovoEventInscripciones() {
   const filtered = registrations.filter(r => {
     const matchStatus = statusFilter === 'todos' || r.status === statusFilter;
     const q = query.toLowerCase();
-    const matchQ = !q || r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q) || r.company.toLowerCase().includes(q);
+    const matchQ = !q || r.full_name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q) || r.company.toLowerCase().includes(q);
     return matchStatus && matchQ;
   });
 
   const counts = {
     total:       registrations.length,
-    confirmados: registrations.filter(r => r.status === 'confirmado').length,
-    pendientes:  registrations.filter(r => r.status === 'pendiente').length,
+    confirmados: registrations.filter(r => r.status === 'confirmado' || r.status === 'asistio').length,
+    espera:      registrations.filter(r => r.status === 'espera').length,
     cancelados:  registrations.filter(r => r.status === 'cancelado').length,
   };
-  const ingresos = registrations.filter(r => r.status === 'confirmado').reduce((s, r) => s + r.amount, 0);
+  const ingresos = registrations.filter(r => r.status !== 'cancelado').reduce((s, r) => s + r.amount_paid, 0);
 
   return (
     <div>
@@ -175,7 +184,7 @@ export function NovoEventInscripciones() {
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#00C9A0' }}>{event.name}</p>
           <h1 className="text-xl font-bold" style={{ color: '#E1EAF4', fontFamily: "'Sora', sans-serif" }}>Inscripciones</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#7A9CB8' }}>Registros · tickets · estados · QR</p>
+          <p className="text-sm mt-0.5" style={{ color: '#7A9CB8' }}>Las mismas filas que Registros, filtradas a este evento</p>
         </div>
         <button onClick={openCreate}
           className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-all active:scale-95"
@@ -184,15 +193,17 @@ export function NovoEventInscripciones() {
         </button>
       </div>
 
-      {/* KPIs */}
+      {error && !modalOpen ? (
+        <p className="mb-4 rounded-xl px-4 py-2.5 text-xs" style={{ background: 'rgba(242,68,99,.12)', color: '#F24463' }}>{error}</p>
+      ) : null}
+
       <div className="mb-6 grid grid-cols-4 gap-4">
         <KPICard label="Total inscritos"  value={counts.total.toString()}       icon={UsersIcon}      accent="#00C9A0" delay={0} />
         <KPICard label="Confirmados"      value={counts.confirmados.toString()}  icon={CheckCircleIcon} accent="#00C9A0" progress={counts.total ? Math.round((counts.confirmados/counts.total)*100) : 0} delay={0.05} />
-        <KPICard label="Pendientes"       value={counts.pendientes.toString()}   icon={TicketIcon}     accent="#F59E0B" delay={0.1} />
-        <KPICard label="Ingresos netos"   value={`$${(ingresos/1000).toFixed(0)}K`} icon={XCircleIcon} accent="#5B8AF0" delay={0.15} />
+        <KPICard label="En espera"        value={counts.espera.toString()}       icon={TicketIcon}     accent="#F59E0B" delay={0.1} />
+        <KPICard label="Ingresos"         value={formatCurrency(ingresos)} icon={XCircleIcon} accent="#5B8AF0" delay={0.15} />
       </div>
 
-      {/* Toolbar */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 flex-1 min-w-[200px] rounded-xl px-3.5 py-2.5"
           style={{ background: '#112035', border: '1px solid #1e3450' }}>
@@ -221,17 +232,16 @@ export function NovoEventInscripciones() {
       </div>
 
       <div className="flex gap-5">
-        {/* Tabla */}
         <div className="flex-1 overflow-hidden rounded-2xl" style={{ background: '#112035', border: '1px solid #1e3450' }}>
           <div className="grid px-5 py-3"
             style={{ gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr auto', borderBottom: '1px solid #1e3450' }}>
-            {['Participante', 'Empresa', 'Ticket', 'Monto', 'Estado', ''].map(h => (
+            {['Participante', 'Empresa', 'Tipo', 'Monto', 'Estado', ''].map(h => (
               <p key={h} className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#2a4a6b' }}>{h}</p>
             ))}
           </div>
           {filtered.map((reg, i) => {
             const st = STATUS_CONFIG[reg.status];
-            const tt = TYPE_CONFIG[reg.ticket_type];
+            const tt = TYPE_CONFIG[reg.registration_type];
             const isSelected = selected?.id === reg.id;
             return (
               <motion.div key={reg.id}
@@ -251,21 +261,21 @@ export function NovoEventInscripciones() {
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
                     style={{ background: GRADIENTS[i % GRADIENTS.length] }}>
-                    {initials(reg.name)}
+                    {initials(reg.full_name)}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold" style={{ color: '#E1EAF4' }}>{reg.name}</p>
+                    <p className="text-sm font-semibold" style={{ color: '#E1EAF4' }}>{reg.full_name}</p>
                     <p className="text-[10px]" style={{ color: '#3A5470' }}>{reg.email}</p>
                   </div>
                 </div>
                 <div className="flex items-center">
-                  <p className="text-sm truncate" style={{ color: '#7A9CB8' }}>{reg.company}</p>
+                  <p className="text-sm truncate" style={{ color: '#7A9CB8' }}>{reg.company || '—'}</p>
                 </div>
                 <div className="flex items-center">
                   <span className="text-xs font-semibold" style={{ color: tt.color }}>{tt.label}</span>
                 </div>
                 <div className="flex items-center">
-                  <p className="text-sm tabular-nums" style={{ color: '#E1EAF4' }}>{fmt(reg.amount)}</p>
+                  <p className="text-sm tabular-nums" style={{ color: '#E1EAF4' }}>{fmt(reg.amount_paid)}</p>
                 </div>
                 <div className="flex items-center">
                   <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
@@ -276,8 +286,7 @@ export function NovoEventInscripciones() {
                 <div className="flex items-center" onClick={e => e.stopPropagation()}>
                   <RowActions
                     onEdit={() => openEdit(reg)}
-                    onDuplicate={() => handleDuplicate(reg)}
-                    onDelete={() => handleDelete(reg.id)}
+                    onDelete={() => { void handleDelete(reg.id); }}
                   />
                 </div>
               </motion.div>
@@ -285,12 +294,11 @@ export function NovoEventInscripciones() {
           })}
           {filtered.length === 0 && (
             <div className="flex items-center justify-center py-16">
-              <p className="text-sm" style={{ color: '#2a4a6b' }}>Sin resultados</p>
+              <p className="text-sm" style={{ color: '#2a4a6b' }}>{registrations.length === 0 ? 'Aún no hay inscripciones en este evento.' : 'Sin resultados'}</p>
             </div>
           )}
         </div>
 
-        {/* Panel lateral */}
         <AnimatePresence>
           {selected && (
             <motion.div
@@ -304,10 +312,10 @@ export function NovoEventInscripciones() {
               <div className="p-5">
                 <div className="flex flex-col items-center gap-2 mb-5 pb-5" style={{ borderBottom: '1px solid #1e3450' }}>
                   <div className="flex h-14 w-14 items-center justify-center rounded-full text-lg font-bold text-white"
-                    style={{ background: GRADIENTS[registrations.indexOf(selected) % GRADIENTS.length] }}>
-                    {initials(selected.name)}
+                    style={{ background: GRADIENTS[Math.max(0, registrations.findIndex(r => r.id === selected.id)) % GRADIENTS.length] }}>
+                    {initials(selected.full_name)}
                   </div>
-                  <p className="text-sm font-bold text-center" style={{ color: '#E1EAF4' }}>{selected.name}</p>
+                  <p className="text-sm font-bold text-center" style={{ color: '#E1EAF4' }}>{selected.full_name}</p>
                   <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold"
                     style={{ color: STATUS_CONFIG[selected.status].color, background: STATUS_CONFIG[selected.status].bg }}>
                     {STATUS_CONFIG[selected.status].label}
@@ -315,12 +323,12 @@ export function NovoEventInscripciones() {
                 </div>
 
                 {[
-                  { icon: MailIcon,     label: 'Email',   value: selected.email },
-                  { icon: BuildingIcon, label: 'Empresa', value: selected.company },
-                  { icon: TicketIcon,   label: 'Ticket',  value: TYPE_CONFIG[selected.ticket_type].label },
-                  { icon: CalendarIcon, label: 'Registro',value: new Date(selected.registered_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) },
-                ].map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-3 mb-4">
+                  { icon: MailIcon,     label: 'Email',   value: selected.email || '—' },
+                  { icon: BuildingIcon, label: 'Empresa', value: selected.company || '—' },
+                  { icon: TicketIcon,   label: 'Tipo',    value: TYPE_CONFIG[selected.registration_type].label },
+                  { icon: CalendarIcon, label: 'Registro',value: new Date(selected.created_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-start gap-3 mb-4">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: '#182d47' }}>
                       <item.icon size={12} style={{ color: '#7A9CB8' }} />
                     </div>
@@ -334,7 +342,7 @@ export function NovoEventInscripciones() {
                 <div className="flex flex-col items-center justify-center rounded-xl py-5 mt-2"
                   style={{ background: '#0d1829', border: '1px dashed #1e3450' }}>
                   <QrCodeIcon size={32} style={{ color: '#2a4a6b' }} />
-                  <p className="text-[10px] mt-2" style={{ color: '#3A5470' }}>{selected.qr_code}</p>
+                  <p className="text-[10px] mt-2 break-all px-2 text-center" style={{ color: '#3A5470' }}>{selected.qr_token || 'QR pendiente'}</p>
                   <p className="text-[10px] mt-0.5" style={{ color: '#2a4a6b' }}>QR de acceso</p>
                 </div>
 
@@ -344,7 +352,7 @@ export function NovoEventInscripciones() {
                     style={{ background: 'rgba(0,201,160,.1)', color: '#00C9A0', border: '1px solid rgba(0,201,160,.2)' }}>
                     Editar
                   </button>
-                  <button onClick={() => handleCancelReg(selected.id)}
+                  <button onClick={() => { void handleCancelReg(selected.id); }}
                     disabled={selected.status === 'cancelado'}
                     className="rounded-xl py-2 text-xs font-semibold transition-all active:scale-95 disabled:opacity-40"
                     style={{ background: 'rgba(242,68,99,.1)', color: '#F24463', border: '1px solid rgba(242,68,99,.2)' }}>
@@ -357,21 +365,23 @@ export function NovoEventInscripciones() {
         </AnimatePresence>
       </div>
 
-      {/* ═══ MODAL ══════════════════════════════════════════════════════════ */}
       <NovoModal
         open={modalOpen} onClose={() => setModalOpen(false)}
         title={editing ? 'Editar inscripción' : 'Nueva inscripción'}
-        subtitle={editing ? `Editando: ${editing.name}` : 'Registrar participante manualmente'}
+        subtitle={editing ? `Editando: ${editing.full_name}` : `Registrar participante en ${event.name}`}
         width={560}
         footer={
           <>
             <ModalBtn variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
-            <ModalBtn variant="primary" onClick={handleSave} disabled={saving || !form.name || !form.email}>
+            <ModalBtn variant="primary" onClick={() => { void handleSave(); }} disabled={saving || !form.name || !form.email}>
               {saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Crear registro'}
             </ModalBtn>
           </>
         }
       >
+        {error ? (
+          <p className="rounded-xl px-3 py-2 text-xs" style={{ background: 'rgba(242,68,99,.12)', color: '#F24463' }}>{error}</p>
+        ) : null}
         <div className="space-y-5">
           <FormSection title="Datos del participante">
             <FormField label="Nombre completo" required>
@@ -381,18 +391,25 @@ export function NovoEventInscripciones() {
               <FormField label="Email" required>
                 <FormInput type="email" value={form.email} onChange={f('email')} placeholder="juan@hospital.com" />
               </FormField>
-              <FormField label="Empresa / Institución">
+              <FormField label="Teléfono">
+                <FormInput value={form.phone} onChange={f('phone')} placeholder="+57 310 000 0000" />
+              </FormField>
+              <FormField label="Empresa del CRM">
+                <FormSelect value={form.company_id} onChange={f('company_id')}
+                  options={[{ value: '', label: 'Ninguna' }, ...companies.map(c => ({ value: c.id, label: c.name }))]} />
+              </FormField>
+              <FormField label="Institución">
                 <FormInput value={form.company} onChange={f('company')} placeholder="Hospital, clínica…" />
               </FormField>
             </div>
           </FormSection>
-          <FormSection title="Ticket y estado">
+          <FormSection title="Tipo y estado">
             <div className="grid grid-cols-3 gap-4">
-              <FormField label="Tipo de ticket">
-                <FormSelect value={form.ticket_type} onChange={v => setForm(p => ({ ...p, ticket_type: v as TicketType }))} options={TYPE_OPTIONS} />
+              <FormField label="Tipo">
+                <FormSelect value={form.registration_type} onChange={v => setForm(p => ({ ...p, registration_type: v as NovoRegistrationType }))} options={TYPE_OPTIONS} />
               </FormField>
               <FormField label="Estado">
-                <FormSelect value={form.status} onChange={v => setForm(p => ({ ...p, status: v as TicketStatus }))} options={STATUS_OPTIONS} />
+                <FormSelect value={form.status} onChange={v => setForm(p => ({ ...p, status: v as RegistrationStatus }))} options={STATUS_OPTIONS} />
               </FormField>
               <FormField label="Monto ($)">
                 <FormInput type="number" value={form.amount} onChange={f('amount')} placeholder="180000" />

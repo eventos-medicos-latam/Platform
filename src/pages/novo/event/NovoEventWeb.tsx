@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useOutletContext, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -10,10 +10,14 @@ import {
   UsersIcon, CalendarDaysIcon, BuildingIcon, TicketIcon,
   MegaphoneIcon, ZapIcon,
 } from 'lucide-react';
-import type { NovoEvent, NovoEventPublicationStatus } from '../../../types/novo';
-import { MOCK_SPEAKERS } from '../../../components/speakers/speakerData';
+import type { NovoEventOutlet, NovoEventPublicationStatus } from '../../../types/novo';
+import {
+  DEFAULT_EVENT_SECTIONS, getEventSettings, patchEvent, upsertEventSettings,
+  type EventSettingsPatch,
+} from '../../../lib/novo/events';
+import { listSpeakers, listEventSpeakerIds, setEventSpeakerIds, type CatalogSpeaker } from '../../../lib/novo/speakers';
 
-interface EventContext { event: NovoEvent }
+interface EventContext extends NovoEventOutlet {}
 
 /* ── Tipos de sección ───────────────────────────────────── */
 type SectionId =
@@ -51,7 +55,29 @@ interface WebSection {
   note?: string;
 }
 
-/* ── Configuración de secciones ─────────────────────────── */
+const UI_TO_DB: Partial<Record<SectionId, keyof EventSettingsPatch['sections']>> = {
+  hero: 'hero',
+  concepto: 'info',
+  agenda: 'agenda',
+  speakers: 'speakers',
+  tickets: 'tickets',
+  patrocinadores: 'sponsors',
+  stands: 'stands',
+  ubicacion: 'location',
+  faq: 'faq',
+  galeria: 'gallery',
+  cta: 'cta',
+};
+
+function sectionsToDb(list: WebSection[]): EventSettingsPatch['sections'] {
+  const next = { ...DEFAULT_EVENT_SECTIONS };
+  for (const sec of list) {
+    const key = UI_TO_DB[sec.id];
+    if (key) next[key] = sec.enabled;
+  }
+  return next;
+}
+
 const ALL_SECTIONS: WebSection[] = [
   { id: 'hero',         label: 'Hero / Portada',         description: 'Imagen principal, título y CTA del evento',     icon: ImageIcon,       enabled: true,  required: true,  status: 'ok'   },
   { id: 'concepto',     label: 'Acerca del evento',      description: 'Descripción, objetivos y propuesta de valor',   icon: FileTextIcon,    enabled: true,  status: 'ok'   },
@@ -126,9 +152,9 @@ function SField({ label, children }: { label: string; children: React.ReactNode 
 
 /* ══════════════════════════════════════════════════════════ */
 export function NovoEventWeb() {
-  const { event } = useOutletContext<EventContext>();
+  const { event, onEventChange } = useOutletContext<EventContext>();
 
-  const [pubStatus, setPubStatus]   = useState<NovoEventPublicationStatus>('borrador');
+  const [pubStatus, setPubStatus]   = useState<NovoEventPublicationStatus>(event.publication_status ?? 'borrador');
   const [sections, setSections]     = useState<WebSection[]>(ALL_SECTIONS);
   const [selected, setSelected]     = useState<SectionId | 'seo' | null>(null);
   const [content, setContent]       = useState<SectionContent>({
@@ -142,7 +168,32 @@ export function NovoEventWeb() {
   });
   const [saving, setSaving]         = useState(false);
   const [saved,  setSaved]          = useState(false);
+  const [error, setError]           = useState<string | null>(null);
   const [assignedSpeakers, setAssignedSpeakers] = useState<string[]>([]);
+  const [catalogSpeakers, setCatalogSpeakers] = useState<CatalogSpeaker[]>([]);
+  const [speakersLoaded, setSpeakersLoaded] = useState(false);
+
+  useEffect(() => {
+    getEventSettings(event.id)
+      .then(row => {
+        if (!row) return;
+        const web = (row.custom.web ?? {}) as { extra?: Record<string, boolean>; content?: SectionContent };
+        setSections(ALL_SECTIONS.map(sec => {
+          const dbKey = UI_TO_DB[sec.id];
+          if (dbKey) return { ...sec, enabled: row.sections[dbKey] };
+          return { ...sec, enabled: web.extra?.[sec.id] ?? sec.enabled };
+        }));
+        if (web.content) setContent(prev => ({ ...prev, ...web.content }));
+      })
+      .catch(() => { /* deja defaults */ });
+  }, [event.id]);
+
+  useEffect(() => {
+    listSpeakers().then(setCatalogSpeakers).catch(() => setCatalogSpeakers([]));
+    listEventSpeakerIds(event.id)
+      .then((ids) => { setAssignedSpeakers(ids); setSpeakersLoaded(true); })
+      .catch(() => { setAssignedSpeakers([]); setSpeakersLoaded(false); });
+  }, [event.id]);
 
   const cfg = PUB_CONFIG[pubStatus];
 
@@ -153,9 +204,49 @@ export function NovoEventWeb() {
   const c = (k: keyof SectionContent) => (v: string) =>
     setContent(p => ({ ...p, [k]: v }));
 
-  const handleSave = () => {
+  const persistWeb = async (nextStatus: NovoEventPublicationStatus, nextSections: WebSection[], nextContent: SectionContent) => {
+    const extra: Record<string, boolean> = {};
+    for (const sec of nextSections) {
+      if (!UI_TO_DB[sec.id]) extra[sec.id] = sec.enabled;
+    }
+    const current = await getEventSettings(event.id);
+    await upsertEventSettings(event.id, {
+      sections: sectionsToDb(nextSections),
+      custom: {
+        ...(current?.custom ?? {}),
+        web: { extra, content: nextContent },
+      },
+    });
+    if (speakersLoaded) await setEventSpeakerIds(event.id, assignedSpeakers);
+    if (nextStatus !== event.publication_status) {
+      const savedEvent = await patchEvent(event.id, { publication_status: nextStatus });
+      onEventChange(savedEvent);
+    }
+  };
+
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => { setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2500); }, 700);
+    setError(null);
+    try {
+      await persistWeb(pubStatus, sections, content);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar la página.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const changePubStatus = async (next: NovoEventPublicationStatus) => {
+    const prev = pubStatus;
+    setPubStatus(next);
+    try {
+      await persistWeb(next, sections, content);
+    } catch (err) {
+      setPubStatus(prev);
+      setError(err instanceof Error ? err.message : 'No se pudo cambiar la publicación.');
+    }
   };
 
   const enabledOk   = sections.filter(s => s.enabled && s.status === 'ok').length;
@@ -183,7 +274,7 @@ export function NovoEventWeb() {
         </SField>
         <div className="rounded-xl p-3.5 text-xs" style={{ background: BG_DEEP, border: `1px solid ${BORDER}` }}>
           <p className="font-semibold mb-1" style={{ color: TEXT_HI }}>URL canónica</p>
-          <p className="font-mono" style={{ color: TEXT_DIM }}>eventosmedicoslatam.com/eventos/{event.slug ?? event.id}</p>
+          <p className="font-mono" style={{ color: TEXT_DIM }}>eventosmedicoslatam.com/e/{event.slug ?? event.id}</p>
         </div>
       </div>
     );
@@ -315,21 +406,33 @@ export function NovoEventWeb() {
             Ir a Agenda del evento <ChevronRightIcon size={13} />
           </Link>
         )}
+        {selected === 'tickets' && (
+          <Link to={`/novo/eventos/${event.id}/tickets`}
+            className="flex items-center justify-between w-full rounded-xl px-4 py-3 text-xs font-semibold transition-all"
+            style={{ background: 'rgba(0,201,160,.08)', color: ACCENT, border: `1px solid rgba(0,201,160,.2)` }}>
+            Ir a Tickets del evento <ChevronRightIcon size={13} />
+          </Link>
+        )}
         {selected === 'speakers' && (
           <div className="space-y-3">
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Speakers asignados a este evento</p>
             <div className="space-y-2">
-              {MOCK_SPEAKERS.map(sp => {
+              {catalogSpeakers.length === 0 ? (
+                <p className="text-xs" style={{ color: TEXT_LO }}>
+                  No hay speakers en el catálogo. Créalos en Speakers de Novo.
+                </p>
+              ) : null}
+              {catalogSpeakers.map(sp => {
                 const assigned = assignedSpeakers.includes(sp.id);
-                const initials = sp.nombre.split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+                const initials = sp.name.split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
                 return (
                   <div key={sp.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all"
                     style={{ background: assigned ? 'rgba(0,201,160,.08)' : BG_DEEP, border: `1px solid ${assigned ? 'rgba(0,201,160,.3)' : BORDER}` }}>
                     <div className="h-8 w-8 shrink-0 rounded-lg flex items-center justify-center text-[10px] font-bold text-white"
                       style={{ background: `linear-gradient(135deg,#1a4a7a,#2d6fae)` }}>{initials}</div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold truncate" style={{ color: TEXT_HI }}>{sp.nombre}</p>
-                      <p className="text-[10px] truncate" style={{ color: TEXT_LO }}>{sp.especialidad}</p>
+                      <p className="text-xs font-semibold truncate" style={{ color: TEXT_HI }}>{sp.name}</p>
+                      <p className="text-[10px] truncate" style={{ color: TEXT_LO }}>{sp.specialty || 'Conferencista'}</p>
                     </div>
                     <button type="button"
                       onClick={() => setAssignedSpeakers(prev => assigned ? prev.filter(id => id !== sp.id) : [...prev, sp.id])}
@@ -369,7 +472,7 @@ export function NovoEventWeb() {
           <p className="text-sm mt-0.5" style={{ color: TEXT_LO }}>Secciones · contenido · publicación</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <a href={`/eventos/${event.slug ?? event.id}`} target="_blank" rel="noreferrer"
+          <a href={`/e/${event.slug ?? event.id}`} target="_blank" rel="noreferrer"
             className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-semibold transition-all"
             style={{ background: '#182d47', color: TEXT_LO, border: `1px solid ${BORDER}` }}>
             <EyeIcon size={13} /> Vista previa <ExternalLinkIcon size={10} />
@@ -382,6 +485,7 @@ export function NovoEventWeb() {
           </motion.button>
         </div>
       </div>
+      {error && <p className="mb-4 text-sm" style={{ color: '#F24463' }}>{error}</p>}
 
       <div className="flex gap-5">
 
@@ -408,14 +512,14 @@ export function NovoEventWeb() {
               </div>
               <div className="flex items-center gap-2">
                 {cfg.prev && (
-                  <button onClick={() => setPubStatus(cfg.prev!)}
+                  <button onClick={() => changePubStatus(cfg.prev!)}
                     className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
                     style={{ background: '#182d47', color: TEXT_LO, border: `1px solid ${BORDER}` }}>
                     {cfg.prevLabel}
                   </button>
                 )}
                 {cfg.next && (
-                  <button onClick={() => setPubStatus(cfg.next!)}
+                  <button onClick={() => changePubStatus(cfg.next!)}
                     className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all active:scale-95"
                     style={{ background: cfg.color, color: '#0d1829' }}>
                     {cfg.nextLabel} <ArrowRightIcon size={12} />

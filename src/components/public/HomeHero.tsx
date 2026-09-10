@@ -1,10 +1,13 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import { ArrowRightIcon, CalendarDaysIcon, MapPinIcon } from 'lucide-react';
 import { media } from '../../data/media';
 import { organization } from '../../data/organization';
-import { editions, featuredEditionId, getFamily } from '../../data/editions';
+import {
+  eventAccentRgb, getFeaturedPublicEvent, publicDateLabel, publicEventPath, publicVenueLabel,
+} from '../../lib/novo/events';
+import type { NovoEvent } from '../../types/novo';
 import { FlipCountdown } from '../event/FlipCountdown';
 import { RotatingWord } from '../ui/RotatingWord';
 import { EASE_EMPHASIS } from '../../utils/motion';
@@ -20,6 +23,7 @@ const claimVerbs = ['conecta', 'transforma', 'trasciende'];
 export function HomeHero() {
   const ref = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
+  const [edition, setEdition] = useState<NovoEvent | null>(null);
   const {
     scrollYProgress
   } = useScroll({
@@ -33,9 +37,19 @@ export function HomeHero() {
   const contentY = useTransform(scrollYProgress, [0, 1], ['0%', '-14%']);
   const contentOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
   const veil = useTransform(scrollYProgress, [0, 1], [0, 0.55]);
-  const edition = editions.find((item) => item.id === featuredEditionId);
-  const family = edition ? getFamily(edition.familyId) : undefined;
-  const eventPath = edition && family ? `/eventos/${family.slug}/${edition.slug}` : '/eventos';
+  const eventPath = edition ? publicEventPath(edition) : '/eventos';
+  const eventTitle = edition
+    ? [edition.name, edition.tagline].filter(Boolean).join(' — ')
+    : '';
+  const countdownDate = edition?.start_date?.slice(0, 10) ?? '';
+
+  useEffect(() => {
+    let alive = true;
+    getFeaturedPublicEvent()
+      .then((event) => { if (alive) setEdition(event); })
+      .catch(() => { if (alive) setEdition(null); });
+    return () => { alive = false; };
+  }, []);
   return <section ref={ref} className="relative isolate min-h-[100svh] overflow-hidden bg-brand-deep">
       {/* Fotografía con parallax */}
       <motion.div className="absolute inset-0 -z-20" style={reduce ? undefined : {
@@ -180,7 +194,7 @@ export function HomeHero() {
         ease: EASE_EMPHASIS,
         delay: 0.54
       }} className="mt-auto border-t border-white/12 pt-6" style={{
-        ['--accent-rgb' as string]: edition.accentRgb
+        ['--accent-rgb' as string]: eventAccentRgb(edition)
       }}>
             <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-6">
               <div>
@@ -188,24 +202,24 @@ export function HomeHero() {
                   Próximo evento
                 </p>
                 <Link to={eventPath} className="mt-2 block text-2xl font-bold tracking-tight text-white transition-colors duration-200 ease-emphasis hover:text-white/80 sm:text-3xl">
-                  {edition.name} — {edition.claim}
+                  {eventTitle}
                 </Link>
                 <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-2 text-sm text-white/70">
                   <div className="flex items-center gap-2">
                     <CalendarDaysIcon size={15} className="text-accent" />
                     <dt className="sr-only">Fecha</dt>
-                    <dd>{edition.dateLabel}</dd>
+                    <dd>{publicDateLabel(edition.start_date, edition.end_date)}</dd>
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPinIcon size={15} className="text-accent" />
                     <dt className="sr-only">Lugar</dt>
                     <dd>
-                      {edition.venue.name} · {edition.venue.city}
+                      {publicVenueLabel(edition)}
                     </dd>
                   </div>
                 </dl>
               </div>
-              <FlipCountdown targetDate={edition.startDate} size="md" />
+              {countdownDate ? <FlipCountdown targetDate={countdownDate} size="md" /> : null}
             </div>
           </motion.div> : null}
       </div>

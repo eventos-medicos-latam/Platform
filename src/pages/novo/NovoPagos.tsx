@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CreditCardIcon, CheckCircleIcon, ClockIcon, AlertCircleIcon,
@@ -6,7 +6,20 @@ import {
   BuildingIcon, CalendarIcon, DollarSignIcon, FileTextIcon,
 } from 'lucide-react';
 import { KPICard } from '../../components/novo/ui/KPICard';
-import { formatCurrency, formatDate } from '../../lib/novo/events';
+import { formatCurrency, formatDate, listEvents } from '../../lib/novo/events';
+import { listCompanies } from '../../lib/novo/companies';
+import type { NovoEvent } from '../../types/novo';
+import type { NovoCompany } from '../../lib/novo/companies';
+import {
+  createCompanyPayment,
+  deleteCompanyPayment,
+  listCompanyPayments,
+  markCompanyPaymentPaid,
+  toLedgerStatus,
+  toNovoStatus,
+  updateCompanyPayment,
+  type CompanyPaymentRow,
+} from '../../lib/companyPayments';
 import { RowActions } from '../../components/novo/ui/RowActions';
 import {
   NovoModal, ModalBtn,
@@ -20,8 +33,10 @@ type PayMethod = 'transferencia' | 'wompi' | 'efectivo' | 'cheque';
 interface Payment {
   id: string;
   agreement_id: string;
-  company: string;
-  event: string;
+  company_id: string;
+  event_id: string;
+  edition_id: string | null;
+  event_name: string;
   description: string;
   amount: number;
   currency: string;
@@ -31,6 +46,33 @@ interface Payment {
   notes?: string;
   status: PayStatus;
   receipt_url?: string;
+}
+
+function paymentCompanyName(id: string, companies: NovoCompany[]) {
+  return companies.find(c => c.id === id)?.name ?? 'Empresa';
+}
+
+function asPayMethod(value: string | null): PayMethod | undefined {
+  if (value === 'transferencia' || value === 'wompi' || value === 'efectivo' || value === 'cheque') return value;
+  return undefined;
+}
+
+function fromLedger(row: CompanyPaymentRow): Payment {
+  return {
+    id: row.id,
+    agreement_id: '',
+    company_id: row.company_id,
+    event_id: row.event_id ?? '',
+    edition_id: row.edition_id,
+    event_name: row.event_name,
+    description: row.concept,
+    amount: row.amount,
+    currency: 'COP',
+    due_date: row.due_date ?? '',
+    paid_at: row.paid_at ? row.paid_at.slice(0, 10) : null,
+    method: asPayMethod(row.payment_method),
+    status: toNovoStatus(row.status, row.due_date),
+  };
 }
 
 /* ── Config ──────────────────────────────────────────────── */
@@ -57,17 +99,8 @@ const TEXT_LO = '#7A9CB8';
 const TEXT_DIM = '#3A5470';
 
 /* ── Datos iniciales ─────────────────────────────────────── */
-const INIT_PAYMENTS: Payment[] = [
-  { id: 'cs-001', agreement_id: 'AGR-001', company: 'Laboratorios Roche Colombia', event: 'La Eterna Primavera', description: 'Anticipo 50%',    amount: 9000000,  currency: 'COP', due_date: '2025-07-14', paid_at: '2025-07-13', method: 'transferencia', status: 'pagado'  },
-  { id: 'cs-002', agreement_id: 'AGR-001', company: 'Laboratorios Roche Colombia', event: 'La Eterna Primavera', description: 'Saldo 50%',        amount: 9000000,  currency: 'COP', due_date: '2025-10-31', paid_at: null,          status: 'proximo' },
-  { id: 'cs-003', agreement_id: 'AGR-002', company: 'Nestlé Health Science',       event: 'La Eterna Primavera', description: 'Cuota única 100%', amount: 8500000,  currency: 'COP', due_date: '2025-09-10', paid_at: null,          status: 'vencido' },
-  { id: 'cs-004', agreement_id: 'AGR-003', company: 'Abbott Laboratories',         event: 'Hormobiota VI',       description: 'Anticipo 70%',    amount: 8400000,  currency: 'COP', due_date: '2025-08-01', paid_at: '2025-07-29', method: 'wompi',         status: 'pagado'  },
-  { id: 'cs-005', agreement_id: 'AGR-003', company: 'Abbott Laboratories',         event: 'Hormobiota VI',       description: 'Saldo 30%',        amount: 3600000,  currency: 'COP', due_date: '2025-10-05', paid_at: null,          status: 'proximo' },
-  { id: 'cs-006', agreement_id: 'AGR-004', company: 'Pfizer Colombia',             event: 'Hormobiota VI',       description: 'Cuota única',      amount: 12000000, currency: 'COP', due_date: '2025-08-15', paid_at: '2025-08-14', method: 'transferencia', status: 'pagado'  },
-];
-
 const EMPTY_FORM = {
-  agreement_id: '', company: '', event: '', description: '',
+  agreement_id: '', company_id: '', event_id: '', description: '',
   amount: '', currency: 'COP', due_date: '', paid_at: '',
   method: 'transferencia' as PayMethod, notes: '', status: 'proximo' as PayStatus,
 };
@@ -77,19 +110,33 @@ type Filter = typeof FILTERS[number];
 
 /* ════════════════════════════════════════════════════════════ */
 export function NovoPagos() {
-  const [payments, setPayments]  = useState<Payment[]>(INIT_PAYMENTS);
+  const [payments, setPayments]  = useState<Payment[]>([]);
+  const [companies, setCompanies] = useState<NovoCompany[]>([]);
+  const [events, setEvents]      = useState<NovoEvent[]>([]);
   const [filter, setFilter]      = useState<Filter>('Todos');
   const [selected, setSelected]  = useState<Payment | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing]    = useState<Payment | null>(null);
   const [form, setForm]          = useState(EMPTY_FORM);
   const [saving, setSaving]      = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const reloadPayments = async () => {
+    const rows = await listCompanyPayments();
+    setPayments(rows.map(fromLedger));
+  };
+
+  useEffect(() => {
+    listCompanies().then(setCompanies).catch(() => setCompanies([]));
+    listEvents().then(setEvents).catch(() => setEvents([]));
+    reloadPayments().catch(() => setPayments([]));
+  }, []);
 
   /* ── Stats ─────────────────────────────────────────────── */
   const totalAcordado  = payments.reduce((s, p) => s + p.amount, 0);
   const totalRecaudado = payments.filter(p => p.status === 'pagado').reduce((s, p) => s + p.amount, 0);
   const totalPendiente = totalAcordado - totalRecaudado;
-  const pctRecaudado   = Math.round((totalRecaudado / totalAcordado) * 100);
+  const pctRecaudado   = totalAcordado ? Math.round((totalRecaudado / totalAcordado) * 100) : 0;
   const vencidos       = payments.filter(p => p.status === 'vencido').length;
 
   /* ── Filtro ─────────────────────────────────────────────── */
@@ -104,13 +151,15 @@ export function NovoPagos() {
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setSaveError(null);
     setModalOpen(true);
   };
 
   const openEdit = (p: Payment) => {
     setEditing(p);
+    setSaveError(null);
     setForm({
-      agreement_id: p.agreement_id, company: p.company, event: p.event,
+      agreement_id: p.agreement_id, company_id: p.company_id, event_id: p.event_id,
       description: p.description, amount: String(p.amount), currency: p.currency,
       due_date: p.due_date, paid_at: p.paid_at ?? '', method: p.method ?? 'transferencia',
       notes: p.notes ?? '', status: p.status,
@@ -118,41 +167,76 @@ export function NovoPagos() {
     setModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!form.company_id) return;
+    if (!form.event_id && !editing?.edition_id) return;
     setSaving(true);
-    setTimeout(() => {
-      const newP: Payment = {
-        id:           editing?.id ?? `cs-${Date.now()}`,
-        agreement_id: form.agreement_id,
-        company:      form.company,
-        event:        form.event,
-        description:  form.description,
-        amount:       Number(form.amount),
-        currency:     form.currency,
-        due_date:     form.due_date,
-        paid_at:      form.paid_at || null,
-        method:       form.method,
-        notes:        form.notes,
-        status:       form.status,
-      };
+    setSaveError(null);
+    const payload = {
+      company_id: form.company_id,
+      event_id: form.event_id || null,
+      edition_id: form.event_id ? null : (editing?.edition_id ?? null),
+      concept: form.description.trim() || 'Cuota',
+      amount: Number(form.amount) || 0,
+      due_date: form.due_date || null,
+      status: toLedgerStatus(form.status),
+      payment_method: form.method,
+      paid_at: form.status === 'pagado' ? (form.paid_at || new Date().toISOString()) : null,
+    };
+    try {
+      const row = editing
+        ? await updateCompanyPayment(editing.id, payload)
+        : await createCompanyPayment(payload);
+      const mapped = fromLedger(row);
       setPayments(prev => editing
-        ? prev.map(p => p.id === editing.id ? newP : p)
-        : [...prev, newP]);
-      if (selected?.id === editing?.id) setSelected(newP);
-      setSaving(false);
+        ? prev.map(p => p.id === editing.id ? mapped : p)
+        : [...prev, mapped]);
+      if (selected?.id === editing?.id) setSelected(mapped);
       setModalOpen(false);
-    }, 700);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'No se pudo guardar el pago.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const markPaid = (id: string) => {
-    const today = new Date().toISOString().split('T')[0];
-    setPayments(prev => prev.map(p => p.id !== id ? p : { ...p, status: 'pagado', paid_at: today }));
-    if (selected?.id === id) setSelected(prev => prev ? { ...prev, status: 'pagado', paid_at: today } : prev);
+  const markPaid = async (id: string) => {
+    try {
+      await markCompanyPaymentPaid(id);
+      const today = new Date().toISOString().split('T')[0];
+      setPayments(prev => prev.map(p => p.id !== id ? p : { ...p, status: 'pagado', paid_at: today }));
+      if (selected?.id === id) setSelected(prev => prev ? { ...prev, status: 'pagado', paid_at: today } : prev);
+    } catch {
+      setSaveError('No se pudo marcar el pago como recibido.');
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setPayments(prev => prev.filter(p => p.id !== id));
-    if (selected?.id === id) setSelected(null);
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteCompanyPayment(id);
+      setPayments(prev => prev.filter(p => p.id !== id));
+      if (selected?.id === id) setSelected(null);
+    } catch {
+      setSaveError('No se pudo eliminar el pago.');
+    }
+  };
+
+  const handleDuplicate = async (item: Payment) => {
+    try {
+      const row = await createCompanyPayment({
+        company_id: item.company_id,
+        event_id: item.event_id || null,
+        edition_id: item.event_id ? null : item.edition_id,
+        concept: `${item.description} (copia)`,
+        amount: item.amount,
+        due_date: item.due_date || null,
+        status: 'pendiente',
+        payment_method: item.method ?? 'transferencia',
+      });
+      setPayments(prev => [...prev, fromLedger(row)]);
+    } catch {
+      setSaveError('No se pudo duplicar el pago.');
+    }
   };
 
   const f = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }));
@@ -179,6 +263,10 @@ export function NovoPagos() {
           </button>
         </div>
       </div>
+
+      {saveError && !modalOpen ? (
+        <p className="mb-4 rounded-xl px-4 py-2.5 text-xs" style={{ background: 'rgba(242,68,99,.12)', color: '#F24463' }}>{saveError}</p>
+      ) : null}
 
       {/* KPIs */}
       <div className="mb-6 grid grid-cols-4 gap-4">
@@ -235,10 +323,10 @@ export function NovoPagos() {
                   onMouseLeave={e => { e.currentTarget.style.background = isActive ? 'rgba(0,201,160,.04)' : 'transparent'; }}>
 
                   <div className="min-w-0 pr-3">
-                    <p className="truncate text-sm font-semibold" style={{ color: TEXT_HI }}>{item.company}</p>
-                    <p className="text-[10px]" style={{ color: TEXT_DIM }}>#{item.agreement_id}</p>
+                    <p className="truncate text-sm font-semibold" style={{ color: TEXT_HI }}>{paymentCompanyName(item.company_id, companies)}</p>
+                    {item.agreement_id ? <p className="text-[10px]" style={{ color: TEXT_DIM }}>#{item.agreement_id}</p> : null}
                   </div>
-                  <p className="truncate text-sm pr-2" style={{ color: TEXT_LO }}>{item.event}</p>
+                  <p className="truncate text-sm pr-2" style={{ color: TEXT_LO }}>{item.event_name}</p>
                   <p className="text-sm" style={{ color: TEXT_LO }}>{item.description}</p>
                   <p className="text-sm font-semibold tabular-nums" style={{ color: TEXT_HI }}>{formatCurrency(item.amount)}</p>
                   <div>
@@ -253,13 +341,10 @@ export function NovoPagos() {
                   <div onClick={e => e.stopPropagation()}>
                     <RowActions
                       onEdit={() => openEdit(item)}
-                      onDuplicate={() => {
-                        const dup = { ...item, id: `cs-${Date.now()}`, status: 'proximo' as PayStatus, paid_at: null, description: `${item.description} (copia)` };
-                        setPayments(prev => [...prev, dup]);
-                      }}
-                      extraActions={[
-                        ...(item.status !== 'pagado' ? [{ label: 'Marcar pagado', icon: CheckCircleIcon, onClick: () => markPaid(item.id) }] : []),
-                        { label: 'Eliminar', icon: TrashIcon, onClick: () => handleDelete(item.id), danger: true },
+                      onDuplicate={() => { void handleDuplicate(item); }}
+                      extra={[
+                        ...(item.status !== 'pagado' ? [{ label: 'Marcar pagado', icon: CheckCircleIcon, onClick: () => { void markPaid(item.id); } }] : []),
+                        { label: 'Eliminar', icon: TrashIcon, onClick: () => { void handleDelete(item.id); }, variant: 'danger' as const },
                       ]}
                     />
                   </div>
@@ -291,13 +376,13 @@ export function NovoPagos() {
                   <div className="flex items-start gap-2.5">
                     <BuildingIcon size={13} style={{ color: TEXT_DIM, flexShrink: 0, marginTop: 2 }} />
                     <div>
-                      <p className="text-xs font-semibold" style={{ color: TEXT_HI }}>{selected.company}</p>
-                      <p className="text-[10px]" style={{ color: TEXT_DIM }}>#{selected.agreement_id}</p>
+                      <p className="text-xs font-semibold" style={{ color: TEXT_HI }}>{paymentCompanyName(selected.company_id, companies)}</p>
+                      {selected.agreement_id ? <p className="text-[10px]" style={{ color: TEXT_DIM }}>#{selected.agreement_id}</p> : null}
                     </div>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <FileTextIcon size={13} style={{ color: TEXT_DIM, flexShrink: 0 }} />
-                    <p className="text-xs" style={{ color: TEXT_LO }}>{selected.event}</p>
+                    <p className="text-xs" style={{ color: TEXT_LO }}>{selected.event_name}</p>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <DollarSignIcon size={13} style={{ color: TEXT_DIM, flexShrink: 0 }} />
@@ -327,7 +412,7 @@ export function NovoPagos() {
                 {/* Acciones */}
                 <div className="space-y-2">
                   {selected.status !== 'pagado' && (
-                    <button onClick={() => markPaid(selected.id)}
+                    <button onClick={() => { void markPaid(selected.id); }}
                       className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold"
                       style={{ background: 'rgba(0,201,160,.12)', color: ACCENT, border: `1px solid rgba(0,201,160,.25)` }}>
                       <CheckCircleIcon size={13} /> Marcar como pagado
@@ -357,18 +442,39 @@ export function NovoPagos() {
         footer={
           <>
             <ModalBtn variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
-            <ModalBtn variant="primary" onClick={handleSave} >
-              {editing ? 'Guardar cambios' : 'Registrar pago'}
+            <ModalBtn variant="primary" onClick={() => { void handleSave(); }} disabled={saving || !form.company_id || (!form.event_id && !editing?.edition_id)}>
+              {saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Registrar pago'}
             </ModalBtn>
           </>
         }>
 
+        {saveError ? (
+          <p className="mb-4 rounded-xl px-3 py-2 text-xs" style={{ background: 'rgba(242,68,99,.12)', color: '#F24463' }}>{saveError}</p>
+        ) : null}
+
         <FormSection title="Identificación">
-          <FormField label="Empresa patrocinadora">
-            <FormInput value={form.company} onChange={f('company')} placeholder="Laboratorios Roche Colombia" />
+          <FormField label="Empresa patrocinadora" required hint="Empresas del CRM. Si no está, créala en Empresas.">
+            <FormSelect
+              value={form.company_id}
+              onChange={f('company_id')}
+              options={[
+                { value: '', label: 'Seleccionar empresa…' },
+                ...companies.map(c => ({ value: c.id, label: `${c.name} · ${c.ciudad}` })),
+              ]}
+            />
           </FormField>
-          <FormField label="Evento relacionado">
-            <FormInput value={form.event} onChange={f('event')} placeholder="La Eterna Primavera 2025" />
+          <FormField label="Evento relacionado" required hint="La empresa verá y pagará esta cuota en el portal, agrupada en este evento.">
+            <FormSelect
+              value={form.event_id}
+              onChange={f('event_id')}
+              options={[
+                { value: '', label: 'Seleccionar evento…' },
+                ...events.map(e => ({
+                  value: e.id,
+                  label: `${e.name} · ${e.start_date.slice(0, 4)}`,
+                })),
+              ]}
+            />
           </FormField>
           <FormField label="N° de acuerdo / contrato">
             <FormInput value={form.agreement_id} onChange={f('agreement_id')} placeholder="AGR-001" />

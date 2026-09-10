@@ -1,53 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { PlusIcon, SearchIcon, ShoppingBagIcon, TagIcon, LayersIcon } from 'lucide-react';
 import { KPICard } from '../../components/novo/ui/KPICard';
 import { formatCurrency } from '../../lib/novo/events';
+import {
+  listProducts, createProduct, updateProduct, deleteProduct,
+  setProductActive, duplicateProduct, type CatalogProduct,
+} from '../../lib/novo/products';
 import { RowActions } from '../../components/novo/ui/RowActions';
 import { NovoModal, ModalBtn, FormField, FormInput, FormSelect, FormTextarea } from '../../components/novo/ui/NovoModal';
-
-const MOCK_PRODUCTS = [
-  {
-    id: 'prod-001', name: 'Plan Protagonista', category: 'participacion',
-    description: 'Stand 3×2 + tarima 30 min + 6 pases VIP + logo en banner',
-    price_list: 18000000, price_min: 14000000, is_active: true, emoji: '⭐',
-  },
-  {
-    id: 'prod-002', name: 'Plan Conexión', category: 'participacion',
-    description: 'Stand 2×2 + 4 pases VIP + logo en programa',
-    price_list: 8500000, price_min: 7000000, is_active: true, emoji: '🤝',
-  },
-  {
-    id: 'prod-003', name: 'Plan Visibilidad', category: 'participacion',
-    description: 'Logo en pantallas + mención en apertura + 2 pases',
-    price_list: 4200000, price_min: 3800000, is_active: true, emoji: '📢',
-  },
-  {
-    id: 'prod-004', name: 'Ticket General', category: 'ticket',
-    description: 'Acceso presencial + certificado + memorias digitales',
-    price_list: 480000, price_min: null, is_active: true, emoji: '🎫',
-  },
-  {
-    id: 'prod-005', name: 'Ticket VIP', category: 'ticket',
-    description: 'Acceso presencial + cena de gala + masterclass exclusiva',
-    price_list: 850000, price_min: null, is_active: true, emoji: '💎',
-  },
-  {
-    id: 'prod-006', name: 'Stand Estándar 3×3', category: 'stand',
-    description: 'Incluye iluminación, mesa y 2 sillas',
-    price_list: 4200000, price_min: 3500000, is_active: true, emoji: '🏪',
-  },
-  {
-    id: 'prod-007', name: 'Memorias Digitales Hormobiota V', category: 'infoproducto',
-    description: 'Video HD + PDF ponencias + acceso plataforma 12 meses',
-    price_list: 150000, price_min: null, is_active: true, emoji: '📼',
-  },
-  {
-    id: 'prod-008', name: 'Certificado de Asistencia', category: 'certificado',
-    description: 'Certificado digital firmado con QR de verificación',
-    price_list: 0, price_min: null, is_active: true, emoji: '📜',
-  },
-];
 
 const CATEGORY_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   participacion: { color: '#FF7043', bg: 'rgba(255,112,67,.12)', label: 'Participación' },
@@ -55,51 +16,86 @@ const CATEGORY_CONFIG: Record<string, { color: string; bg: string; label: string
   stand:         { color: '#5B8AF0', bg: 'rgba(91,138,240,.12)', label: 'Stand'         },
   infoproducto:  { color: '#A78BFA', bg: 'rgba(167,139,250,.12)',label: 'Infoproducto'  },
   certificado:   { color: '#7A9CB8', bg: 'rgba(122,156,184,.10)',label: 'Certificado'   },
+  otro:          { color: '#E1EAF4', bg: 'rgba(225,234,244,.12)',label: 'Otro'          },
 };
 
-const FILTERS = ['Todos', 'Participación', 'Tickets', 'Stands', 'Infoproductos'] as const;
+const FILTERS = ['Todos', 'Participación', 'Tickets', 'Stands', 'Infoproductos', 'Otros'] as const;
 type Filter = typeof FILTERS[number];
 
 const EMPTY_PROD = { name: '', category: 'ticket', description: '', price_list: '', price_min: '', emoji: '🎟️' };
 
 export function NovoProductos() {
-  const [products, setProducts]   = useState(MOCK_PRODUCTS.map(p => ({ ...p })));
+  const [products, setProducts]   = useState<CatalogProduct[]>([]);
   const [filter, setFilter]       = useState<Filter>('Todos');
   const [search, setSearch]       = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing]     = useState<typeof MOCK_PRODUCTS[0] | null>(null);
+  const [editing, setEditing]     = useState<CatalogProduct | null>(null);
   const [form, setForm]           = useState(EMPTY_PROD);
   const [saving, setSaving]       = useState(false);
 
   const f = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }));
 
+  useEffect(() => {
+    listProducts().then(setProducts).catch(() => setProducts([]));
+  }, []);
+
   const openCreate = () => { setEditing(null); setForm(EMPTY_PROD); setModalOpen(true); };
-  const openEdit   = (p: typeof MOCK_PRODUCTS[0]) => {
+  const openEdit   = (p: CatalogProduct) => {
     setEditing(p);
-    setForm({ name: p.name, category: p.category, description: p.description, price_list: String(p.price_list), price_min: String(p.price_min ?? ''), emoji: p.emoji });
+    setForm({ name: p.name, category: String(p.category), description: p.description, price_list: String(p.price_list), price_min: String(p.price_min ?? ''), emoji: p.emoji });
     setModalOpen(true);
   };
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
+    const input = {
+      name: form.name,
+      category: form.category,
+      description: form.description,
+      price_list: Number(form.price_list) || 0,
+      price_min: form.price_min.trim() === '' ? null : Number(form.price_min),
+      emoji: form.emoji,
+    };
+    try {
       if (editing) {
-        setProducts(prev => prev.map(p => p.id !== editing.id ? p : { ...p, name: form.name, category: form.category as typeof p.category, description: form.description, price_list: Number(form.price_list) || 0, price_min: Number(form.price_min) || null, emoji: form.emoji }));
+        const saved = await updateProduct(editing.id, input);
+        setProducts(prev => prev.map(p => p.id !== editing.id ? p : saved));
       } else {
-        setProducts(prev => [{ id: `prod-${Date.now()}`, name: form.name, category: form.category as typeof MOCK_PRODUCTS[0]['category'], description: form.description, price_list: Number(form.price_list) || 0, price_min: Number(form.price_min) || null, emoji: form.emoji, is_active: true }, ...prev]);
+        const saved = await createProduct(input);
+        setProducts(prev => [saved, ...prev]);
       }
       setModalOpen(false);
-    }, 700);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'No se pudo guardar el producto.');
+    } finally {
+      setSaving(false);
+    }
   };
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar este producto?')) return;
-    setProducts(prev => prev.filter(p => p.id !== id));
+    try {
+      await deleteProduct(id);
+      setProducts(prev => prev.filter(p => p.id !== id));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'No se pudo eliminar. Puede estar asignado a un evento.');
+    }
   };
-  const handleToggle = (id: string) => {
-    setProducts(prev => prev.map(p => p.id !== id ? p : { ...p, is_active: !p.is_active }));
+  const handleToggle = async (id: string) => {
+    const current = products.find(p => p.id === id);
+    if (!current) return;
+    try {
+      await setProductActive(id, !current.is_active);
+      setProducts(prev => prev.map(p => p.id !== id ? p : { ...p, is_active: !p.is_active }));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'No se pudo actualizar.');
+    }
   };
-  const handleDuplicate = (p: typeof MOCK_PRODUCTS[0]) => {
-    setProducts(prev => [{ ...p, id: `prod-${Date.now()}`, name: `${p.name} (copia)`, is_active: false }, ...prev]);
+  const handleDuplicate = async (p: CatalogProduct) => {
+    try {
+      const copy = await duplicateProduct(p);
+      setProducts(prev => [copy, ...prev]);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'No se pudo duplicar.');
+    }
   };
 
   const filtered = products.filter(p => {
@@ -108,7 +104,8 @@ export function NovoProductos() {
       (filter === 'Participación' && p.category === 'participacion') ||
       (filter === 'Tickets'       && p.category === 'ticket')        ||
       (filter === 'Stands'        && p.category === 'stand')         ||
-      (filter === 'Infoproductos' && p.category === 'infoproducto');
+      (filter === 'Infoproductos' && p.category === 'infoproducto') ||
+      (filter === 'Otros'         && p.category === 'otro');
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.description.toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
@@ -146,7 +143,7 @@ export function NovoProductos() {
           icon={ShoppingBagIcon} delay={0} />
         <KPICard label="Con precio mínimo" value={conMinimo.toString()} sub="requieren aprobación"
           icon={TagIcon} accent="#F59E0B" delay={0.05} />
-        <KPICard label="Categorías" value="5" sub="participación, ticket, stand…"
+        <KPICard label="Categorías" value={String(Object.keys(CATEGORY_CONFIG).length)} sub="participación, ticket, stand…"
           icon={LayersIcon} accent="#A78BFA" delay={0.1} />
       </div>
 
@@ -271,6 +268,7 @@ export function NovoProductos() {
                 { value: 'stand',         label: 'Stand' },
                 { value: 'infoproducto',  label: 'Infoproducto' },
                 { value: 'certificado',   label: 'Certificado' },
+                { value: 'otro',          label: 'Otro' },
               ]} />
             </FormField>
             <FormField label="Emoji">

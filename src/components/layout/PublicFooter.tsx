@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { FacebookIcon, InstagramIcon, LinkedinIcon } from 'lucide-react';
 import { Logo } from '../ui/Logo';
 import { organization } from '../../data/organization';
-import { editions, getFamily } from '../../data/editions';
+import { listPublicEvents, publicEventPath } from '../../lib/novo/events';
 import { Pending } from '../ui/Pending';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -19,6 +19,7 @@ const SETTINGS_KEYS = ['contact_email', 'contact_whatsapp_dial_code', 'contact_w
 
 export function PublicFooter() {
   const [settings, setSettings] = useState<SiteSettings | null>(null);
+  const [events, setEvents] = useState<{ id: string; name: string; year: string; path: string }[]>([]);
   useEffect(() => {
     supabase
       .from('public_settings')
@@ -34,6 +35,19 @@ export function PublicFooter() {
           facebook: values.social_facebook ?? ''
         });
       });
+    listPublicEvents()
+      .then((all) => {
+        const live = all.filter((event) => event.operational_status === 'proximo' || event.operational_status === 'activo');
+        const featured = live.filter((event) => event.is_featured);
+        const rest = live.filter((event) => !event.is_featured);
+        setEvents([...featured, ...rest].slice(0, 6).map((event) => ({
+          id: event.id,
+          name: event.name,
+          year: event.start_date.slice(0, 4),
+          path: publicEventPath(event),
+        })));
+      })
+      .catch(() => setEvents([]));
   }, []);
   const socialLinks = [{ href: settings?.instagram, icon: InstagramIcon, label: 'Instagram' }, { href: settings?.linkedin, icon: LinkedinIcon, label: 'LinkedIn' }, { href: settings?.facebook, icon: FacebookIcon, label: 'Facebook' }].filter((item) => item.href);
   return <footer className="border-t border-line bg-white">
@@ -73,15 +87,13 @@ export function PublicFooter() {
         <div>
           <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">Eventos</h2>
           <ul className="mt-4 space-y-2 text-sm">
-            {editions.map((edition) => {
-            const family = getFamily(edition.familyId);
-            if (!family) return null;
-            return <li key={edition.id}>
-                  <Link className="text-brand transition-colors duration-150 ease-emphasis hover:text-brand-support" to={`/eventos/${family.slug}/${edition.slug}`}>
-                    {edition.name} · {edition.year}
-                  </Link>
-                </li>;
-          })}
+            {events.map((event) => (
+              <li key={event.id}>
+                <Link className="text-brand transition-colors duration-150 ease-emphasis hover:text-brand-support" to={event.path}>
+                  {event.name} · {event.year}
+                </Link>
+              </li>
+            ))}
             <li>
               <Link className="text-ink-muted hover:text-brand" to="/eventos">
                 Todos los eventos

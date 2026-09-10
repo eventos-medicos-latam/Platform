@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
   SearchIcon, MicVocalIcon, ShieldCheckIcon, GlobeIcon,
@@ -10,11 +10,10 @@ import { PageTransition } from '../../components/motion/PageTransition';
 import { PageHero } from '../../components/public/PageHero';
 import { SectionTransition } from '../../components/motion/SectionTransition';
 import { SpeakerCarousel } from '../../components/speakers/SpeakerCarousel';
-import { MOCK_SPEAKERS } from '../../components/speakers/speakerData';
+import type { SpeakerPublic } from '../../components/speakers/speakerData';
+import { listPublicSpeakers, toPublicSpeaker } from '../../lib/novo/speakers';
 import { media } from '../../data/media';
 import { EASE_EMPHASIS } from '../../utils/motion';
-
-const ESPECIALIDADES = ['Todas', ...Array.from(new Set(MOCK_SPEAKERS.map(s => s.especialidad)))];
 
 /* ── Datos de la propuesta de valor ── */
 const OFFERINGS = [
@@ -77,8 +76,24 @@ const STEPS = [
 export function Speakers() {
   const [search, setSearch]   = useState('');
   const [filtroEsp, setFiltro] = useState('Todas');
+  const [speakers, setSpeakers] = useState<SpeakerPublic[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = MOCK_SPEAKERS.filter(s => {
+  useEffect(() => {
+    let alive = true;
+    listPublicSpeakers()
+      .then((rows) => { if (alive) setSpeakers(rows.map(toPublicSpeaker)); })
+      .catch(() => { if (alive) setSpeakers([]); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, []);
+
+  const especialidades = useMemo(
+    () => ['Todas', ...Array.from(new Set(speakers.map((s) => s.especialidad).filter(Boolean)))],
+    [speakers],
+  );
+
+  const filtered = speakers.filter(s => {
     const matchE = filtroEsp === 'Todas' || s.especialidad === filtroEsp;
     const q = search.toLowerCase();
     const matchQ = !q || s.nombre.toLowerCase().includes(q)
@@ -122,7 +137,7 @@ export function Speakers() {
               />
             </div>
             <div className="flex flex-wrap gap-2">
-              {ESPECIALIDADES.map(e => (
+              {especialidades.map(e => (
                 <button key={e} type="button" onClick={() => setFiltro(e)}
                   className={`rounded-xl px-3.5 py-2 text-xs font-semibold border transition-all duration-150 ease-emphasis ${
                     filtroEsp === e
@@ -136,7 +151,9 @@ export function Speakers() {
           </div>
 
           {/* Carousel */}
-          {filtered.length > 0 ? (
+          {loading ? (
+            <p className="py-24 text-center text-sm text-ink-muted">Cargando directorio…</p>
+          ) : filtered.length > 0 ? (
             <SpeakerCarousel
               speakers={filtered}
               title="Nuestros speakers"
@@ -145,11 +162,19 @@ export function Speakers() {
           ) : (
             <div className="flex flex-col items-center justify-center py-24 gap-3">
               <UsersIcon size={40} className="text-ink-muted/40" />
-              <p className="text-lg font-bold text-ink-muted">Sin resultados</p>
-              <button type="button" onClick={() => { setSearch(''); setFiltro('Todas'); }}
-                className="text-sm font-semibold text-accent">
-                Limpiar filtros
-              </button>
+              <p className="text-lg font-bold text-ink-muted">
+                {speakers.length === 0 ? 'El directorio público se está armando' : 'Sin resultados'}
+              </p>
+              {speakers.length === 0 ? (
+                <p className="max-w-md text-center text-sm text-ink-muted">
+                  Cuando un speaker esté publicado en Novo, aparecerá aquí.
+                </p>
+              ) : (
+                <button type="button" onClick={() => { setSearch(''); setFiltro('Todas'); }}
+                  className="text-sm font-semibold text-accent">
+                  Limpiar filtros
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -34,7 +34,7 @@ export function Login() {
       .single() : { data: null };
     setSubmitting(false);
     const role = profile?.role;
-    navigate(role === 'admin' ? '/admin' : role === 'speaker' ? '/speaker' : '/portal');
+    navigate(role === 'admin' ? '/novo' : role === 'speaker' ? '/speaker' : '/portal');
   };
   return <div className="grid min-h-screen w-full lg:grid-cols-2">
       <div className="relative hidden overflow-hidden bg-brand-deep lg:block">

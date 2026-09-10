@@ -1,18 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUpIcon, UsersIcon, TicketIcon, StarIcon, DollarSignIcon } from 'lucide-react';
 import { KPICard } from '../../components/novo/ui/KPICard';
-import { MOCK_EVENTS } from '../../lib/novo/mock';
-import { formatCurrency } from '../../lib/novo/events';
-
-const BAR_DATA = MOCK_EVENTS.map(e => ({
-  name: e.name.split(' ').slice(0, 2).join(' '),
-  registros: e.registrations_count ?? 0,
-  meta: e.goals?.registros ?? 0,
-  revenue: e.revenue ?? 0,
-}));
-
-const MAX_REG = Math.max(...BAR_DATA.map(d => Math.max(d.registros, d.meta)));
+import { formatCurrency, listEvents } from '../../lib/novo/events';
+import type { NovoEvent } from '../../types/novo';
 
 const MODALITY_DATA = [
   { label: 'Presencial', pct: 58, color: '#00C9A0' },
@@ -70,6 +61,19 @@ const PERIODS: Period[] = ['2025', 'Hormobiota VI', 'La Eterna Primavera'];
 
 export function NovoAnalitica() {
   const [period, setPeriod] = useState<Period>('2025');
+  const [events, setEvents] = useState<NovoEvent[]>([]);
+
+  useEffect(() => {
+    listEvents().then(setEvents).catch(() => setEvents([]));
+  }, []);
+
+  const BAR_DATA = events.map(e => ({
+    name: e.name.split(' ').slice(0, 2).join(' '),
+    registros: e.registrations_count ?? 0,
+    meta: e.goals?.registros ?? 0,
+    revenue: e.revenue ?? 0,
+  }));
+  const MAX_REG = Math.max(1, ...BAR_DATA.map(d => Math.max(d.registros, d.meta)));
 
   return (
     <div>
@@ -124,6 +128,9 @@ export function NovoAnalitica() {
             </div>
           </div>
           <div className="flex items-end gap-3" style={{ height: 130 }}>
+            {BAR_DATA.length === 0 && (
+              <p className="text-xs self-center" style={{ color: '#3A5470' }}>Crea eventos para ver el comparativo.</p>
+            )}
             {BAR_DATA.map((d, i) => (
               <div key={i} className="flex-1 flex flex-col items-center gap-1">
                 <div className="w-full relative flex items-end gap-0.5" style={{ height: 100 }}>
@@ -236,12 +243,15 @@ export function NovoAnalitica() {
           style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', color: '#3A5470', borderBottom: '1px solid #1a2e45' }}>
           <span>Evento</span><span>Registros</span><span>Meta</span><span>Ingresos</span><span>Conversión</span>
         </div>
-        {MOCK_EVENTS.map((e, i) => {
+        {events.length === 0 && (
+          <div className="px-5 py-8 text-sm" style={{ color: '#7A9CB8' }}>Aún no hay eventos.</div>
+        )}
+        {events.map((e, i) => {
           const pct = e.goals?.registros && e.registrations_count
             ? Math.round((e.registrations_count / e.goals.registros) * 100) : null;
           return (
             <div key={e.id} className="grid items-center px-5 py-3.5"
-              style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', borderBottom: i < MOCK_EVENTS.length - 1 ? '1px solid #1a2e45' : 'none' }}>
+              style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', borderBottom: i < events.length - 1 ? '1px solid #1a2e45' : 'none' }}>
               <p className="text-sm font-semibold truncate" style={{ color: '#E1EAF4' }}>{e.name}</p>
               <p className="text-sm tabular-nums font-semibold" style={{ color: '#E1EAF4' }}>
                 {(e.registrations_count ?? 0).toLocaleString('es-CO')}

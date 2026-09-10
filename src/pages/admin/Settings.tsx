@@ -29,14 +29,15 @@ interface IntegrationDef {
 const integrations: IntegrationDef[] = [
   {
     name: 'Wompi',
-    description: 'Pasarela de pagos de tickets. La llave pública viaja al navegador; los secretos de integridad y eventos se usan solo en el servidor.',
+    description: 'Pasarela de pagos (tickets, portal y convenios). En sandbox no se cobra dinero real. La llave pública viaja al navegador; integridad, eventos y llave privada viven solo en el servidor.',
     publicFields: [
       { key: 'wompi_public_key', label: 'Public Key' },
       { key: 'wompi_environment', label: 'Entorno', type: 'select', options: [{ value: 'sandbox', label: 'Sandbox (pruebas)' }, { value: 'production', label: 'Producción' }] }
     ],
     secretFields: [
       { key: 'wompi_integrity_secret', label: 'Integrity Secret' },
-      { key: 'wompi_events_secret', label: 'Events Secret (verificación de webhook)' }
+      { key: 'wompi_events_secret', label: 'Events Secret (verificación de webhook)' },
+      { key: 'wompi_private_key', label: 'Private Key (API, no viaja al navegador)' }
     ]
   },
   {

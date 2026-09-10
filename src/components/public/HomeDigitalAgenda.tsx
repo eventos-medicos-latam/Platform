@@ -124,7 +124,7 @@ export function HomeDigitalAgenda() {
         }} onMonthChange={setMonth} milestone={{
           dates: ['2027-04-23', '2027-04-24'],
           label: 'HormoBiota 2.0 · congreso presencial',
-          href: '/eventos/hormobiota/hormobiota-2-2027'
+          href: '/e/hormobiota-2-2027'
         }} />
 
           <div>

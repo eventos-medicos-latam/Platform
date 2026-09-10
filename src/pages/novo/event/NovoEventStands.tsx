@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -7,115 +7,130 @@ import {
 } from 'lucide-react';
 import { KPICard } from '../../../components/novo/ui/KPICard';
 import { RowActions } from '../../../components/novo/ui/RowActions';
+import { formatCurrency } from '../../../lib/novo/events';
+import { listCompanies, type NovoCompany } from '../../../lib/novo/companies';
+import {
+  createStandUnit, deleteStandUnit, listStandTypes, listStandUnits,
+  updateStandUnit, type CatalogStandType, type EventStandUnit, type StandStatus,
+} from '../../../lib/novo/stands';
 import {
   NovoModal, ModalBtn,
   FormField, FormInput, FormSelect, FormSection,
 } from '../../../components/novo/ui/NovoModal';
-import type { NovoEvent } from '../../../types/novo';
-
-interface EventContext { event: NovoEvent }
-
-type StandStatus = 'ocupado' | 'reservado' | 'disponible';
-type StandSize   = '3x3' | '3x6' | '6x6';
-
-interface Stand {
-  id: string;
-  code: string;
-  size: StandSize;
-  company?: string;
-  status: StandStatus;
-  price: number;
-  zone: string;
-  notas?: string;
-}
+import type { NovoEventOutlet } from '../../../types/novo';
 
 const STATUS_CONFIG: Record<StandStatus, { label: string; color: string; bg: string; border: string }> = {
-  ocupado:    { label: 'Ocupado',    color: '#E1EAF4', bg: '#1a4a7a',              border: '#2d6fae'  },
+  vendido:    { label: 'Vendido',    color: '#E1EAF4', bg: '#1a4a7a',              border: '#2d6fae'  },
   reservado:  { label: 'Reservado',  color: '#F59E0B', bg: 'rgba(245,158,11,.15)', border: 'rgba(245,158,11,.4)' },
   disponible: { label: 'Disponible', color: '#00C9A0', bg: 'rgba(0,201,160,.08)',  border: 'rgba(0,201,160,.25)' },
 };
 
 const STATUS_OPTIONS = Object.entries(STATUS_CONFIG).map(([v, c]) => ({ value: v, label: c.label }));
-const SIZE_OPTIONS = [
-  { value: '3x3', label: '3×3 m (pequeño)' },
-  { value: '3x6', label: '3×6 m (mediano)' },
-  { value: '6x6', label: '6×6 m (grande)'  },
-];
-
-const INIT_STANDS: Stand[] = [
-  { id: 'st01', code: 'A-01', size: '6x6', company: 'Roche Colombia',    status: 'ocupado',    price: 8000000, zone: 'Zona A' },
-  { id: 'st02', code: 'A-02', size: '3x6', company: 'Nestlé Health',     status: 'ocupado',    price: 5000000, zone: 'Zona A' },
-  { id: 'st03', code: 'A-03', size: '3x6', company: 'Pfizer Colombia',   status: 'reservado',  price: 5000000, zone: 'Zona A' },
-  { id: 'st04', code: 'A-04', size: '3x3',                                status: 'disponible', price: 3000000, zone: 'Zona A' },
-  { id: 'st05', code: 'A-05', size: '3x3',                                status: 'disponible', price: 3000000, zone: 'Zona A' },
-  { id: 'st06', code: 'B-01', size: '3x6', company: 'Tecnoquímicas',     status: 'ocupado',    price: 5000000, zone: 'Zona B' },
-  { id: 'st07', code: 'B-02', size: '3x3', company: 'Novartis Colombia', status: 'reservado',  price: 3000000, zone: 'Zona B' },
-  { id: 'st08', code: 'B-03', size: '3x3',                                status: 'disponible', price: 3000000, zone: 'Zona B' },
-  { id: 'st09', code: 'B-04', size: '3x3',                                status: 'disponible', price: 3000000, zone: 'Zona B' },
-  { id: 'st10', code: 'B-05', size: '6x6', company: 'Instituto Salud',   status: 'ocupado',    price: 8000000, zone: 'Zona B' },
-  { id: 'st11', code: 'C-01', size: '3x3',                                status: 'disponible', price: 3000000, zone: 'Zona C' },
-  { id: 'st12', code: 'C-02', size: '3x3',                                status: 'disponible', price: 3000000, zone: 'Zona C' },
-];
-
-const SIZE_W: Record<StandSize, number> = { '3x3': 1, '3x6': 1.5, '6x6': 2 };
 
 const EMPTY_FORM = {
-  code: '', zone: 'Zona A', size: '3x3' as StandSize,
-  price: '3000000', company: '', status: 'disponible' as StandStatus, notas: '',
+  code: '', zone: 'Zona A', type_id: '',
+  price: '', company_id: '', status: 'disponible' as StandStatus, notas: '',
 };
 
+function tileWidth(typeName: string, area: string) {
+  const hay = `${typeName} ${area}`.toLowerCase();
+  if (hay.includes('6x4') || hay.includes('6×4') || hay.includes('corporativo')) return 2;
+  if (hay.includes('4x3') || hay.includes('4×3') || hay.includes('premium')) return 1.5;
+  return 1;
+}
+
 export function NovoEventStands() {
-  const { event } = useOutletContext<EventContext>();
-  const [stands, setStands] = useState<Stand[]>(INIT_STANDS);
-  const [selected, setSelected] = useState<Stand | null>(null);
+  const { event } = useOutletContext<NovoEventOutlet>();
+  const [stands, setStands] = useState<EventStandUnit[]>([]);
+  const [types, setTypes] = useState<CatalogStandType[]>([]);
+  const [companies, setCompanies] = useState<NovoCompany[]>([]);
+  const [selected, setSelected] = useState<EventStandUnit | null>(null);
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [filter, setFilter] = useState<StandStatus | 'todos'>('todos');
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<Stand | null>(null);
+  const [editing, setEditing] = useState<EventStandUnit | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const f = (k: keyof typeof EMPTY_FORM) => (v: string) => setForm(p => ({ ...p, [k]: v }));
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setModalOpen(true); };
-  const openEdit = (s: Stand) => {
+  const reload = () => listStandUnits(event.id).then(setStands).catch(() => setStands([]));
+
+  useEffect(() => {
+    listStandTypes().then(setTypes).catch(() => setTypes([]));
+    listCompanies().then(setCompanies).catch(() => setCompanies([]));
+  }, []);
+
+  useEffect(() => {
+    reload();
+    setSelected(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event.id]);
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm({ ...EMPTY_FORM, type_id: types[0]?.id ?? '', price: types[0] ? String(types[0].price) : '' });
+    setModalOpen(true);
+  };
+  const openEdit = (s: EventStandUnit) => {
     setEditing(s);
-    setForm({ code: s.code, zone: s.zone, size: s.size, price: String(s.price), company: s.company ?? '', status: s.status, notas: s.notas ?? '' });
+    setForm({
+      code: s.code, zone: s.zone || 'Zona A', type_id: s.type_id,
+      price: String(s.price), company_id: s.company_id ?? '', status: s.status, notas: s.notas,
+    });
     setModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!form.type_id) return;
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
-      if (editing) {
-        const updated: Stand = { ...editing, code: form.code, zone: form.zone, size: form.size as StandSize, price: Number(form.price), company: form.company || undefined, status: form.status, notas: form.notas || undefined };
-        setStands(prev => prev.map(s => s.id !== editing.id ? s : updated));
-        if (selected?.id === editing.id) setSelected(updated);
-      } else {
-        const newS: Stand = { id: `st-${Date.now()}`, code: form.code, zone: form.zone, size: form.size as StandSize, price: Number(form.price), company: form.company || undefined, status: form.status, notas: form.notas || undefined };
-        setStands(prev => [...prev, newS]);
-      }
+    setError(null);
+    const type = types.find(t => t.id === form.type_id);
+    const input = {
+      code: form.code.trim(),
+      type_id: form.type_id,
+      event_id: event.id,
+      company_id: form.company_id || null,
+      status: form.status,
+      price: Number(form.price) || (type?.price ?? 0),
+      zone: form.zone.trim(),
+      notas: form.notas,
+    };
+    try {
+      const saved = editing
+        ? await updateStandUnit(editing.id, input, editing.payment_id)
+        : await createStandUnit(input);
+      setStands(prev => editing ? prev.map(s => s.id !== editing.id ? s : saved) : [...prev, saved]);
+      if (selected?.id === editing?.id) setSelected(saved);
       setModalOpen(false);
-    }, 600);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el stand.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (unit: EventStandUnit) => {
     if (!confirm('¿Eliminar este stand?')) return;
-    setStands(prev => prev.filter(s => s.id !== id));
-    if (selected?.id === id) setSelected(null);
+    try {
+      await deleteStandUnit(unit.id, unit.payment_id);
+      setStands(prev => prev.filter(s => s.id !== unit.id));
+      if (selected?.id === unit.id) setSelected(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar el stand.');
+    }
   };
 
   const counts = {
     total:      stands.length,
-    ocupado:    stands.filter(s => s.status === 'ocupado').length,
+    vendido:    stands.filter(s => s.status === 'vendido').length,
     reservado:  stands.filter(s => s.status === 'reservado').length,
     disponible: stands.filter(s => s.status === 'disponible').length,
   };
-  const ingresos = stands.filter(s => s.status === 'ocupado').reduce((s, st) => s + st.price, 0);
-
+  const ingresos = stands.filter(s => s.status === 'vendido').reduce((sum, st) => sum + st.price, 0);
   const filtered = filter === 'todos' ? stands : stands.filter(s => s.status === filter);
-  const zones = [...new Set(filtered.map(s => s.zone))];
+  const zones = [...new Set(filtered.map(s => s.zone || 'Sin zona'))];
 
   return (
     <div>
@@ -123,7 +138,7 @@ export function NovoEventStands() {
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#00C9A0' }}>{event.name}</p>
           <h1 className="text-xl font-bold" style={{ color: '#E1EAF4', fontFamily: "'Sora', sans-serif" }}>Stands</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#7A9CB8' }}>Inventario · disponibilidad · asignaciones</p>
+          <p className="text-sm mt-0.5" style={{ color: '#7A9CB8' }}>Inventario de este evento · si se vende, se liga a la empresa y a una cuota</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #1e3450' }}>
@@ -144,26 +159,28 @@ export function NovoEventStands() {
         </div>
       </div>
 
-      {/* KPIs */}
+      {error ? (
+        <p className="mb-4 rounded-xl px-4 py-2.5 text-xs" style={{ background: 'rgba(242,68,99,.12)', color: '#F24463' }}>{error}</p>
+      ) : null}
+
       <div className="mb-6 grid grid-cols-4 gap-4">
         <KPICard label="Total stands"    value={counts.total.toString()}      icon={LayoutPanelLeftIcon} accent="#7A9CB8" delay={0}    />
-        <KPICard label="Ocupados"         value={counts.ocupado.toString()}    icon={BuildingIcon}         accent="#5B8AF0" progress={counts.total ? Math.round((counts.ocupado/counts.total)*100) : 0} delay={0.05} />
+        <KPICard label="Vendidos"         value={counts.vendido.toString()}    icon={BuildingIcon}         accent="#5B8AF0" progress={counts.total ? Math.round((counts.vendido/counts.total)*100) : 0} delay={0.05} />
         <KPICard label="Disponibles"      value={counts.disponible.toString()} icon={CheckCircleIcon}     accent="#00C9A0" delay={0.1}  />
-        <KPICard label="Ingresos stands"  value={`$${(ingresos/1_000_000).toFixed(0)}M`} icon={LayoutPanelLeftIcon} accent="#FF7043" delay={0.15} />
+        <KPICard label="Ingresos stands"  value={formatCurrency(ingresos)} icon={LayoutPanelLeftIcon} accent="#FF7043" delay={0.15} />
       </div>
 
-      {/* Filtro */}
       <div className="mb-4 flex items-center gap-3">
         <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #1e3450' }}>
-          {(['todos', 'disponible', 'reservado', 'ocupado'] as const).map(f => (
-            <button key={f} onClick={() => setFilter(f)}
+          {(['todos', 'disponible', 'reservado', 'vendido'] as const).map(item => (
+            <button key={item} onClick={() => setFilter(item)}
               className="px-3.5 py-2 text-xs font-semibold transition-colors"
               style={{
-                background: filter === f ? '#182d47' : '#112035',
-                color: filter === f ? '#E1EAF4' : '#2a4a6b',
+                background: filter === item ? '#182d47' : '#112035',
+                color: filter === item ? '#E1EAF4' : '#2a4a6b',
                 borderRight: '1px solid #1e3450',
               }}>
-              {f === 'todos' ? 'Todos' : STATUS_CONFIG[f].label}
+              {item === 'todos' ? 'Todos' : STATUS_CONFIG[item].label}
             </button>
           ))}
         </div>
@@ -171,15 +188,20 @@ export function NovoEventStands() {
 
       <div className="flex gap-5">
         <div className="flex-1">
-          {view === 'grid' ? (
+          {filtered.length === 0 ? (
+            <div className="rounded-2xl py-16 text-center" style={{ background: '#112035', border: '1px solid #1e3450', color: '#3A5470' }}>
+              <p className="text-sm">Aún no hay stands en este evento.</p>
+            </div>
+          ) : view === 'grid' ? (
             zones.map(zone => (
               <div key={zone} className="mb-6">
                 <p className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#3A5470' }}>{zone}</p>
                 <div className="flex flex-wrap gap-3">
-                  {filtered.filter(s => s.zone === zone).map((stand, i) => {
+                  {filtered.filter(s => (s.zone || 'Sin zona') === zone).map((stand, i) => {
                     const cfg = STATUS_CONFIG[stand.status];
                     const isSelected = selected?.id === stand.id;
-                    const w = SIZE_W[stand.size];
+                    const type = types.find(t => t.id === stand.type_id);
+                    const w = tileWidth(stand.type_name, type?.area ?? '');
                     return (
                       <motion.button key={stand.id}
                         initial={{ opacity: 0, scale: 0.95 }}
@@ -195,11 +217,10 @@ export function NovoEventStands() {
                         }}
                       >
                         <p className="text-[10px] font-bold" style={{ color: cfg.color }}>{stand.code}</p>
-                        <p className="text-[9px] mt-0.5" style={{ color: '#3A5470' }}>{stand.size}m</p>
-                        {stand.company && (
-                          <p className="text-[10px] font-semibold mt-1 leading-tight" style={{ color: '#7A9CB8' }}>{stand.company}</p>
-                        )}
-                        {!stand.company && (
+                        <p className="text-[9px] mt-0.5" style={{ color: '#3A5470' }}>{stand.type_name}</p>
+                        {stand.company_name ? (
+                          <p className="text-[10px] font-semibold mt-1 leading-tight" style={{ color: '#7A9CB8' }}>{stand.company_name}</p>
+                        ) : (
                           <p className="text-[9px] mt-1" style={{ color: '#2a4a6b' }}>Disponible</p>
                         )}
                       </motion.button>
@@ -211,7 +232,7 @@ export function NovoEventStands() {
           ) : (
             <div className="overflow-hidden rounded-2xl" style={{ background: '#112035', border: '1px solid #1e3450' }}>
               <div className="grid px-5 py-3" style={{ gridTemplateColumns: '1fr 1fr 1.5fr 1fr 1fr auto', borderBottom: '1px solid #1e3450' }}>
-                {['Código', 'Tamaño', 'Empresa', 'Precio', 'Estado', ''].map(h => (
+                {['Código', 'Tipo', 'Empresa', 'Precio', 'Estado', ''].map(h => (
                   <p key={h} className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#2a4a6b' }}>{h}</p>
                 ))}
               </div>
@@ -231,9 +252,9 @@ export function NovoEventStands() {
                     onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'transparent')}
                   >
                     <p className="flex items-center text-sm font-bold" style={{ color: '#E1EAF4' }}>{stand.code}</p>
-                    <p className="flex items-center text-xs" style={{ color: '#7A9CB8' }}>{stand.size}m</p>
-                    <p className="flex items-center text-sm" style={{ color: stand.company ? '#E1EAF4' : '#2a4a6b' }}>{stand.company ?? '—'}</p>
-                    <p className="flex items-center text-sm tabular-nums" style={{ color: '#E1EAF4' }}>${(stand.price/1_000_000).toFixed(0)}M</p>
+                    <p className="flex items-center text-xs" style={{ color: '#7A9CB8' }}>{stand.type_name}</p>
+                    <p className="flex items-center text-sm" style={{ color: stand.company_name ? '#E1EAF4' : '#2a4a6b' }}>{stand.company_name ?? '—'}</p>
+                    <p className="flex items-center text-sm tabular-nums" style={{ color: '#E1EAF4' }}>{formatCurrency(stand.price)}</p>
                     <span className="flex items-center">
                       <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold"
                         style={{ color: cfg.color, background: cfg.bg }}>{cfg.label}</span>
@@ -241,7 +262,7 @@ export function NovoEventStands() {
                     <div className="flex items-center" onClick={e => e.stopPropagation()}>
                       <RowActions
                         onEdit={() => openEdit(stand)}
-                        onDelete={() => handleDelete(stand.id)}
+                        onDelete={() => { void handleDelete(stand); }}
                       />
                     </div>
                   </div>
@@ -251,7 +272,6 @@ export function NovoEventStands() {
           )}
         </div>
 
-        {/* Panel detalle */}
         <AnimatePresence>
           {selected && (
             <motion.div
@@ -272,12 +292,15 @@ export function NovoEventStands() {
                 </div>
 
                 {[
-                  { label: 'Tamaño',   value: `${selected.size} m` },
-                  { label: 'Zona',     value: selected.zone },
-                  { label: 'Precio',   value: `$${(selected.price/1_000_000).toFixed(0)}M` },
-                  { label: 'Empresa',  value: selected.company ?? 'Sin asignar' },
-                ].map((item, i) => (
-                  <div key={i} className="mb-3">
+                  { label: 'Tipo',     value: selected.type_name },
+                  { label: 'Zona',     value: selected.zone || '—' },
+                  { label: 'Precio',   value: formatCurrency(selected.price) },
+                  { label: 'Empresa',  value: selected.company_name ?? 'Sin asignar' },
+                  { label: 'Transacción', value: selected.payment_id
+                    ? (selected.payment_status === 'pagado' ? 'Pagada' : 'Cuota pendiente')
+                    : 'Sin transacción' },
+                ].map((item) => (
+                  <div key={item.label} className="mb-3">
                     <p className="text-[10px] uppercase tracking-wider font-semibold mb-0.5" style={{ color: '#3A5470' }}>{item.label}</p>
                     <p className="text-xs font-semibold" style={{ color: '#7A9CB8' }}>{item.value}</p>
                   </div>
@@ -296,7 +319,7 @@ export function NovoEventStands() {
                     style={{ background: 'rgba(0,201,160,.12)', color: '#00C9A0', border: '1px solid rgba(0,201,160,.25)' }}>
                     {selected.status === 'disponible' ? 'Asignar empresa' : 'Editar asignación'}
                   </button>
-                  <button onClick={() => handleDelete(selected.id)}
+                  <button onClick={() => { void handleDelete(selected); }}
                     className="rounded-xl py-2 text-xs font-semibold transition-all active:scale-95"
                     style={{ background: 'rgba(242,68,99,.08)', color: '#F24463', border: '1px solid rgba(242,68,99,.2)' }}>
                     Eliminar stand
@@ -308,16 +331,15 @@ export function NovoEventStands() {
         </AnimatePresence>
       </div>
 
-      {/* ═══ MODAL ══════════════════════════════════════════════════════════ */}
       <NovoModal
         open={modalOpen} onClose={() => setModalOpen(false)}
         title={editing ? 'Editar stand' : 'Nuevo stand'}
-        subtitle={editing ? `Stand ${editing.code}` : 'Agregar un nuevo stand al plano del evento'}
+        subtitle={editing ? `Stand ${editing.code}` : `Agregar un stand a ${event.name}`}
         width={520}
         footer={
           <>
             <ModalBtn variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
-            <ModalBtn variant="primary" onClick={handleSave} disabled={saving || !form.code}>
+            <ModalBtn variant="primary" onClick={() => { void handleSave(); }} disabled={saving || !form.code || !form.type_id}>
               {saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Crear stand'}
             </ModalBtn>
           </>
@@ -332,8 +354,11 @@ export function NovoEventStands() {
               <FormField label="Zona">
                 <FormInput value={form.zone} onChange={f('zone')} placeholder="Zona A" />
               </FormField>
-              <FormField label="Tamaño">
-                <FormSelect value={form.size} onChange={v => setForm(p => ({ ...p, size: v as StandSize }))} options={SIZE_OPTIONS} />
+              <FormField label="Tipo" required hint={types.length === 0 ? 'Crea tipos en Stands.' : undefined}>
+                <FormSelect value={form.type_id} onChange={v => {
+                  const type = types.find(t => t.id === v);
+                  setForm(p => ({ ...p, type_id: v, price: type && !p.price ? String(type.price) : p.price }));
+                }} options={[{ value: '', label: 'Seleccionar…' }, ...types.map(t => ({ value: t.id, label: t.name }))]} />
               </FormField>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -346,8 +371,9 @@ export function NovoEventStands() {
             </div>
           </FormSection>
           <FormSection title="Asignación">
-            <FormField label="Empresa asignada" hint="Dejar vacío si está disponible">
-              <FormInput value={form.company} onChange={f('company')} placeholder="Roche Colombia, Pfizer…" />
+            <FormField label="Empresa" hint={form.status === 'disponible' ? 'Vacío si está disponible.' : 'Obligatoria al reservar o vender. Se crea una cuota en Pagos.'}>
+              <FormSelect value={form.company_id} onChange={f('company_id')}
+                options={[{ value: '', label: 'Sin asignar' }, ...companies.map(c => ({ value: c.id, label: `${c.name} · ${c.ciudad}` }))]} />
             </FormField>
             <FormField label="Notas internas">
               <FormInput value={form.notas} onChange={f('notas')} placeholder="Observaciones, requerimientos especiales…" />

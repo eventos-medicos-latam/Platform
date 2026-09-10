@@ -1,146 +1,182 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   PlusIcon, LayoutIcon, CheckCircleIcon, ClockIcon,
-  PencilIcon, TrashIcon, XIcon, BuildingIcon,
+  PencilIcon, XIcon,
 } from 'lucide-react';
 import { KPICard } from '../../components/novo/ui/KPICard';
 import { RowActions } from '../../components/novo/ui/RowActions';
-import { formatCurrency } from '../../lib/novo/events';
+import { formatCurrency, listEvents } from '../../lib/novo/events';
+import type { NovoEvent } from '../../types/novo';
+import { listCompanies, type NovoCompany } from '../../lib/novo/companies';
 import {
-  NovoModal, ModalBtn, FormField, FormInput, FormSelect, FormTextarea, FormSection,
+  createStandType, createStandUnit, deleteStandType, deleteStandUnit,
+  listStandTypes, listStandUnits, updateStandType, updateStandUnit,
+  type CatalogStandType, type EventStandUnit, type StandStatus,
+} from '../../lib/novo/stands';
+import {
+  NovoModal, ModalBtn, FormField, FormInput, FormSelect, FormSection,
 } from '../../components/novo/ui/NovoModal';
 
-/* ── Tipos ─────────────────────────────────────────────────── */
-type StandStatus = 'vendido' | 'reservado' | 'disponible';
-
-interface StandType {
-  id: string; name: string; area: string; price: number;
-  price_min?: number; description: string; emoji: string;
-}
-interface StandUnit {
-  id: string; code: string; type_id: string; type_name: string;
-  event: string; company: string | null; status: StandStatus; price: number; notas?: string;
-}
-
-/* ── Config ────────────────────────────────────────────────── */
 const STATUS_CONFIG: Record<StandStatus, { color: string; bg: string; label: string }> = {
   vendido:    { color: '#00C9A0', bg: 'rgba(0,201,160,.12)',   label: 'Vendido'    },
   reservado:  { color: '#F59E0B', bg: 'rgba(245,158,11,.12)',  label: 'Reservado'  },
   disponible: { color: '#3A5470', bg: 'rgba(58,84,112,.15)',   label: 'Disponible' },
 };
-const BG = '#112035'; const BG_DEEP = '#0d1829'; const BORDER = '#1e3450';
+const BG = '#112035'; const BORDER = '#1e3450';
 const TEXT_HI = '#E1EAF4'; const TEXT_LO = '#7A9CB8'; const TEXT_DIM = '#3A5470';
-const EVENTS = ['La Eterna Primavera', 'Hormobiota VI', 'Webinar Vitamina D'];
-
-/* ── Datos mock ────────────────────────────────────────────── */
-const INIT_TYPES: StandType[] = [
-  { id: 'st-001', name: 'Estándar 3×2',    area: '6 m²',  price: 4200000, price_min: 3500000, description: 'Mesa + 2 sillas + luz + panel trasero', emoji: '🏪' },
-  { id: 'st-002', name: 'Premium 4×3',     area: '12 m²', price: 8500000, price_min: 7000000, description: 'TV 55" + sofá + mostrador + luz focal',  emoji: '🏬' },
-  { id: 'st-003', name: 'Corporativo 6×4', area: '24 m²', price: 18000000, price_min: 15000000, description: 'Diseño custom + almacén + sala privada', emoji: '🏢' },
-  { id: 'st-004', name: 'Micro 2×2',       area: '4 m²',  price: 2200000, price_min: 2000000, description: 'Mesa + 1 silla + roll-up', emoji: '🛖' },
-];
-
-const INIT_UNITS: StandUnit[] = [
-  { id: 'su-001', code: 'A-01', type_id: 'st-001', type_name: 'Estándar 3×2', event: 'La Eterna Primavera', company: 'Roche Colombia',  status: 'vendido',    price: 4200000 },
-  { id: 'su-002', code: 'A-02', type_id: 'st-001', type_name: 'Estándar 3×2', event: 'La Eterna Primavera', company: 'Nestlé Health',   status: 'vendido',    price: 4200000 },
-  { id: 'su-003', code: 'A-03', type_id: 'st-001', type_name: 'Estándar 3×2', event: 'La Eterna Primavera', company: null,              status: 'disponible', price: 4200000 },
-  { id: 'su-004', code: 'B-01', type_id: 'st-002', type_name: 'Premium 4×3',  event: 'La Eterna Primavera', company: 'Abbott',          status: 'reservado',  price: 8500000 },
-  { id: 'su-005', code: 'B-02', type_id: 'st-002', type_name: 'Premium 4×3',  event: 'La Eterna Primavera', company: null,              status: 'disponible', price: 8500000 },
-  { id: 'su-006', code: 'C-01', type_id: 'st-003', type_name: 'Corporativo 6×4', event: 'La Eterna Primavera', company: null,           status: 'disponible', price: 18000000 },
-  { id: 'su-007', code: 'HB-A1', type_id: 'st-001', type_name: 'Estándar 3×2', event: 'Hormobiota VI',      company: 'Roche Colombia',  status: 'vendido',    price: 4200000 },
-  { id: 'su-008', code: 'HB-B1', type_id: 'st-002', type_name: 'Premium 4×3',  event: 'Hormobiota VI',      company: 'MSD Colombia',    status: 'vendido',    price: 8500000 },
-];
 
 const EMPTY_TYPE = { name: '', area: '', price: '', price_min: '', description: '', emoji: '🏪' };
-const EMPTY_UNIT = { code: '', type_id: 'st-001', event: 'La Eterna Primavera', company: '', status: 'disponible' as StandStatus, price: '', notas: '' };
-const EVENT_FILTERS = ['Todos', 'La Eterna Primavera', 'Hormobiota VI'] as const;
-type EventFilter = typeof EVENT_FILTERS[number];
+const EMPTY_UNIT = { code: '', type_id: '', event_id: '', company_id: '', status: 'disponible' as StandStatus, price: '', notas: '' };
 
-/* ══════════════════════════════════════════════════════════ */
 export function NovoStands() {
-  const [types, setTypes]         = useState<StandType[]>(INIT_TYPES);
-  const [units, setUnits]         = useState<StandUnit[]>(INIT_UNITS);
-  const [eventFilter, setEventFilter] = useState<EventFilter>('Todos');
-  const [selectedUnit, setSelectedUnit] = useState<StandUnit | null>(null);
+  const [types, setTypes] = useState<CatalogStandType[]>([]);
+  const [units, setUnits] = useState<EventStandUnit[]>([]);
+  const [companies, setCompanies] = useState<NovoCompany[]>([]);
+  const [events, setEvents] = useState<NovoEvent[]>([]);
+  const [eventFilter, setEventFilter] = useState('Todos');
+  const [selectedUnit, setSelectedUnit] = useState<EventStandUnit | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  /* tipo modal */
-  const [typeModal, setTypeModal]  = useState(false);
-  const [editingType, setEditingType] = useState<StandType | null>(null);
-  const [typeForm, setTypeForm]    = useState(EMPTY_TYPE);
+  const [typeModal, setTypeModal] = useState(false);
+  const [editingType, setEditingType] = useState<CatalogStandType | null>(null);
+  const [typeForm, setTypeForm] = useState(EMPTY_TYPE);
   const [savingType, setSavingType] = useState(false);
 
-  /* unit modal */
-  const [unitModal, setUnitModal]  = useState(false);
-  const [editingUnit, setEditingUnit] = useState<StandUnit | null>(null);
-  const [unitForm, setUnitForm]    = useState(EMPTY_UNIT);
+  const [unitModal, setUnitModal] = useState(false);
+  const [editingUnit, setEditingUnit] = useState<EventStandUnit | null>(null);
+  const [unitForm, setUnitForm] = useState(EMPTY_UNIT);
   const [savingUnit, setSavingUnit] = useState(false);
 
-  /* ── Stats ─────────────────────────────────────────────── */
-  const vendidos    = units.filter(s => s.status === 'vendido').length;
-  const reservados  = units.filter(s => s.status === 'reservado').length;
+  const reload = async () => {
+    const [typeRows, unitRows] = await Promise.all([listStandTypes(), listStandUnits()]);
+    setTypes(typeRows);
+    setUnits(unitRows);
+  };
+
+  useEffect(() => {
+    listCompanies().then(setCompanies).catch(() => setCompanies([]));
+    listEvents().then(setEvents).catch(() => setEvents([]));
+    reload().catch(() => { setTypes([]); setUnits([]); });
+  }, []);
+
+  const vendidos = units.filter(s => s.status === 'vendido').length;
+  const reservados = units.filter(s => s.status === 'reservado').length;
   const disponibles = units.filter(s => s.status === 'disponible').length;
-  const pctOcupado  = Math.round(((vendidos + reservados) / units.length) * 100);
+  const pctOcupado = units.length ? Math.round(((vendidos + reservados) / units.length) * 100) : 0;
+  const filteredUnits = units.filter(s => eventFilter === 'Todos' || s.event_id === eventFilter);
 
-  const filteredUnits = units.filter(s => eventFilter === 'Todos' || s.event === eventFilter);
+  const eventOptions = useMemo(
+    () => [{ id: 'Todos', name: 'Todos' }, ...events.map(e => ({ id: e.id, name: e.name }))],
+    [events],
+  );
 
-  /* ── CRUD tipos ─────────────────────────────────────────── */
   const openCreateType = () => { setEditingType(null); setTypeForm(EMPTY_TYPE); setTypeModal(true); };
-  const openEditType = (t: StandType) => {
+  const openEditType = (t: CatalogStandType) => {
     setEditingType(t);
     setTypeForm({ name: t.name, area: t.area, price: String(t.price), price_min: String(t.price_min ?? ''), description: t.description, emoji: t.emoji });
     setTypeModal(true);
   };
-  const handleSaveType = () => {
+  const handleSaveType = async () => {
     setSavingType(true);
-    setTimeout(() => {
-      const newT: StandType = {
-        id: editingType?.id ?? `st-${Date.now()}`,
-        name: typeForm.name, area: typeForm.area,
-        price: Number(typeForm.price), price_min: typeForm.price_min ? Number(typeForm.price_min) : undefined,
-        description: typeForm.description, emoji: typeForm.emoji,
-      };
-      setTypes(prev => editingType ? prev.map(t => t.id === editingType.id ? newT : t) : [...prev, newT]);
-      setSavingType(false); setTypeModal(false);
-    }, 650);
+    setError(null);
+    const input = {
+      name: typeForm.name.trim(),
+      area: typeForm.area.trim(),
+      price: Number(typeForm.price) || 0,
+      price_min: typeForm.price_min.trim() === '' ? null : Number(typeForm.price_min),
+      description: typeForm.description,
+      emoji: typeForm.emoji || '🏪',
+    };
+    try {
+      const saved = editingType ? await updateStandType(editingType.id, input) : await createStandType(input);
+      setTypes(prev => editingType ? prev.map(t => t.id === editingType.id ? saved : t) : [...prev, saved]);
+      setTypeModal(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el tipo.');
+    } finally {
+      setSavingType(false);
+    }
   };
-  const handleDeleteType = (id: string) => setTypes(prev => prev.filter(t => t.id !== id));
+  const handleDeleteType = async (id: string) => {
+    try {
+      await deleteStandType(id);
+      setTypes(prev => prev.filter(t => t.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar el tipo. Puede tener stands asignados.');
+    }
+  };
 
-  /* ── CRUD units ─────────────────────────────────────────── */
-  const openCreateUnit = () => { setEditingUnit(null); setUnitForm(EMPTY_UNIT); setUnitModal(true); };
-  const openEditUnit = (u: StandUnit) => {
-    setEditingUnit(u);
-    setUnitForm({ code: u.code, type_id: u.type_id, event: u.event, company: u.company ?? '', status: u.status, price: String(u.price), notas: u.notas ?? '' });
+  const openCreateUnit = () => {
+    setEditingUnit(null);
+    setUnitForm({
+      ...EMPTY_UNIT,
+      type_id: types[0]?.id ?? '',
+      event_id: eventFilter !== 'Todos' ? eventFilter : (events[0]?.id ?? ''),
+      price: types[0] ? String(types[0].price) : '',
+    });
     setUnitModal(true);
   };
-  const handleSaveUnit = () => {
-    setSavingUnit(true);
-    setTimeout(() => {
-      const t = types.find(t => t.id === unitForm.type_id);
-      const newU: StandUnit = {
-        id: editingUnit?.id ?? `su-${Date.now()}`,
-        code: unitForm.code, type_id: unitForm.type_id, type_name: t?.name ?? '',
-        event: unitForm.event, company: unitForm.company || null,
-        status: unitForm.status, price: Number(unitForm.price) || (t?.price ?? 0),
-        notas: unitForm.notas || undefined,
-      };
-      setUnits(prev => editingUnit ? prev.map(u => u.id === editingUnit.id ? newU : u) : [...prev, newU]);
-      if (selectedUnit?.id === editingUnit?.id) setSelectedUnit(newU);
-      setSavingUnit(false); setUnitModal(false);
-    }, 650);
+  const openEditUnit = (u: EventStandUnit) => {
+    setEditingUnit(u);
+    setUnitForm({
+      code: u.code, type_id: u.type_id, event_id: u.event_id,
+      company_id: u.company_id ?? '', status: u.status, price: String(u.price), notas: u.notas,
+    });
+    setUnitModal(true);
   };
-  const handleDeleteUnit = (id: string) => {
-    setUnits(prev => prev.filter(u => u.id !== id));
-    if (selectedUnit?.id === id) setSelectedUnit(null);
+  const handleSaveUnit = async () => {
+    if (!unitForm.event_id || !unitForm.type_id) return;
+    setSavingUnit(true);
+    setError(null);
+    const type = types.find(t => t.id === unitForm.type_id);
+    const input = {
+      code: unitForm.code.trim(),
+      type_id: unitForm.type_id,
+      event_id: unitForm.event_id,
+      company_id: unitForm.company_id || null,
+      status: unitForm.status,
+      price: Number(unitForm.price) || (type?.price ?? 0),
+      zone: '',
+      notas: unitForm.notas,
+    };
+    try {
+      const saved = editingUnit
+        ? await updateStandUnit(editingUnit.id, input, editingUnit.payment_id)
+        : await createStandUnit(input);
+      setUnits(prev => editingUnit ? prev.map(u => u.id === editingUnit.id ? saved : u) : [...prev, saved]);
+      if (selectedUnit?.id === editingUnit?.id) setSelectedUnit(saved);
+      setUnitModal(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el stand.');
+    } finally {
+      setSavingUnit(false);
+    }
+  };
+  const handleDeleteUnit = async (unit: EventStandUnit) => {
+    try {
+      await deleteStandUnit(unit.id, unit.payment_id);
+      setUnits(prev => prev.filter(u => u.id !== unit.id));
+      if (selectedUnit?.id === unit.id) setSelectedUnit(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar el stand.');
+    }
   };
 
   const tf = (k: keyof typeof EMPTY_TYPE) => (v: string) => setTypeForm(p => ({ ...p, [k]: v }));
-  const uf = (k: keyof typeof EMPTY_UNIT) => (v: string) => setUnitForm(p => ({ ...p, [k]: v }));
+  const uf = (k: keyof typeof EMPTY_UNIT) => (v: string) => {
+    setUnitForm(p => {
+      const next = { ...p, [k]: v };
+      if (k === 'type_id') {
+        const type = types.find(t => t.id === v);
+        if (type && !p.price) next.price = String(type.price);
+      }
+      return next;
+    });
+  };
 
-  /* ─────────────────────────────────────────────────────── */
   return (
     <div>
-      {/* Header */}
       <div className="mb-6 flex items-center justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#00C9A0' }}>
@@ -150,7 +186,7 @@ export function NovoStands() {
             Stands
           </h1>
           <p className="mt-0.5 text-sm" style={{ color: TEXT_LO }}>
-            Tipos globales · inventario por evento · asignaciones
+            Tipos globales · inventario por evento · si se vende, queda en la empresa y en Pagos
           </p>
         </div>
         <button type="button" onClick={openCreateType}
@@ -160,7 +196,10 @@ export function NovoStands() {
         </button>
       </div>
 
-      {/* KPIs */}
+      {error ? (
+        <p className="mb-4 rounded-xl px-4 py-2.5 text-xs" style={{ background: 'rgba(242,68,99,.12)', color: '#F24463' }}>{error}</p>
+      ) : null}
+
       <div className="mb-6 grid grid-cols-3 gap-4">
         <KPICard label="Stands vendidos" value={vendidos.toString()} sub={`${pctOcupado}% del inventario`}
           icon={CheckCircleIcon} progress={pctOcupado} delay={0} />
@@ -171,7 +210,6 @@ export function NovoStands() {
       </div>
 
       <div className="grid grid-cols-2 gap-5">
-        {/* Tipos */}
         <div>
           <p className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
             Tipos de stand — catálogo global
@@ -197,32 +235,36 @@ export function NovoStands() {
                   {t.emoji}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold" style={{ color: TEXT_HI }}>{t.name} · {t.area}</p>
-                  <p className="text-xs mt-0.5" style={{ color: TEXT_DIM }}>{t.description}</p>
+                  <p className="text-sm font-semibold" style={{ color: TEXT_HI }}>{t.name}{t.area ? ` · ${t.area}` : ''}</p>
+                  <p className="text-xs mt-0.5" style={{ color: TEXT_DIM }}>{t.description || 'Sin descripción'}</p>
                 </div>
                 <div>
                   <p className="text-sm font-semibold tabular-nums" style={{ color: TEXT_HI }}>{formatCurrency(t.price)}</p>
-                  {t.price_min && <p className="text-[10px]" style={{ color: TEXT_DIM }}>mín. {formatCurrency(t.price_min)}</p>}
+                  {t.price_min != null ? <p className="text-[10px]" style={{ color: TEXT_DIM }}>mín. {formatCurrency(t.price_min)}</p> : null}
                 </div>
                 <div onClick={e => e.stopPropagation()}>
-                  <RowActions onEdit={() => openEditType(t)} onDelete={() => handleDeleteType(t.id)} />
+                  <RowActions onEdit={() => openEditType(t)} onDelete={() => { void handleDeleteType(t.id); }} />
                 </div>
               </motion.div>
             ))}
+            {types.length === 0 ? (
+              <div className="py-12 text-center" style={{ color: TEXT_DIM }}>
+                <p className="text-sm">Crea el primer tipo de stand para poder asignarlo a un evento.</p>
+              </div>
+            ) : null}
           </div>
         </div>
 
-        {/* Inventario */}
         <div>
           <div className="mb-3 flex items-center justify-between">
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Inventario</p>
             <div className="flex items-center gap-2">
-              <div className="flex gap-0.5 p-0.5 rounded-lg" style={{ background: BG, border: `1px solid ${BORDER}` }}>
-                {EVENT_FILTERS.map(f => (
-                  <button key={f} type="button" onClick={() => setEventFilter(f)}
-                    className="rounded-md px-2.5 py-1 text-[10px] font-semibold transition-all"
-                    style={{ background: eventFilter === f ? '#1e3450' : 'transparent', color: eventFilter === f ? TEXT_HI : TEXT_DIM }}>
-                    {f === 'Todos' ? 'Todos' : f === 'La Eterna Primavera' ? 'EP 2025' : 'HB VI'}
+              <div className="flex gap-0.5 p-0.5 rounded-lg max-w-[280px] overflow-x-auto" style={{ background: BG, border: `1px solid ${BORDER}` }}>
+                {eventOptions.map(f => (
+                  <button key={f.id} type="button" onClick={() => setEventFilter(f.id)}
+                    className="rounded-md px-2.5 py-1 text-[10px] font-semibold transition-all whitespace-nowrap"
+                    style={{ background: eventFilter === f.id ? '#1e3450' : 'transparent', color: eventFilter === f.id ? TEXT_HI : TEXT_DIM }}>
+                    {f.id === 'Todos' ? 'Todos' : f.name}
                   </button>
                 ))}
               </div>
@@ -256,13 +298,13 @@ export function NovoStands() {
                 >
                   <p className="text-sm font-bold tabular-nums" style={{ color: TEXT_HI }}>{s.code}</p>
                   <p className="text-xs" style={{ color: TEXT_LO }}>{s.type_name}</p>
-                  <p className="truncate text-xs" style={{ color: s.company ? TEXT_LO : TEXT_DIM }}>
-                    {s.company ?? '—'}
+                  <p className="truncate text-xs" style={{ color: s.company_name ? TEXT_LO : TEXT_DIM }}>
+                    {s.company_name ?? '—'}
                   </p>
                   <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
                     style={{ color: st.color, background: st.bg }}>{st.label}</span>
                   <div onClick={e => e.stopPropagation()}>
-                    <RowActions onEdit={() => openEditUnit(s)} onDelete={() => handleDeleteUnit(s.id)} />
+                    <RowActions onEdit={() => openEditUnit(s)} onDelete={() => { void handleDeleteUnit(s); }} />
                   </div>
                 </motion.div>
               );
@@ -274,7 +316,6 @@ export function NovoStands() {
             )}
           </div>
 
-          {/* Panel detalle unidad */}
           <AnimatePresence>
             {selectedUnit && (
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
@@ -296,11 +337,14 @@ export function NovoStands() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { label: 'Evento',  value: selectedUnit.event },
+                    { label: 'Evento',  value: selectedUnit.event_name },
                     { label: 'Tipo',    value: selectedUnit.type_name },
                     { label: 'Precio',  value: formatCurrency(selectedUnit.price) },
                     { label: 'Estado',  value: STATUS_CONFIG[selectedUnit.status].label },
-                    { label: 'Empresa', value: selectedUnit.company ?? 'Sin asignar' },
+                    { label: 'Empresa', value: selectedUnit.company_name ?? 'Sin asignar' },
+                    { label: 'Transacción', value: selectedUnit.payment_id
+                      ? (selectedUnit.payment_status === 'pagado' ? 'Pagada en portal' : 'Cuota pendiente en Pagos')
+                      : 'Sin transacción' },
                   ].map(item => (
                     <div key={item.label}>
                       <p className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: TEXT_DIM }}>{item.label}</p>
@@ -317,13 +361,12 @@ export function NovoStands() {
         </div>
       </div>
 
-      {/* Modal — Tipo */}
       <NovoModal open={typeModal} onClose={() => setTypeModal(false)}
         title={editingType ? 'Editar tipo de stand' : 'Nuevo tipo de stand'}
         width={520}
         footer={<>
           <ModalBtn variant="secondary" onClick={() => setTypeModal(false)} disabled={savingType}>Cancelar</ModalBtn>
-          <ModalBtn variant="primary" onClick={handleSaveType} disabled={savingType || !typeForm.name}>
+          <ModalBtn variant="primary" onClick={() => { void handleSaveType(); }} disabled={savingType || !typeForm.name}>
             {savingType ? 'Guardando…' : editingType ? 'Guardar' : 'Crear tipo'}
           </ModalBtn>
         </>}
@@ -352,13 +395,12 @@ export function NovoStands() {
         </FormSection>
       </NovoModal>
 
-      {/* Modal — Unidad */}
       <NovoModal open={unitModal} onClose={() => setUnitModal(false)}
         title={editingUnit ? 'Editar stand' : 'Agregar stand al inventario'}
         width={520}
         footer={<>
           <ModalBtn variant="secondary" onClick={() => setUnitModal(false)} disabled={savingUnit}>Cancelar</ModalBtn>
-          <ModalBtn variant="primary" onClick={handleSaveUnit} disabled={savingUnit || !unitForm.code}>
+          <ModalBtn variant="primary" onClick={() => { void handleSaveUnit(); }} disabled={savingUnit || !unitForm.code || !unitForm.event_id || !unitForm.type_id}>
             {savingUnit ? 'Guardando…' : editingUnit ? 'Guardar' : 'Agregar stand'}
           </ModalBtn>
         </>}
@@ -368,20 +410,21 @@ export function NovoStands() {
             <FormField label="Código" required>
               <FormInput placeholder="A-01" value={unitForm.code} onChange={uf('code')} />
             </FormField>
-            <FormField label="Tipo">
+            <FormField label="Tipo" required hint={types.length === 0 ? 'Crea un tipo primero.' : undefined}>
               <FormSelect value={unitForm.type_id} onChange={uf('type_id')}
-                options={types.map(t => ({ value: t.id, label: t.name }))} />
+                options={[{ value: '', label: 'Seleccionar tipo…' }, ...types.map(t => ({ value: t.id, label: t.name }))]} />
             </FormField>
-            <FormField label="Evento">
-              <FormSelect value={unitForm.event} onChange={uf('event')}
-                options={EVENTS.map(e => ({ value: e, label: e }))} />
+            <FormField label="Evento" required hint="El stand queda en el inventario de este evento.">
+              <FormSelect value={unitForm.event_id} onChange={uf('event_id')}
+                options={[{ value: '', label: 'Seleccionar evento…' }, ...events.map(e => ({ value: e.id, label: e.name }))]} />
             </FormField>
             <FormField label="Estado">
               <FormSelect value={unitForm.status} onChange={uf('status')}
                 options={Object.entries(STATUS_CONFIG).map(([v, c]) => ({ value: v, label: c.label }))} />
             </FormField>
-            <FormField label="Empresa asignada">
-              <FormInput placeholder="Roche Colombia…" value={unitForm.company} onChange={uf('company')} />
+            <FormField label="Empresa asignada" hint={unitForm.status === 'disponible' ? 'Opcional si está disponible.' : 'Obligatoria al reservar o vender.'}>
+              <FormSelect value={unitForm.company_id} onChange={uf('company_id')}
+                options={[{ value: '', label: 'Sin asignar' }, ...companies.map(c => ({ value: c.id, label: `${c.name} · ${c.ciudad}` }))]} />
             </FormField>
             <FormField label="Precio">
               <FormInput type="number" placeholder="4200000" value={unitForm.price} onChange={uf('price')} />

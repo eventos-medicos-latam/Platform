@@ -1,26 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlusIcon, SearchIcon, MicIcon, LockIcon, StarIcon, GlobeIcon, CheckCircleIcon, XCircleIcon } from 'lucide-react';
 import { KPICard } from '../../components/novo/ui/KPICard';
 import { RowActions } from '../../components/novo/ui/RowActions';
+import { listEvents } from '../../lib/novo/events';
+import type { NovoEvent } from '../../types/novo';
+import {
+  createSpeaker, deleteSpeaker, duplicateSpeaker, listSpeakers, updateSpeaker,
+  type CatalogSpeaker, type SpeakerStatus,
+} from '../../lib/novo/speakers';
 import { NovoModal, ModalBtn, FormField, FormInput, FormSelect, FormTextarea, FormSection, ImageField } from '../../components/novo/ui/NovoModal';
 
-interface Speaker {
-  id: string;
-  name: string;
-  specialty: string;
-  role: string;
-  institution: string;
-  country: string;
-  city: string;
-  talks: string[];
-  featured: boolean;
-  status: 'invitado' | 'confirmado' | 'publicado' | 'declinado' | 'pendiente';
-  events: string[];
-  avatar_gradient: string;
-}
-
-const STATUS_CONFIG: Record<Speaker['status'], { label: string; color: string; bg: string }> = {
+const STATUS_CONFIG: Record<SpeakerStatus, { label: string; color: string; bg: string }> = {
   publicado:  { label: 'Publicado',  color: '#00C9A0', bg: 'rgba(0,201,160,.12)'  },
   confirmado: { label: 'Confirmado', color: '#5B8AF0', bg: 'rgba(91,138,240,.12)' },
   invitado:   { label: 'Invitado',   color: '#F59E0B', bg: 'rgba(245,158,11,.12)' },
@@ -37,89 +28,127 @@ const GRADIENTS = [
   'linear-gradient(135deg,#00C9A0,#A78BFA)',
 ];
 
-const INIT_SPEAKERS: Speaker[] = [
-  { id: 'sp-001', name: 'Dra. Valentina Ospina',   specialty: 'Endocrinología',       role: 'Conferencista',  institution: 'U. de Antioquia',       country: 'Colombia', city: 'Medellín',    talks: ['Disruptores endocrinos y microbiota'],        featured: true,  status: 'publicado',  events: ['La Eterna Primavera', 'Hormobiota VI'], avatar_gradient: GRADIENTS[0] },
-  { id: 'sp-002', name: 'Dr. Carlos Montoya',       specialty: 'Medicina funcional',   role: 'Panelista',      institution: 'Clínica Montoya',        country: 'Colombia', city: 'Bogotá',      talks: ['Eje intestino-cerebro en 2025'],              featured: true,  status: 'publicado',  events: ['Hormobiota VI'],                         avatar_gradient: GRADIENTS[1] },
-  { id: 'sp-003', name: 'Dr. Andrés Morales',       specialty: 'Gastroenterología',    role: 'Conferencista',  institution: 'Hospital Pablo Tobón',   country: 'Colombia', city: 'Medellín',    talks: ['Permeabilidad intestinal: evidencia actual'], featured: false, status: 'confirmado', events: ['La Eterna Primavera'],                   avatar_gradient: GRADIENTS[2] },
-  { id: 'sp-004', name: 'Dra. Carolina Mejía',      specialty: 'Nutrición clínica',    role: 'Tallerista',     institution: 'CES Universidad',        country: 'Colombia', city: 'Medellín',    talks: ['Dieta y modulación del microbioma'],          featured: false, status: 'confirmado', events: ['La Eterna Primavera'],                   avatar_gradient: GRADIENTS[3] },
-  { id: 'sp-005', name: 'Juan Pablo Restrepo',      specialty: 'Psiquiatría',          role: 'Moderador',      institution: '',                       country: 'Colombia', city: 'Bogotá',      talks: [''],                                          featured: false, status: 'invitado',   events: ['Hormobiota VI'],                         avatar_gradient: GRADIENTS[4] },
-  { id: 'sp-006', name: 'Dra. María Fernanda Díaz', specialty: 'Medicina integrativa', role: 'Conferencista',  institution: 'Centro Médico Imbanaco', country: 'Colombia', city: 'Cali',        talks: ['Fitoterapia y eje hormonal'],                 featured: true,  status: 'publicado',  events: ['La Eterna Primavera'],                   avatar_gradient: GRADIENTS[5] },
-  { id: 'sp-007', name: 'Dr. Roberto Ángel',        specialty: 'Cardiología',          role: 'Conferencista',  institution: 'Cardiodiagnóstico',      country: 'Colombia', city: 'Medellín',    talks: [''],                                          featured: false, status: 'pendiente',  events: [],                                        avatar_gradient: GRADIENTS[1] },
-  { id: 'sp-008', name: 'Dra. Lucía Ramírez',       specialty: 'Dermatología',         role: 'Panelista',      institution: '',                       country: 'Colombia', city: 'Barranquilla',talks: ['Piel y disbiosis intestinal'],                featured: false, status: 'declinado',  events: [],                                        avatar_gradient: GRADIENTS[2] },
-];
-
 const ROLES    = ['Conferencista', 'Panelista', 'Tallerista', 'Moderador', 'Keynote', 'Invitado'];
-const STATUSES = ['invitado', 'confirmado', 'publicado', 'pendiente', 'declinado'];
-type StatusFilter = 'Todos' | Speaker['status'];
+const STATUSES: SpeakerStatus[] = ['invitado', 'confirmado', 'publicado', 'pendiente', 'declinado'];
+type StatusFilter = 'Todos' | SpeakerStatus;
 const STATUS_FILTERS: StatusFilter[] = ['Todos', 'publicado', 'confirmado', 'invitado', 'pendiente', 'declinado'];
 
 function initials(name: string) { return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase(); }
+function gradientFor(id: string) {
+  let hash = 0;
+  for (let i = 0; i < id.length; i += 1) hash = (hash + id.charCodeAt(i)) % GRADIENTS.length;
+  return GRADIENTS[hash];
+}
 
 const EMPTY_FORM = {
   name: '', specialty: '', role: 'Conferencista', institution: '',
-  city: '', country: 'Colombia', talk: '', status: 'invitado', bio: '',
+  city: '', country: 'Colombia', talk: '', status: 'invitado' as SpeakerStatus, bio: '',
   foto: '', email: '', linkedin: '', telefono: '',
+  event_ids: [] as string[], featured: false,
 };
 
 export function NovoSpeakers() {
-  const [speakers, setSpeakers]   = useState<Speaker[]>(INIT_SPEAKERS);
+  const [speakers, setSpeakers]   = useState<CatalogSpeaker[]>([]);
+  const [events, setEvents]       = useState<NovoEvent[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('Todos');
   const [search, setSearch]       = useState('');
-  const [selected, setSelected]   = useState<Speaker | null>(null);
+  const [selected, setSelected]   = useState<CatalogSpeaker | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing]     = useState<Speaker | null>(null);
+  const [editing, setEditing]     = useState<CatalogSpeaker | null>(null);
   const [form, setForm]           = useState(EMPTY_FORM);
   const [saving, setSaving]       = useState(false);
   const [deleting, setDeleting]   = useState<string | null>(null);
+  const [error, setError]         = useState<string | null>(null);
 
-  const f = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }));
+  const f = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v as never }));
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setModalOpen(true); };
-  const openEdit   = (sp: Speaker) => {
+  useEffect(() => {
+    listEvents().then(setEvents).catch(() => setEvents([]));
+    listSpeakers()
+      .then(setSpeakers)
+      .catch((err) => {
+        setSpeakers([]);
+        setError(err instanceof Error ? err.message : 'No se pudieron cargar los speakers.');
+      });
+  }, []);
+
+  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setError(null); setModalOpen(true); };
+  const openEdit   = (sp: CatalogSpeaker) => {
     setEditing(sp);
+    setError(null);
     setForm({
       name: sp.name, specialty: sp.specialty, role: sp.role, institution: sp.institution,
-      city: sp.city, country: sp.country, talk: sp.talks[0] ?? '', status: sp.status, bio: '',
-      foto: (sp as any).foto ?? '', email: (sp as any).email ?? '',
-      linkedin: (sp as any).linkedin ?? '', telefono: (sp as any).telefono ?? '',
+      city: sp.city, country: sp.country, talk: sp.talks[0] ?? '', status: sp.status, bio: sp.bio,
+      foto: sp.photo_url, email: sp.email, linkedin: sp.linkedin, telefono: sp.telefono,
+      event_ids: sp.events.map(ev => ev.id), featured: sp.featured,
     });
     setModalOpen(true);
   };
-  const handleSave = () => {
+
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
-      if (editing) {
-        setSpeakers(prev => prev.map(s => s.id !== editing.id ? s : {
-          ...s, name: form.name, specialty: form.specialty, role: form.role,
-          institution: form.institution, city: form.city, country: form.country,
-          talks: [form.talk], status: form.status as Speaker['status'],
-        }));
-        if (selected?.id === editing.id) setSelected(s => s ? { ...s, name: form.name, specialty: form.specialty, role: form.role, institution: form.institution, city: form.city, country: form.country, talks: [form.talk], status: form.status as Speaker['status'] } : null);
-      } else {
-        const newSp: Speaker = {
-          id: `sp-${Date.now()}`, name: form.name, specialty: form.specialty,
-          role: form.role, institution: form.institution, city: form.city, country: form.country,
-          talks: [form.talk], featured: false, status: form.status as Speaker['status'],
-          events: [], avatar_gradient: GRADIENTS[speakers.length % GRADIENTS.length],
-        };
-        setSpeakers(prev => [newSp, ...prev]);
-      }
+    setError(null);
+    const input = {
+      name: form.name,
+      specialty: form.specialty,
+      role: form.role,
+      institution: form.institution,
+      city: form.city,
+      country: form.country,
+      talk: form.talk,
+      status: form.status,
+      bio: form.bio,
+      foto: form.foto,
+      email: form.email,
+      linkedin: form.linkedin,
+      telefono: form.telefono,
+      event_ids: form.event_ids,
+      featured: form.featured,
+    };
+    try {
+      const saved = editing
+        ? await updateSpeaker(editing.id, editing.person_id, input)
+        : await createSpeaker(input);
+      setSpeakers(prev => editing ? prev.map(s => s.id === editing.id ? saved : s) : [saved, ...prev]);
+      if (selected?.id === editing?.id) setSelected(saved);
       setModalOpen(false);
-    }, 700);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el speaker.');
+    } finally {
+      setSaving(false);
+    }
   };
-  const handleDelete = (id: string) => {
+
+  const handleDelete = async (sp: CatalogSpeaker) => {
     if (!confirm('¿Eliminar este speaker? Esta acción no se puede deshacer.')) return;
-    setDeleting(id);
-    setTimeout(() => {
-      setSpeakers(prev => prev.filter(s => s.id !== id));
-      if (selected?.id === id) setSelected(null);
+    setDeleting(sp.id);
+    setError(null);
+    try {
+      await deleteSpeaker(sp.id, sp.person_id);
+      setSpeakers(prev => prev.filter(s => s.id !== sp.id));
+      if (selected?.id === sp.id) setSelected(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar el speaker.');
+    } finally {
       setDeleting(null);
-    }, 400);
+    }
   };
-  const handleDuplicate = (sp: Speaker) => {
-    const dup: Speaker = { ...sp, id: `sp-${Date.now()}`, name: `${sp.name} (copia)`, status: 'invitado', events: [], featured: false };
-    setSpeakers(prev => [dup, ...prev]);
+
+  const handleDuplicate = async (sp: CatalogSpeaker) => {
+    setError(null);
+    try {
+      const dup = await duplicateSpeaker(sp);
+      setSpeakers(prev => [dup, ...prev]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo duplicar el speaker.');
+    }
+  };
+
+  const toggleEvent = (id: string) => {
+    setForm(p => ({
+      ...p,
+      event_ids: p.event_ids.includes(id) ? p.event_ids.filter(item => item !== id) : [...p.event_ids, id],
+    }));
   };
 
   const filtered = speakers.filter(s => {
@@ -138,7 +167,7 @@ export function NovoSpeakers() {
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#00C9A0' }}>Catálogo global</p>
           <h1 className="text-xl font-bold" style={{ color: '#E1EAF4', fontFamily: "'Sora', sans-serif" }}>Speakers</h1>
-          <p className="mt-0.5 text-sm" style={{ color: '#7A9CB8' }}>Una ficha global por persona · historial de eventos · perfil público</p>
+          <p className="mt-0.5 text-sm" style={{ color: '#7A9CB8' }}>Una ficha por persona · se asigna a eventos reales · perfil reutilizable</p>
         </div>
         <button type="button" onClick={openCreate}
           className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all active:scale-95"
@@ -146,6 +175,10 @@ export function NovoSpeakers() {
           <PlusIcon size={15} strokeWidth={2.5} /> Nuevo speaker
         </button>
       </div>
+
+      {error && !modalOpen ? (
+        <p className="mb-4 rounded-xl px-4 py-2.5 text-xs" style={{ background: 'rgba(242,68,99,.12)', color: '#F24463' }}>{error}</p>
+      ) : null}
 
       <div className="mb-6 grid grid-cols-4 gap-4">
         <KPICard label="Total speakers"  value={speakers.length.toString()}  sub="en la plataforma"    icon={MicIcon}        delay={0}    />
@@ -161,11 +194,11 @@ export function NovoSpeakers() {
             className="bg-transparent pl-9 pr-4 py-2 text-sm outline-none w-56" style={{ color: '#E1EAF4' }} />
         </div>
         <div className="flex gap-0.5 p-1 rounded-xl" style={{ background: '#112035', border: '1px solid #1e3450' }}>
-          {STATUS_FILTERS.map(f => (
-            <button key={f} type="button" onClick={() => setStatusFilter(f)}
+          {STATUS_FILTERS.map(item => (
+            <button key={item} type="button" onClick={() => setStatusFilter(item)}
               className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all capitalize"
-              style={{ background: statusFilter === f ? '#1e3450' : 'transparent', color: statusFilter === f ? '#E1EAF4' : '#2a4a6b' }}>
-              {f === 'Todos' ? 'Todos' : STATUS_CONFIG[f as Speaker['status']].label}
+              style={{ background: statusFilter === item ? '#1e3450' : 'transparent', color: statusFilter === item ? '#E1EAF4' : '#2a4a6b' }}>
+              {item === 'Todos' ? 'Todos' : STATUS_CONFIG[item].label}
             </button>
           ))}
         </div>
@@ -178,7 +211,9 @@ export function NovoSpeakers() {
         </div>
 
         {filtered.length === 0 && (
-          <div className="py-16 text-center" style={{ color: '#2a4a6b' }}><p className="text-sm">Sin resultados</p></div>
+          <div className="py-16 text-center" style={{ color: '#2a4a6b' }}>
+            <p className="text-sm">{speakers.length === 0 ? 'Aún no hay speakers. Crea la primera ficha.' : 'Sin resultados'}</p>
+          </div>
         )}
 
         {filtered.map((speaker, i) => {
@@ -197,17 +232,21 @@ export function NovoSpeakers() {
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               <div className="flex items-center gap-3 min-w-0 pr-4">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                  style={{ background: speaker.avatar_gradient }}>{initials(speaker.name)}</div>
+                {speaker.photo_url ? (
+                  <img src={speaker.photo_url} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" style={{ border: '1px solid #1e3450' }} />
+                ) : (
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                    style={{ background: gradientFor(speaker.id) }}>{initials(speaker.name)}</div>
+                )}
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="truncate text-sm font-semibold" style={{ color: '#E1EAF4' }}>{speaker.name}</p>
                     {speaker.featured && <StarIcon size={11} style={{ color: '#F59E0B', flexShrink: 0 }} />}
                   </div>
-                  <p className="text-xs" style={{ color: '#2a4a6b' }}>{speaker.city}, {speaker.country}</p>
+                  <p className="text-xs" style={{ color: '#2a4a6b' }}>{speaker.city || '—'}{speaker.country ? `, ${speaker.country}` : ''}</p>
                 </div>
               </div>
-              <p className="text-sm truncate" style={{ color: '#7A9CB8' }}>{speaker.specialty}</p>
+              <p className="text-sm truncate" style={{ color: '#7A9CB8' }}>{speaker.specialty || '—'}</p>
               <p className="text-sm truncate pr-2" style={{ color: pending(speaker.talks[0]) ? '#2a4a6b' : '#7A9CB8', fontStyle: pending(speaker.talks[0]) ? 'italic' : 'normal' }}>
                 {pending(speaker.talks[0]) ? 'Pendiente' : speaker.talks[0]}
               </p>
@@ -222,11 +261,11 @@ export function NovoSpeakers() {
                   style={{ color: st.color, background: st.bg }}>{st.label}</span>
                 {!canPublish && <LockIcon size={11} style={{ color: '#2a4a6b' }} />}
               </div>
-              <div className="w-20 flex justify-end">
+              <div className="w-20 flex justify-end" onClick={e => e.stopPropagation()}>
                 <RowActions
                   onEdit={() => openEdit(speaker)}
-                  onDuplicate={() => handleDuplicate(speaker)}
-                  onDelete={() => handleDelete(speaker.id)}
+                  onDuplicate={() => { void handleDuplicate(speaker); }}
+                  onDelete={() => { void handleDelete(speaker); }}
                 />
               </div>
             </motion.div>
@@ -234,7 +273,6 @@ export function NovoSpeakers() {
         })}
       </div>
 
-      {/* Panel lateral de detalle */}
       <AnimatePresence>
         {selected && (
           <motion.div
@@ -248,17 +286,21 @@ export function NovoSpeakers() {
               ← Cerrar
             </button>
             <div className="flex flex-col items-center text-center mb-5">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full text-xl font-bold text-white mb-3"
-                style={{ background: selected.avatar_gradient }}>{initials(selected.name)}</div>
+              {selected.photo_url ? (
+                <img src={selected.photo_url} alt="" className="h-16 w-16 rounded-full object-cover mb-3" style={{ border: '1px solid #1e3450' }} />
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded-full text-xl font-bold text-white mb-3"
+                  style={{ background: gradientFor(selected.id) }}>{initials(selected.name)}</div>
+              )}
               {selected.featured && (
                 <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#F59E0B' }}>
                   <StarIcon size={10} /> Destacado
                 </span>
               )}
               <p className="text-base font-bold" style={{ color: '#E1EAF4', fontFamily: "'Sora', sans-serif" }}>{selected.name}</p>
-              <p className="text-xs mt-1" style={{ color: '#7A9CB8' }}>{selected.role} · {selected.specialty}</p>
+              <p className="text-xs mt-1" style={{ color: '#7A9CB8' }}>{selected.role} · {selected.specialty || '—'}</p>
               <p className="text-xs mt-0.5" style={{ color: '#2a4a6b' }}>{selected.institution || '—'}</p>
-              <p className="text-xs" style={{ color: '#2a4a6b' }}>{selected.city}, {selected.country}</p>
+              <p className="text-xs" style={{ color: '#2a4a6b' }}>{[selected.city, selected.country].filter(Boolean).join(', ') || '—'}</p>
             </div>
             <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold mb-5"
               style={{ color: STATUS_CONFIG[selected.status].color, background: STATUS_CONFIG[selected.status].bg }}>
@@ -270,12 +312,29 @@ export function NovoSpeakers() {
                 <p className="text-sm" style={{ color: '#7A9CB8' }}>{selected.talks[0]}</p>
               </div>
             )}
+            {selected.bio && (
+              <div className="mb-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#2a4a6b' }}>Bio</p>
+                <p className="text-sm leading-relaxed" style={{ color: '#7A9CB8' }}>{selected.bio}</p>
+              </div>
+            )}
+            {(selected.email || selected.telefono || selected.linkedin) && (
+              <div className="mb-4 space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#2a4a6b' }}>Contacto</p>
+                {selected.email ? <p className="text-xs" style={{ color: '#7A9CB8' }}>{selected.email}</p> : null}
+                {selected.telefono ? <p className="text-xs" style={{ color: '#7A9CB8' }}>{selected.telefono}</p> : null}
+                {selected.linkedin ? <p className="text-xs truncate" style={{ color: '#7A9CB8' }}>{selected.linkedin}</p> : null}
+              </div>
+            )}
             {selected.events.length > 0 && (
               <div className="mb-4">
                 <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#2a4a6b' }}>Eventos</p>
                 <div className="space-y-1">
                   {selected.events.map(ev => (
-                    <div key={ev} className="rounded-lg px-3 py-2 text-xs" style={{ background: '#182d47', color: '#7A9CB8' }}>{ev}</div>
+                    <div key={ev.id} className="rounded-lg px-3 py-2 text-xs" style={{ background: '#182d47', color: '#7A9CB8' }}>
+                      {ev.name}
+                      <span className="ml-2" style={{ color: STATUS_CONFIG[ev.status].color }}>{STATUS_CONFIG[ev.status].label}</span>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -284,10 +343,7 @@ export function NovoSpeakers() {
               <button type="button" onClick={() => openEdit(selected)}
                 className="w-full rounded-xl py-2.5 text-sm font-semibold transition-all active:scale-95"
                 style={{ background: '#00C9A0', color: '#0d1829' }}>Editar ficha</button>
-              <button type="button"
-                className="w-full rounded-xl py-2.5 text-sm font-semibold transition-all active:scale-95"
-                style={{ background: '#182d47', color: '#7A9CB8', border: '1px solid #1e3450' }}>Ver perfil público</button>
-              <button type="button" onClick={() => handleDelete(selected.id)}
+              <button type="button" onClick={() => { void handleDelete(selected); }}
                 className="w-full rounded-xl py-2.5 text-sm font-semibold transition-all active:scale-95"
                 style={{ background: 'rgba(242,68,99,.08)', color: '#F24463', border: '1px solid rgba(242,68,99,.2)' }}>Eliminar</button>
             </div>
@@ -295,25 +351,26 @@ export function NovoSpeakers() {
         )}
       </AnimatePresence>
 
-      {/* Modal crear / editar */}
       <NovoModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editing ? 'Editar speaker' : 'Nuevo speaker'}
-        subtitle={editing ? `Editando ficha de ${editing.name}` : 'Agrega un nuevo ponente al catálogo global'}
+        subtitle={editing ? `Editando ficha de ${editing.name}` : 'Agrega un ponente al catálogo. Luego asígnalo a uno o más eventos.'}
         width={640}
         footer={
           <>
             <ModalBtn variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
-            <ModalBtn variant="primary" onClick={handleSave} disabled={saving || !form.name}>
+            <ModalBtn variant="primary" onClick={() => { void handleSave(); }} disabled={saving || !form.name}>
               {saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Crear speaker'}
             </ModalBtn>
           </>
         }
       >
         <div className="space-y-6">
+          {error ? (
+            <p className="rounded-xl px-3 py-2 text-xs" style={{ background: 'rgba(242,68,99,.12)', color: '#F24463' }}>{error}</p>
+          ) : null}
 
-          {/* Perfil */}
           <FormSection title="Perfil">
             <ImageField label="Foto del ponente" value={form.foto} onChange={f('foto')}
               hint="URL pública de la foto (formato cuadrado recomendado)" />
@@ -326,14 +383,14 @@ export function NovoSpeakers() {
               <FormField label="Especialidad" required>
                 <FormInput value={form.specialty} onChange={f('specialty')} placeholder="Endocrinología, Nutrición…" />
               </FormField>
-              <FormField label="Rol en el evento">
+              <FormField label="Rol">
                 <FormSelect value={form.role} onChange={f('role')} options={ROLES.map(r => ({ value: r, label: r }))} />
               </FormField>
               <FormField label="Institución">
                 <FormInput value={form.institution} onChange={f('institution')} placeholder="Hospital, Universidad…" />
               </FormField>
-              <FormField label="Estado">
-                <FormSelect value={form.status} onChange={f('status')} options={STATUSES.map(s => ({ value: s, label: STATUS_CONFIG[s as Speaker['status']].label }))} />
+              <FormField label="Estado" hint="Publicado marca la ficha como pública. En cada evento asignado se guarda este estado.">
+                <FormSelect value={form.status} onChange={v => setForm(p => ({ ...p, status: v as SpeakerStatus }))} options={STATUSES.map(s => ({ value: s, label: STATUS_CONFIG[s].label }))} />
               </FormField>
               <FormField label="Ciudad">
                 <FormInput value={form.city} onChange={f('city')} placeholder="Medellín, Bogotá…" />
@@ -345,12 +402,11 @@ export function NovoSpeakers() {
             <FormField label="Tema / charla">
               <FormInput value={form.talk} onChange={f('talk')} placeholder="Título de la presentación" />
             </FormField>
-            <FormField label="Biografía" hint="Aparecerá en el perfil público del evento">
+            <FormField label="Biografía" hint="Queda en la ficha global del ponente">
               <FormTextarea value={form.bio} onChange={f('bio')} placeholder="Breve descripción del ponente…" rows={3} />
             </FormField>
           </FormSection>
 
-          {/* Contacto */}
           <FormSection title="Datos de contacto">
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Email">
@@ -367,6 +423,30 @@ export function NovoSpeakers() {
             </div>
           </FormSection>
 
+          <FormSection title="Eventos">
+            <FormField label="Asignar a eventos" hint={events.length === 0 ? 'Crea un evento en Mis Eventos para poder asignarlo.' : 'El mismo speaker puede estar en varios eventos.'}>
+              {events.length === 0 ? (
+                <p className="text-xs" style={{ color: '#3A5470' }}>No hay eventos todavía.</p>
+              ) : (
+                <div className="grid grid-cols-1 gap-1.5">
+                  {events.map(ev => {
+                    const checked = form.event_ids.includes(ev.id);
+                    return (
+                      <label key={ev.id} className="flex items-center gap-2.5 rounded-xl px-3 py-2 cursor-pointer"
+                        style={{ background: checked ? 'rgba(0,201,160,.08)' : '#0d1829', border: `1px solid ${checked ? 'rgba(0,201,160,.35)' : '#1e3450'}` }}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleEvent(ev.id)} />
+                        <span className="text-sm" style={{ color: '#E1EAF4' }}>{ev.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </FormField>
+            <label className="flex items-center gap-2.5 text-sm cursor-pointer" style={{ color: '#7A9CB8' }}>
+              <input type="checkbox" checked={form.featured} onChange={e => setForm(p => ({ ...p, featured: e.target.checked }))} />
+              Destacado en los eventos asignados
+            </label>
+          </FormSection>
         </div>
       </NovoModal>
     </div>

@@ -1,6 +1,5 @@
 import React from 'react';
-import { AnimatePresence } from 'framer-motion';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { NovoShell } from './components/novo/layout/NovoShell';
 import { NovoOverview } from './pages/novo/NovoOverview';
 import { NovoEvents } from './pages/novo/NovoEvents';
@@ -12,10 +11,10 @@ import { NovoPagos } from './pages/novo/NovoPagos';
 import { NovoScanner } from './pages/novo/NovoScanner';
 import { NovoAnalitica } from './pages/novo/NovoAnalitica';
 import { NovoDocumentos } from './pages/novo/NovoDocumentos';
-import { NovoPlaceholder } from './pages/novo/NovoPlaceholder';
+import { NovoConfiguracion } from './pages/novo/NovoConfiguracion';
+import { NovoPapelera } from './pages/novo/NovoPapelera';
 import { NovoEventShell } from './components/novo/layout/NovoEventShell';
 import { NovoEventResumen } from './pages/novo/event/NovoEventResumen';
-import { NovoEventPlaceholder } from './pages/novo/event/NovoEventPlaceholder';
 import { NovoSpeakers } from './pages/novo/NovoSpeakers';
 import { NovoSitio } from './pages/novo/NovoSitio';
 import { NovoDigital } from './pages/novo/NovoDigital';
@@ -28,10 +27,13 @@ import { NovoEventInformacion } from './pages/novo/event/NovoEventInformacion';
 import { NovoEventComunicaciones } from './pages/novo/event/NovoEventComunicaciones';
 import { NovoEventWeb } from './pages/novo/event/NovoEventWeb';
 import { NovoEventConfiguracion } from './pages/novo/event/NovoEventConfiguracion';
+import { NovoEventProductos } from './pages/novo/event/NovoEventProductos';
+import { NovoEventTickets } from './pages/novo/event/NovoEventTickets';
+import { NovoPublicEvent } from './pages/public/NovoPublicEvent';
+import { NovoPublicRegister } from './pages/public/NovoPublicRegister';
 import { PlatformProvider } from './contexts/PlatformContext';
 import { PublicLayout } from './components/layout/PublicLayout';
 import { EventLayout } from './components/layout/EventLayout';
-import { AdminLayout } from './components/layout/AdminLayout';
 import { PortalLayout } from './components/layout/PortalLayout';
 import { ScrollProgress } from './components/motion/SectionTransition';
 import { SmoothScroll } from './components/motion/SmoothScroll';
@@ -60,25 +62,6 @@ import { Login } from './pages/auth/Login';
 import { InvitationResponse } from './pages/InvitationResponse';
 import { RequireRole } from './components/auth/RequireRole';
 import { TrackingScripts } from './components/TrackingScripts';
-import { Overview } from './pages/admin/Overview';
-import { AgendaAdmin } from './pages/admin/AgendaAdmin';
-import { SpeakersAdmin } from './pages/admin/SpeakersAdmin';
-import { TicketsAdmin } from './pages/admin/TicketsAdmin';
-import { Registrations } from './pages/admin/Registrations';
-import { CheckIn } from './pages/admin/CheckIn';
-import { Companies } from './pages/admin/Companies';
-import { SponsorshipAdmin } from './pages/admin/SponsorshipAdmin';
-import { BannerAdmin } from './pages/admin/BannerAdmin';
-import { StandsAdmin } from './pages/admin/StandsAdmin';
-import { PaymentsAdmin } from './pages/admin/PaymentsAdmin';
-import { DocumentsAdmin } from './pages/admin/DocumentsAdmin';
-import { Settings } from './pages/admin/Settings';
-import { Trash } from './pages/admin/Trash';
-import { LiveSessionsAdmin } from './pages/admin/LiveSessionsAdmin';
-import { StoreAdmin } from './pages/admin/StoreAdmin';
-import { SupportAdmin } from './pages/admin/SupportAdmin';
-import { ResourcesAdmin } from './pages/admin/ResourcesAdmin';
-import { OrganizationAdmin } from './pages/admin/OrganizationAdmin';
 import { PortalHome } from './pages/portal/PortalHome';
 import { PortalParticipation } from './pages/portal/PortalParticipation';
 import { PortalTeam } from './pages/portal/PortalTeam';
@@ -96,9 +79,7 @@ import { SpeakerPonencias } from './pages/speaker/SpeakerPonencias';
 import { SpeakerVisibilidad } from './pages/speaker/SpeakerVisibilidad';
 import { SpeakerSolicitudes } from './pages/speaker/SpeakerSolicitudes';
 function AnimatedRoutes() {
-  const location = useLocation();
-  return <AnimatePresence mode="wait" initial={false}>
-      <Routes location={location} key={location.pathname}>
+  return <Routes>
         {/* Web pública */}
         <Route element={<PublicLayout />}>
           <Route path="/" element={<Home />} />
@@ -115,6 +96,8 @@ function AnimatedRoutes() {
           <Route path="/habitos-al-plato" element={<HabitosAlPlato />} />
           <Route path="/contacto" element={<Contact />} />
           <Route path="/legal" element={<Legal />} />
+          <Route path="/e/:slug" element={<NovoPublicEvent />} />
+          <Route path="/e/:slug/inscripcion" element={<NovoPublicRegister />} />
         </Route>
 
         {/* Páginas de evento */}
@@ -141,30 +124,9 @@ function AnimatedRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/invitacion/:kind/:token" element={<InvitationResponse />} />
 
-        {/* Dashboard administrativo */}
-        <Route element={<RequireRole role="admin" />}>
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<Overview />} />
-            <Route path="organizacion" element={<OrganizationAdmin />} />
-            <Route path="agenda" element={<AgendaAdmin />} />
-            <Route path="speakers" element={<SpeakersAdmin />} />
-            <Route path="tickets" element={<TicketsAdmin />} />
-            <Route path="registros" element={<Registrations />} />
-            <Route path="checkin" element={<CheckIn />} />
-            <Route path="formacion-en-vivo" element={<LiveSessionsAdmin />} />
-            <Route path="tienda" element={<StoreAdmin />} />
-            <Route path="empresas" element={<Companies />} />
-            <Route path="patrocinio" element={<SponsorshipAdmin />} />
-            <Route path="banner" element={<BannerAdmin />} />
-            <Route path="stands" element={<StandsAdmin />} />
-            <Route path="pagos" element={<PaymentsAdmin />} />
-            <Route path="documentos" element={<DocumentsAdmin />} />
-            <Route path="soporte" element={<SupportAdmin />} />
-            <Route path="recursos" element={<ResourcesAdmin />} />
-            <Route path="papelera" element={<Trash />} />
-            <Route path="configuracion" element={<Settings />} />
-          </Route>
-        </Route>
+        {/* Admin Hormobiota (legacy) → operación Novo */}
+        <Route path="/admin" element={<Navigate to="/novo" replace />} />
+        <Route path="/admin/*" element={<Navigate to="/novo" replace />} />
 
         {/* Registro de speakers — fuera del layout autenticado */}
         <Route path="/speaker/registro" element={<SpeakerRegister />} />
@@ -195,16 +157,18 @@ function AnimatedRoutes() {
           </Route>
         </Route>
 
-        {/* ── NOVO ARCHITECTURE — nueva plataforma universal ── */}
-        {/* Auth desactivada temporalmente para desarrollo en modo mock */}
-        <Route path="/novo" element={<NovoShell />}>
+        {/* Operación: panel Novo (reemplaza /admin) */}
+        <Route element={<RequireRole role="admin" />}>
+          <Route path="/novo" element={<NovoShell />}>
             <Route index element={<NovoOverview />} />
             <Route path="eventos" element={<NovoEvents />} />
             <Route path="eventos/:id" element={<NovoEventShell />}>
               <Route index                   element={<NovoEventResumen />} />
               <Route path="informacion"      element={<NovoEventInformacion />} />
               <Route path="agenda"           element={<NovoEventAgenda />} />
+              <Route path="tickets"          element={<NovoEventTickets />} />
               <Route path="inscripciones"    element={<NovoEventInscripciones />} />
+              <Route path="productos"        element={<NovoEventProductos />} />
               <Route path="patrocinadores"   element={<NovoEventPatrocinadores />} />
               <Route path="stands"           element={<NovoEventStands />} />
               <Route path="comunicaciones"   element={<NovoEventComunicaciones />} />
@@ -221,15 +185,15 @@ function AnimatedRoutes() {
             <Route path="sitio"         element={<NovoSitio />} />
             <Route path="documentos"    element={<NovoDocumentos />} />
             <Route path="soporte"       element={<NovoSoporte />} />
-            <Route path="configuracion" element={<NovoPlaceholder title="Configuración" description="Wompi · GHL · n8n · Meta · Google · Roles · Permisos · Papelera · Logs" />} />
-            {/* Scanner vive como mini-app separada — /scanner */}
+            <Route path="papelera"      element={<NovoPapelera />} />
+            <Route path="configuracion" element={<NovoConfiguracion />} />
             <Route path="scanner"       element={<NovoScanner />} />
             <Route path="analitica"     element={<NovoAnalitica />} />
           </Route>
+        </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </AnimatePresence>;
+      </Routes>;
 }
 export function App() {
   return <PlatformProvider>

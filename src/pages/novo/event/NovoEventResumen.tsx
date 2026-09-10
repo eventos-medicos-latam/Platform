@@ -1,5 +1,5 @@
-import React from 'react';
-import { useOutletContext } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useOutletContext } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   UsersIcon, DollarSignIcon, CalendarCheckIcon, TrendingUpIcon,
@@ -7,9 +7,8 @@ import {
 } from 'lucide-react';
 import { KPICard } from '../../../components/novo/ui/KPICard';
 import { formatCurrency } from '../../../lib/novo/events';
-import type { NovoEvent } from '../../../types/novo';
-
-interface EventContext { event: NovoEvent }
+import type { NovoEventOutlet } from '../../../types/novo';
+import { listAgenda, type AgendaItemRow } from '../../../lib/novo/agenda';
 
 const MODALITY_CONFIG: Record<string, { label: string; color: string }> = {
   presencial: { label: 'Presencial',  color: '#00C9A0' },
@@ -23,14 +22,6 @@ const MOCK_ALERTS = [
   { id: 3, type: 'ok',      text: 'Microsite publicado y visible al público' },
 ];
 
-const MOCK_AGENDA_PREVIEW = [
-  { time: '08:00', title: 'Registro y acreditación', type: 'operacion' },
-  { time: '09:00', title: 'Conferencia inaugural: Dra. Valentina Ospina', type: 'conferencia' },
-  { time: '10:30', title: 'Coffee break', type: 'break' },
-  { time: '11:00', title: 'Panel: Microbiota y salud hormonal', type: 'panel' },
-  { time: '13:00', title: 'Almuerzo', type: 'break' },
-];
-
 const AGENDA_COLORS: Record<string, string> = {
   operacion:  '#3A5470',
   conferencia:'#00C9A0',
@@ -38,9 +29,22 @@ const AGENDA_COLORS: Record<string, string> = {
   break:      '#F59E0B',
   taller:     '#A78BFA',
 };
+const AGENDA_LABELS: Record<string, string> = {
+  operacion: 'Operación',
+  conferencia: 'Conferencia',
+  panel: 'Panel',
+  break: 'Break',
+  taller: 'Taller',
+};
 
 export function NovoEventResumen() {
-  const { event } = useOutletContext<EventContext>();
+  const { event } = useOutletContext<NovoEventOutlet>();
+  const [agenda, setAgenda] = useState<AgendaItemRow[]>([]);
+
+  useEffect(() => {
+    listAgenda(event.id).then(setAgenda).catch(() => setAgenda([]));
+  }, [event.id]);
+  const agendaPreview = agenda.slice(0, 8);
 
   const pctRegistros = event.goals?.registros && event.registrations_count
     ? Math.round((event.registrations_count / event.goals.registros) * 100) : 0;
@@ -174,32 +178,42 @@ export function NovoEventResumen() {
 
         {/* Agenda preview */}
         <div className="col-span-2">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#3A5470' }}>
-            Agenda del día — vista rápida
-          </p>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#3A5470' }}>
+              Agenda del día — vista rápida
+            </p>
+            <Link to={`/novo/eventos/${event.id}/agenda`} className="text-[10px] font-semibold" style={{ color: '#00C9A0' }}>
+              Editar agenda
+            </Link>
+          </div>
           <div className="overflow-hidden rounded-2xl" style={{ background: '#112035', border: '1px solid #1e3450' }}>
-            {MOCK_AGENDA_PREVIEW.map((item, i) => (
+            {agendaPreview.length === 0 && (
+              <div className="px-5 py-10 text-center">
+                <p className="text-sm" style={{ color: '#7A9CB8' }}>Todavía no hay sesiones en la agenda.</p>
+              </div>
+            )}
+            {agendaPreview.map((item, i) => (
               <motion.div
-                key={i}
+                key={item.id}
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2, delay: i * 0.05 }}
                 className="flex items-center gap-4 px-5 py-3.5"
-                style={{ borderBottom: i < MOCK_AGENDA_PREVIEW.length - 1 ? '1px solid #1a2e45' : 'none' }}
+                style={{ borderBottom: i < agendaPreview.length - 1 ? '1px solid #1a2e45' : 'none' }}
               >
                 <div className="w-12 shrink-0">
-                  <p className="text-xs font-bold tabular-nums" style={{ color: '#3A5470' }}>{item.time}</p>
+                  <p className="text-xs font-bold tabular-nums" style={{ color: '#3A5470' }}>{item.start_time}</p>
                 </div>
                 <div
                   className="h-2 w-2 rounded-full shrink-0"
-                  style={{ background: AGENDA_COLORS[item.type] ?? '#3A5470' }}
+                  style={{ background: AGENDA_COLORS[item.activity_type] ?? '#3A5470' }}
                 />
-                <p className="text-sm flex-1" style={{ color: '#E1EAF4' }}>{item.title}</p>
+                <p className="text-sm flex-1" style={{ color: '#E1EAF4' }}>{item.name}</p>
                 <span
                   className="rounded px-2 py-0.5 text-[10px] font-semibold capitalize"
-                  style={{ background: `${AGENDA_COLORS[item.type] ?? '#3A5470'}20`, color: AGENDA_COLORS[item.type] ?? '#3A5470' }}
+                  style={{ background: `${AGENDA_COLORS[item.activity_type] ?? '#3A5470'}20`, color: AGENDA_COLORS[item.activity_type] ?? '#3A5470' }}
                 >
-                  {item.type}
+                  {AGENDA_LABELS[item.activity_type] ?? item.activity_type}
                 </span>
               </motion.div>
             ))}

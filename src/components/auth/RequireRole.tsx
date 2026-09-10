@@ -3,8 +3,9 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { usePlatform, type SessionRole } from '../../contexts/PlatformContext';
 
 const homeByRole: Record<SessionRole, string> = {
-  admin: '/admin',
-  empresa: '/portal'
+  admin: '/novo',
+  empresa: '/portal',
+  speaker: '/speaker',
 };
 
 export function RequireRole({ role }: { role: SessionRole }) {

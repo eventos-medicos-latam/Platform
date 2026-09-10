@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BuildingIcon, DollarSignIcon, CheckCircleIcon, AlertCircleIcon,
-  PlusIcon, StarIcon,
+  PlusIcon, StarIcon, ExternalLinkIcon,
 } from 'lucide-react';
 import { KPICard } from '../../../components/novo/ui/KPICard';
 import { RowActions } from '../../../components/novo/ui/RowActions';
 import {
   NovoModal, ModalBtn,
-  FormField, FormInput, FormSelect, FormTextarea, FormSection, ImageField,
+  FormField, FormInput, FormSelect, FormTextarea, FormSection,
 } from '../../../components/novo/ui/NovoModal';
+import { listCompanies, type NovoCompany } from '../../../lib/novo/companies';
 import type { NovoEvent } from '../../../types/novo';
 
 interface EventContext { event: NovoEvent }
@@ -20,7 +21,7 @@ type SponsorStatus = 'activo' | 'pendiente_pago' | 'negociacion' | 'declinado';
 
 interface Sponsor {
   id: string;
-  company: string;
+  company_id: string;
   logo: string;
   contact_name: string;
   contact_email: string;
@@ -31,6 +32,10 @@ interface Sponsor {
   benefits_checked: number;
   benefits_total: number;
   notas: string;
+}
+
+function sponsorCompanyName(sp: Sponsor, companies: NovoCompany[]) {
+  return companies.find(c => c.id === sp.company_id)?.name ?? 'Empresa';
 }
 
 const PLAN_CONFIG: Record<PlanTier, { label: string; color: string; bg: string; order: number }> = {
@@ -48,17 +53,10 @@ const STATUS_CONFIG: Record<SponsorStatus, { label: string; color: string; bg: s
   declinado:      { label: 'Declinado',    color: '#F24463', bg: 'rgba(242,68,99,.12)'  },
 };
 
-const INIT_SPONSORS: Sponsor[] = [
-  { id: 'sp1', company: 'Roche Colombia',     logo: '', contact_name: 'Felipe Restrepo',  contact_email: 'f.restrepo@roche.com', contact_tel: '+57 310 111 0001', plan: 'platino', amount: 18000000, status: 'activo',         benefits_checked: 8, benefits_total: 10, notas: 'Stand doble confirmado. Tarima 30 min apertura.' },
-  { id: 'sp2', company: 'Nestlé Health Sci.', logo: '', contact_name: 'Ana Gutiérrez',    contact_email: 'a.gutierrez@nestle.com', contact_tel: '+57 311 222 0002', plan: 'oro',     amount: 12000000, status: 'pendiente_pago', benefits_checked: 5, benefits_total: 7,  notas: 'Contrato firmado. Pendiente 2do pago.' },
-  { id: 'sp3', company: 'Pfizer Colombia',    logo: '', contact_name: 'Marcos Velásquez', contact_email: 'm.velasquez@pfizer.com', contact_tel: '+57 312 333 0003', plan: 'oro',     amount: 12000000, status: 'activo',         benefits_checked: 7, benefits_total: 7,  notas: '' },
-  { id: 'sp4', company: 'Tecnoquímicas',      logo: '', contact_name: 'Gloria Suárez',    contact_email: 'g.suarez@tecnoq.com',   contact_tel: '+57 313 444 0004', plan: 'plata',   amount: 7000000,  status: 'activo',         benefits_checked: 4, benefits_total: 5,  notas: '' },
-  { id: 'sp5', company: 'Novartis Colombia',  logo: '', contact_name: 'Sofía Castro',     contact_email: 's.castro@novartis.com', contact_tel: '+57 314 555 0005', plan: 'bronce',  amount: 4000000,  status: 'negociacion',    benefits_checked: 0, benefits_total: 3,  notas: 'Primera reunión 15 oct.' },
-  { id: 'sp6', company: 'Instituto de Salud', logo: '', contact_name: 'Dr. Rivera',       contact_email: 'rivera@is.gov.co',      contact_tel: '+57 315 666 0006', plan: 'aliado',  amount: 0,        status: 'activo',         benefits_checked: 2, benefits_total: 2,  notas: 'Aliado institucional sin pago.' },
-];
+const INIT_SPONSORS: Sponsor[] = [];
 
 const EMPTY_FORM = {
-  company: '', logo: '', contact_name: '', contact_email: '', contact_tel: '',
+  company_id: '', logo: '', contact_name: '', contact_email: '', contact_tel: '',
   plan: 'oro' as PlanTier, amount: '', status: 'negociacion' as SponsorStatus,
   benefits_checked: '0', benefits_total: '5', notas: '',
 };
@@ -67,6 +65,7 @@ const fmt = (n: number) => n === 0 ? 'Aliado' : `$${(n / 1_000_000).toFixed(1)}M
 
 export function NovoEventPatrocinadores() {
   const { event } = useOutletContext<EventContext>();
+  const [companies, setCompanies] = useState<NovoCompany[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>(INIT_SPONSORS);
   const [selected, setSelected] = useState<Sponsor | null>(null);
   const [filter, setFilter]     = useState<PlanTier | 'todos'>('todos');
@@ -77,11 +76,37 @@ export function NovoEventPatrocinadores() {
 
   const f = (k: keyof typeof EMPTY_FORM) => (v: string) => setForm(p => ({ ...p, [k]: v }));
 
+  useEffect(() => {
+    listCompanies().then(setCompanies).catch(() => setCompanies([]));
+  }, []);
+
+  const assignedIds = useMemo(() => new Set(sponsors.map(s => s.company_id)), [sponsors]);
+  const availableCompanies = useMemo(
+    () => companies.filter(c => !assignedIds.has(c.id) || c.id === editing?.company_id),
+    [companies, assignedIds, editing],
+  );
+
+  const applyCompany = (companyId: string) => {
+    const co = companies.find(c => c.id === companyId);
+    if (!co) {
+      setForm(p => ({ ...p, company_id: '', logo: '', contact_name: '', contact_email: '', contact_tel: '' }));
+      return;
+    }
+    setForm(p => ({
+      ...p,
+      company_id: co.id,
+      logo: co.logo,
+      contact_name: co.contacto_nombre,
+      contact_email: co.contacto_email,
+      contact_tel: co.contacto_tel,
+    }));
+  };
+
   const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setModalOpen(true); };
   const openEdit   = (sp: Sponsor) => {
     setEditing(sp);
     setForm({
-      company: sp.company, logo: sp.logo,
+      company_id: sp.company_id, logo: sp.logo,
       contact_name: sp.contact_name, contact_email: sp.contact_email, contact_tel: sp.contact_tel,
       plan: sp.plan, amount: String(sp.amount), status: sp.status,
       benefits_checked: String(sp.benefits_checked), benefits_total: String(sp.benefits_total),
@@ -91,11 +116,12 @@ export function NovoEventPatrocinadores() {
   };
 
   const handleSave = () => {
+    if (!form.company_id) return;
     setSaving(true);
     setTimeout(() => {
       setSaving(false);
       const data: Partial<Sponsor> = {
-        company: form.company, logo: form.logo,
+        company_id: form.company_id, logo: form.logo,
         contact_name: form.contact_name, contact_email: form.contact_email, contact_tel: form.contact_tel,
         plan: form.plan, amount: Number(form.amount) || 0, status: form.status,
         benefits_checked: Number(form.benefits_checked) || 0,
@@ -106,6 +132,10 @@ export function NovoEventPatrocinadores() {
         setSponsors(prev => prev.map(s => s.id !== editing.id ? s : { ...s, ...data } as Sponsor));
         if (selected?.id === editing.id) setSelected(s => s ? { ...s, ...data } as Sponsor : null);
       } else {
+        if (sponsors.some(s => s.company_id === form.company_id)) {
+          setModalOpen(false);
+          return;
+        }
         setSponsors(prev => [...prev, { id: `sp-${Date.now()}`, ...data } as Sponsor]);
       }
       setModalOpen(false);
@@ -113,21 +143,16 @@ export function NovoEventPatrocinadores() {
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm('¿Eliminar este patrocinador?')) return;
+    if (!confirm('¿Quitar este patrocinador del evento? La empresa sigue en el CRM.')) return;
     setSponsors(prev => prev.filter(s => s.id !== id));
     if (selected?.id === id) setSelected(null);
-  };
-
-  const handleDuplicate = (sp: Sponsor) => {
-    setSponsors(prev => [...prev, {
-      ...sp, id: `sp-${Date.now()}`, company: `${sp.company} (copia)`, status: 'negociacion', benefits_checked: 0,
-    }]);
   };
 
   const filtered = filter === 'todos' ? sponsors : sponsors.filter(s => s.plan === filter);
   const activos  = sponsors.filter(s => s.status === 'activo');
   const ingresos = activos.reduce((sum, s) => sum + s.amount, 0);
   const pending  = sponsors.filter(s => s.status === 'pendiente_pago').length;
+  const selectedCompany = companies.find(c => c.id === form.company_id);
 
   return (
     <div>
@@ -138,11 +163,20 @@ export function NovoEventPatrocinadores() {
           <h1 className="text-xl font-bold" style={{ color: '#E1EAF4', fontFamily: "'Sora', sans-serif" }}>Patrocinadores</h1>
           <p className="text-sm mt-0.5" style={{ color: '#7A9CB8' }}>Empresas · planes · beneficios · pagos</p>
         </div>
-        <button onClick={openCreate}
-          className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all active:scale-95"
-          style={{ background: '#00C9A0', color: '#0d1829' }}>
-          <PlusIcon size={14} /> Agregar patrocinador
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/novo/empresas"
+            className="flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all"
+            style={{ background: '#112035', color: '#7A9CB8', border: '1px solid #1e3450' }}
+          >
+            <ExternalLinkIcon size={12} /> CRM empresas
+          </Link>
+          <button type="button" onClick={openCreate}
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all active:scale-95"
+            style={{ background: '#00C9A0', color: '#0d1829' }}>
+            <PlusIcon size={14} /> Agregar patrocinador
+          </button>
+        </div>
       </div>
 
       {/* KPIs */}
@@ -183,6 +217,8 @@ export function NovoEventPatrocinadores() {
             const st   = STATUS_CONFIG[sp.status];
             const isSelected = selected?.id === sp.id;
             const pctBenefits = sp.benefits_total > 0 ? Math.round((sp.benefits_checked / sp.benefits_total) * 100) : 0;
+            const co = companies.find(c => c.id === sp.company_id);
+            const logo = sp.logo || co?.logo;
             return (
               <motion.div key={sp.id}
                 initial={{ opacity: 0, y: 3 }}
@@ -199,14 +235,14 @@ export function NovoEventPatrocinadores() {
                 onMouseLeave={e => !isSelected && (e.currentTarget.style.background = 'transparent')}
               >
                 <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg overflow-hidden"
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg overflow-hidden text-sm"
                     style={{ background: plan.bg, border: `1px solid ${plan.color}30` }}>
-                    {sp.logo
-                      ? <img src={sp.logo} alt="" className="h-full w-full object-cover" onError={e => { e.currentTarget.style.display='none'; }} />
-                      : <BuildingIcon size={14} style={{ color: plan.color }} />
+                    {logo
+                      ? <img src={logo} alt="" className="h-full w-full object-cover" onError={e => { e.currentTarget.style.display='none'; }} />
+                      : (co?.emoji ?? <BuildingIcon size={14} style={{ color: plan.color }} />)
                     }
                   </div>
-                  <p className="text-sm font-semibold truncate" style={{ color: '#E1EAF4' }}>{sp.company}</p>
+                  <p className="text-sm font-semibold truncate" style={{ color: '#E1EAF4' }}>{sponsorCompanyName(sp, companies)}</p>
                 </div>
                 <p className="flex items-center text-xs truncate" style={{ color: '#7A9CB8' }}>{sp.contact_name}</p>
                 <div className="flex items-center">
@@ -229,7 +265,6 @@ export function NovoEventPatrocinadores() {
                 <div className="flex items-center" onClick={e => e.stopPropagation()}>
                   <RowActions
                     onEdit={() => openEdit(sp)}
-                    onDuplicate={() => handleDuplicate(sp)}
                     onDelete={() => handleDelete(sp.id)}
                   />
                 </div>
@@ -255,7 +290,7 @@ export function NovoEventPatrocinadores() {
                   style={{ color: PLAN_CONFIG[selected.plan].color, background: PLAN_CONFIG[selected.plan].bg }}>
                   <StarIcon size={9} /> {PLAN_CONFIG[selected.plan].label}
                 </span>
-                <p className="text-sm font-bold" style={{ color: '#E1EAF4' }}>{selected.company}</p>
+                <p className="text-sm font-bold" style={{ color: '#E1EAF4' }}>{sponsorCompanyName(selected, companies)}</p>
                 <p className="text-xs mt-0.5 mb-4" style={{ color: '#7A9CB8' }}>{selected.contact_name}</p>
 
                 {/* Contacto */}
@@ -318,12 +353,12 @@ export function NovoEventPatrocinadores() {
       <NovoModal
         open={modalOpen} onClose={() => setModalOpen(false)}
         title={editing ? 'Editar patrocinador' : 'Nuevo patrocinador'}
-        subtitle={editing ? `Editando: ${editing.company}` : 'Registrar empresa en este evento'}
+        subtitle={editing ? `Editando: ${sponsorCompanyName(editing, companies)}` : 'Asignar una empresa del CRM a este evento'}
         width={600}
         footer={
           <>
             <ModalBtn variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
-            <ModalBtn variant="primary" onClick={handleSave} disabled={saving || !form.company}>
+            <ModalBtn variant="primary" onClick={handleSave} disabled={saving || !form.company_id}>
               {saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Agregar patrocinador'}
             </ModalBtn>
           </>
@@ -331,13 +366,39 @@ export function NovoEventPatrocinadores() {
       >
         <div className="space-y-5">
           <FormSection title="Empresa">
-            <ImageField label="Logo" value={form.logo} onChange={f('logo')} hint="URL pública del logo" />
+            <FormField
+              label="Empresa"
+              required
+              hint="Solo empresas del CRM. Si no aparece, créala primero en Empresas."
+            >
+              <FormSelect
+                value={form.company_id}
+                onChange={applyCompany}
+                options={[
+                  { value: '', label: availableCompanies.length ? 'Seleccionar empresa…' : 'Todas las empresas ya están en este evento' },
+                  ...availableCompanies.map(c => ({ value: c.id, label: `${c.name} · ${c.ciudad}` })),
+                ]}
+              />
+            </FormField>
+            {selectedCompany && (
+                <div className="flex items-center gap-3 rounded-xl px-3.5 py-3" style={{ background: '#0d1829', border: '1px solid #1e3450' }}>
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg overflow-hidden"
+                    style={{ background: '#182d47', border: '1px solid #1e3450' }}>
+                    {selectedCompany.logo
+                      ? <img src={selectedCompany.logo} alt="" className="h-full w-full object-cover" />
+                      : selectedCompany.emoji}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate" style={{ color: '#E1EAF4' }}>{selectedCompany.name}</p>
+                    <p className="text-[11px]" style={{ color: '#7A9CB8' }}>{selectedCompany.sector} · {selectedCompany.nit} · {selectedCompany.ciudad}</p>
+                  </div>
+                </div>
+            )}
+            <p className="text-[11px]" style={{ color: '#3A5470' }}>
+              ¿No está la empresa?{' '}
+              <Link to="/novo/empresas" className="font-semibold" style={{ color: '#00C9A0' }}>Crearla en el CRM</Link>
+            </p>
             <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <FormField label="Nombre de la empresa" required>
-                  <FormInput value={form.company} onChange={f('company')} placeholder="Laboratorios Roche Colombia" />
-                </FormField>
-              </div>
               <FormField label="Plan">
                 <FormSelect value={form.plan} onChange={v => setForm(p => ({ ...p, plan: v as PlanTier }))}
                   options={Object.entries(PLAN_CONFIG)
@@ -361,13 +422,13 @@ export function NovoEventPatrocinadores() {
               </div>
             </div>
           </FormSection>
-          <FormSection title="Contacto">
+          <FormSection title="Contacto en este evento">
             <div className="grid grid-cols-2 gap-4">
-              <FormField label="Nombre contacto">
+              <FormField label="Nombre contacto" hint="Se prellena con el CRM">
                 <FormInput value={form.contact_name} onChange={f('contact_name')} placeholder="Felipe Restrepo" />
               </FormField>
-              <FormField label="Cargo / email">
-                <FormInput type="email" value={form.contact_email} onChange={f('contact_email')} placeholder="f.restrepo@empresa.com" />
+              <FormField label="Email">
+                <FormInput type="email" value={form.contact_email} onChange={f('contact_email')} placeholder="nombre@empresa.com" />
               </FormField>
               <div className="col-span-2">
                 <FormField label="Teléfono">

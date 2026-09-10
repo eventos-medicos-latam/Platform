@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -7,7 +7,8 @@ import {
   CheckCircleIcon, SendIcon, BriefcaseIcon, CalendarDaysIcon,
   TagIcon, PlayCircleIcon, UserRoundIcon, StarIcon,
 } from 'lucide-react';
-import { MOCK_SPEAKERS } from '../../components/speakers/speakerData';
+import type { SpeakerPublic } from '../../components/speakers/speakerData';
+import { getPublicSpeakerBySlug, toPublicSpeaker } from '../../lib/novo/speakers';
 import { EASE_EMPHASIS } from '../../utils/motion';
 
 const ACCENT = '#00C9A0';
@@ -128,10 +129,34 @@ function InterestForm({ nombre }: { nombre: string }) {
 /* ── Página principal ── */
 export function SpeakerPage() {
   const { slug } = useParams<{ slug: string }>();
-  const speaker   = MOCK_SPEAKERS.find(s => s.slug === slug);
-  const idx       = MOCK_SPEAKERS.findIndex(s => s.slug === slug);
-  const gradient  = GRAD_PALETTE[idx >= 0 ? idx % GRAD_PALETTE.length : 0];
+  const [speaker, setSpeaker] = useState<SpeakerPublic | null>(null);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    if (!slug) {
+      setSpeaker(null);
+      setLoading(false);
+      return;
+    }
+    let alive = true;
+    setLoading(true);
+    getPublicSpeakerBySlug(slug)
+      .then((row) => { if (alive) setSpeaker(row ? toPublicSpeaker(row) : null); })
+      .catch(() => { if (alive) setSpeaker(null); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [slug]);
+
+  const gradient = GRAD_PALETTE[(speaker?.nombre.length ?? 0) % GRAD_PALETTE.length];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-canvas">
+        <p className="text-sm text-ink-muted">Cargando perfil…</p>
+      </div>
+    );
+  }
 
   if (!speaker) {
     return (

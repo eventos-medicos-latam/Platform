@@ -9,6 +9,7 @@ import { media } from '../../data/media';
 import { formatCop, withVat } from '../../utils/format';
 import { Pending } from '../../components/ui/Pending';
 import { supabase } from '../../lib/supabaseClient';
+import { buildWompiCheckoutUrl } from '../../lib/wompi';
 import { DURATION, EASE_EMPHASIS } from '../../utils/motion';
 
 interface DbTicket {
@@ -126,14 +127,13 @@ export function EventRegistration() {
       const publicKey = publicSettings?.[0]?.value;
       const signature = (signatureData as { signature?: string } | null)?.signature;
       if (signature && publicKey) {
-        const checkoutUrl = new URL('https://checkout.wompi.co/p/');
-        checkoutUrl.searchParams.set('public-key', publicKey);
-        checkoutUrl.searchParams.set('currency', 'COP');
-        checkoutUrl.searchParams.set('amount-in-cents', String(Math.round(amount * 100)));
-        checkoutUrl.searchParams.set('reference', reference);
-        checkoutUrl.searchParams.set('signature:integrity', signature);
-        checkoutUrl.searchParams.set('redirect-url', window.location.href);
-        window.location.href = checkoutUrl.toString();
+        window.location.href = buildWompiCheckoutUrl({
+          publicKey,
+          amountInCents: Math.round(amount * 100),
+          reference,
+          signature,
+          redirectUrl: window.location.href,
+        });
         return;
       }
     }

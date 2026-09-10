@@ -3,17 +3,20 @@ import { Outlet, useLocation, useParams, NavLink, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeftIcon, LayoutDashboardIcon, InfoIcon, CalendarDaysIcon,
-  TicketIcon, BuildingIcon, LayoutPanelLeftIcon, MessageSquareIcon,
-  GlobeIcon, SettingsIcon, ChevronDownIcon,
+  TicketIcon, PackageIcon, BuildingIcon, LayoutPanelLeftIcon, MessageSquareIcon,
+  GlobeIcon, SettingsIcon, ChevronDownIcon, UsersIcon,
   ZapIcon, ExternalLinkIcon, ChevronRightIcon,
 } from 'lucide-react';
-import { MOCK_EVENTS } from '../../../lib/novo/mock';
+import { listEvents, getEvent } from '../../../lib/novo/events';
+import type { NovoEvent } from '../../../types/novo';
 
 const EVENT_NAV = [
   { path: '',               label: 'Resumen',        icon: LayoutDashboardIcon, end: true },
   { path: 'informacion',    label: 'Información',    icon: InfoIcon },
   { path: 'agenda',         label: 'Agenda',         icon: CalendarDaysIcon },
-  { path: 'inscripciones',  label: 'Inscripciones',  icon: TicketIcon },
+  { path: 'tickets',         label: 'Tickets',        icon: TicketIcon },
+  { path: 'inscripciones',  label: 'Inscripciones',  icon: UsersIcon },
+  { path: 'productos',      label: 'Productos',      icon: PackageIcon },
   { path: 'patrocinadores', label: 'Patrocinadores', icon: BuildingIcon },
   { path: 'stands',         label: 'Stands',         icon: LayoutPanelLeftIcon },
   { path: 'comunicaciones', label: 'Comunicaciones', icon: MessageSquareIcon },
@@ -23,18 +26,50 @@ const EVENT_NAV = [
 
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   proximo:    { label: 'Próximo',    color: '#5B8AF0', bg: 'rgba(91,138,240,.15)'  },
-  en_curso:   { label: 'En curso',  color: '#00C9A0', bg: 'rgba(0,201,160,.15)'   },
+  activo:     { label: 'En curso',   color: '#00C9A0', bg: 'rgba(0,201,160,.15)'   },
+  en_curso:   { label: 'En curso',   color: '#00C9A0', bg: 'rgba(0,201,160,.15)'   },
   finalizado: { label: 'Finalizado',color: '#3A5470', bg: 'rgba(58,84,112,.2)'    },
   cancelado:  { label: 'Cancelado', color: '#F24463', bg: 'rgba(242,68,99,.15)'   },
   borrador:   { label: 'Borrador',  color: '#F59E0B', bg: 'rgba(245,158,11,.15)'  },
+  archivado:  { label: 'Archivado', color: '#3A5470', bg: 'rgba(58,84,112,.2)'    },
 };
 
 export function NovoEventShell() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const [eventsOpen, setEventsOpen] = useState(false);
+  const [event, setEvent] = useState<NovoEvent | null>(null);
+  const [events, setEvents] = useState<NovoEvent[]>([]);
+  const [missing, setMissing] = useState(false);
 
-  const event = MOCK_EVENTS.find(e => e.id === id) ?? MOCK_EVENTS[0];
+  React.useEffect(() => {
+    if (!id) return;
+    setMissing(false);
+    Promise.all([getEvent(id), listEvents()])
+      .then(([found, all]) => {
+        setEvents(all);
+        if (found) setEvent(found);
+        else setMissing(true);
+      })
+      .catch(() => setMissing(true));
+  }, [id]);
+
+  if (missing) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3" style={{ color: '#7A9CB8' }}>
+        <p className="text-sm">Evento no encontrado.</p>
+        <Link to="/novo/eventos" className="text-sm font-semibold" style={{ color: '#00C9A0' }}>Volver a eventos</Link>
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-sm" style={{ color: '#7A9CB8' }}>
+        Cargando evento…
+      </div>
+    );
+  }
   const status = STATUS_LABELS[event.operational_status ?? 'borrador'] ?? STATUS_LABELS.borrador;
   const base = `/novo/eventos/${event.id}`;
 
@@ -85,7 +120,7 @@ export function NovoEventShell() {
                   transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
                   className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-xl overflow-hidden py-1"
                   style={{ background: '#112035', border: '1px solid #1e3450', boxShadow: '0 12px 32px rgba(0,0,0,.6)' }}>
-                  {MOCK_EVENTS.map(ev => (
+                  {events.map(ev => (
                     <Link key={ev.id} to={`/novo/eventos/${ev.id}`}
                       onClick={() => setEventsOpen(false)}
                       className="flex items-center gap-2.5 px-3 py-2.5 transition-colors"
@@ -181,7 +216,10 @@ export function NovoEventShell() {
           transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
           className="flex-1 px-6 py-7 lg:px-8 lg:py-8"
         >
-          <Outlet context={{ event }} />
+          <Outlet context={{ event, onEventChange: (next: NovoEvent) => {
+            setEvent(next);
+            setEvents(prev => prev.map(e => e.id === next.id ? next : e));
+          } }} />
         </motion.main>
       </AnimatePresence>
     </div>

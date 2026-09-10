@@ -29,7 +29,7 @@ export type NovoPersonClassification =
 
 export type NovoProductCategory =
   | 'participacion' | 'stand' | 'ticket' | 'evento-digital'
-  | 'infoproducto' | 'servicio-corporativo' | 'otro';
+  | 'infoproducto' | 'servicio-corporativo' | 'certificado' | 'otro';
 
 export type NovoAgreementStatus =
   | 'borrador' | 'en-negociacion' | 'aprobado' | 'cerrado' | 'cancelado';
@@ -154,6 +154,11 @@ export interface NovoEvent {
   stands_count?: number;
   sponsors_count?: number;
   contracting_company?: { id: string; name: string };
+}
+
+export interface NovoEventOutlet {
+  event: NovoEvent;
+  onEventChange: (event: NovoEvent) => void;
 }
 
 export interface EventSettings {
@@ -295,6 +300,7 @@ export interface EventRegistration {
   amount_paid: number;
   payment_id?: string;
   attended: boolean;
+  status?: 'confirmado' | 'asistio' | 'espera' | 'cancelado';
   notes?: string;
   created_at: string;
   person?: Pick<Person, 'id' | 'full_name' | 'avatar_url'>;
@@ -345,6 +351,10 @@ export interface StandUnit {
   stand_type_id: string;
   unit_number: string;
   status: NovoStandUnitStatus;
+  company_id?: string;
+  payment_id?: string;
+  price?: number;
+  location_hint?: string;
   map_x?: number;
   map_y?: number;
   map_width?: number;
@@ -377,6 +387,35 @@ export interface EventSpeaker {
   status: 'invitado' | 'en-negociacion' | 'confirmado' | 'cancelado' | 'publicado';
   is_featured: boolean;
   speaker?: SpeakerProfile;
+}
+
+export type NovoAgendaActivityType =
+  | 'conferencia' | 'panel' | 'taller' | 'break' | 'operacion';
+
+export interface EventSpace {
+  id: string;
+  event_id: string;
+  name: string;
+  capacity?: number;
+  modality?: NovoEventModality;
+  sort_order: number;
+}
+
+export interface EventAgendaItem {
+  id: string;
+  event_id: string;
+  space_id?: string;
+  name: string;
+  activity_type: NovoAgendaActivityType;
+  item_date: string;
+  start_time: string;
+  end_time: string;
+  description?: string;
+  is_highlight: boolean;
+  sort_order: number;
+  created_at: string;
+  space?: Pick<EventSpace, 'id' | 'name'>;
+  speakers?: { event_speaker_id: string; name: string; role?: string }[];
 }
 
 // ─── Dashboard / KPIs ─────────────────────────────────────

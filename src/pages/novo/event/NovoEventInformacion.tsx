@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -6,9 +6,11 @@ import {
   CalendarIcon, BuildingIcon, GlobeIcon, PaletteIcon,
   ShieldCheckIcon, UsersIcon, InfoIcon,
 } from 'lucide-react';
-import type { NovoEvent, NovoEventType, NovoEventModality, NovoEventAudience, NovoEventOperationalStatus } from '../../../types/novo';
+import type { NovoEventType, NovoEventModality, NovoEventAudience, NovoEventOperationalStatus, NovoEventOutlet } from '../../../types/novo';
+import { updateEvent } from '../../../lib/novo/events';
+import { listCompanies, type NovoCompany } from '../../../lib/novo/companies';
 
-interface EventContext { event: NovoEvent }
+interface EventContext extends NovoEventOutlet {}
 
 /* ── Paleta de la página ──────────────────────────────────── */
 const BG      = '#112035';
@@ -116,6 +118,7 @@ const STATUS_OPTS:   { value: NovoEventOperationalStatus; label: string }[] = [
   { value: 'activo',     label: 'Activo' },
   { value: 'finalizado', label: 'Finalizado' },
   { value: 'cancelado',  label: 'Cancelado' },
+  { value: 'archivado',  label: 'Archivado' },
 ];
 
 const MODALITY_OPTIONS: { value: NovoEventModality; label: string; icon: React.ElementType; desc: string }[] = [
@@ -126,7 +129,8 @@ const MODALITY_OPTIONS: { value: NovoEventModality; label: string; icon: React.E
 
 /* ══════════════════════════════════════════════════════════ */
 export function NovoEventInformacion() {
-  const { event } = useOutletContext<EventContext>();
+  const { event, onEventChange } = useOutletContext<EventContext>();
+  const [companies, setCompanies] = useState<NovoCompany[]>([]);
 
   const [form, setForm] = useState({
     name:              event.name,
@@ -154,7 +158,7 @@ export function NovoEventInformacion() {
     platform_url:      event.platform_url ?? '',
     /* Operacional */
     max_capacity:      String(event.max_capacity ?? ''),
-    contracting_company: event.contracting_company?.name ?? '',
+    contracting_company_id: event.contracting_company_id ?? event.contracting_company?.id ?? '',
     has_certificate:   event.has_certificate ?? false,
     certificate_send_at: event.certificate_send_at?.split('T')[0] ?? '',
     /* Identidad visual */
@@ -166,13 +170,64 @@ export function NovoEventInformacion() {
 
   const [saving, setSaving] = useState(false);
   const [saved,  setSaved]  = useState(false);
+  const [error, setError]   = useState<string | null>(null);
+
+  useEffect(() => {
+    listCompanies().then(setCompanies).catch(() => setCompanies([]));
+  }, []);
 
   const f   = (k: keyof typeof form) => (v: string)  => setForm(p => ({ ...p, [k]: v }));
   const fBool = (k: keyof typeof form) => (v: boolean) => setForm(p => ({ ...p, [k]: v }));
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!form.name || !form.start_date) {
+      setError('Nombre y fecha de inicio son obligatorios.');
+      return;
+    }
     setSaving(true);
-    setTimeout(() => { setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2500); }, 900);
+    setError(null);
+    try {
+      const savedEvent = await updateEvent(event.id, {
+        name: form.name,
+        tagline: form.tagline || null,
+        description: form.description || null,
+        event_type: form.event_type,
+        modality: form.modality,
+        audience: form.audience,
+        operational_status: form.operational_status,
+        publication_status: event.publication_status,
+        is_public: form.is_public,
+        is_free: form.is_free,
+        is_featured: form.is_featured,
+        start_date: form.start_date,
+        end_date: form.end_date || form.start_date,
+        start_time: form.start_time || null,
+        end_time: form.end_time || null,
+        timezone: event.timezone,
+        venue_name: form.venue_name || null,
+        venue_city: form.venue_city ?? null,
+        venue_address: form.venue_address || null,
+        venue_country: form.venue_country || 'Colombia',
+        platform_name: form.platform_name || null,
+        platform_url: form.platform_url || null,
+        max_capacity: form.max_capacity ? Number(form.max_capacity) : null,
+        has_certificate: form.has_certificate,
+        certificate_send_at: form.certificate_send_at || null,
+        contracting_company_id: form.contracting_company_id || null,
+        cover_image_url: form.cover_image_url || null,
+        logo_url: form.logo_url || null,
+        primary_color: form.primary_color || null,
+        accent_color: form.accent_color || null,
+        goals: event.goals ?? null,
+      });
+      onEventChange(savedEvent);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el evento.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const isPresencial = form.modality === 'presencial' || form.modality === 'hibrido';
@@ -197,6 +252,7 @@ export function NovoEventInformacion() {
           {saving ? 'Guardando…' : saved ? '¡Guardado!' : 'Guardar cambios'}
         </motion.button>
       </div>
+      {error && <p className="mb-4 text-sm" style={{ color: '#F24463' }}>{error}</p>}
 
       <div className="grid grid-cols-3 gap-5">
 
@@ -398,8 +454,14 @@ export function NovoEventInformacion() {
 
           {/* Contratante */}
           <SectionCard icon={BuildingIcon} title="Empresa contratante">
-            <TextInput value={form.contracting_company} onChange={f('contracting_company')}
-              placeholder="EML, clínica, institución…" />
+            <Select
+              value={form.contracting_company_id}
+              onChange={f('contracting_company_id')}
+              options={[
+                { value: '', label: 'EML (propio)' },
+                ...companies.map(c => ({ value: c.id, label: c.name })),
+              ]}
+            />
           </SectionCard>
 
           {/* Certificado */}

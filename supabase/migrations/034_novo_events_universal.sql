@@ -89,9 +89,13 @@ create table if not exists event_settings (
 );
 
 -- Vincular FK pendiente de person_classifications -> events
-alter table person_classifications
-  add constraint person_classifications_event_fk
-  foreign key (event_id) references events(id) on delete set null;
+do $$ begin
+  alter table person_classifications
+    add constraint person_classifications_event_fk
+    foreign key (event_id) references events(id) on delete set null;
+exception
+  when duplicate_object then null;
+end $$;
 
 -- =========================================================
 -- RLS

@@ -6,7 +6,7 @@ import {
   MailIcon, MenuIcon, MicVocalIcon, SparklesIcon, UtensilsCrossedIcon, XIcon, type LucideIcon,
 } from "lucide-react";
 import { Logo } from "../ui/Logo";
-import { editions, featuredEditionId, getFamily } from "../../data/editions";
+import { getFeaturedPublicEvent, publicEventPath } from "../../lib/novo/events";
 import { DURATION, EASE_EMPHASIS } from "../../utils/motion";
 
 interface NavChild { to: string; label: string }
@@ -34,15 +34,29 @@ const navItems: NavItem[] = [
   { to: '/contacto', label: 'Contacto', icon: MailIcon },
 ];
 
-const salesOpen = ['preventa', 'venta-activa'];
+const salesOpen = ['proximo', 'activo'];
 
 export function PublicHeader() {
   const [compact, setCompact] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
   const [eventsOpen, setEventsOpen] = useState(false);
+  const [eventPath, setEventPath] = useState('/eventos');
+  const [ctaLabel, setCtaLabel] = useState('Próximo evento');
   const eventsRef = useRef<HTMLLIElement>(null);
   const location = useLocation();
+
+  useEffect(() => {
+    let alive = true;
+    getFeaturedPublicEvent()
+      .then((event) => {
+        if (!alive || !event) return;
+        setEventPath(publicEventPath(event));
+        setCtaLabel(salesOpen.includes(event.operational_status) ? 'Inscripciones abiertas' : 'Próximo evento');
+      })
+      .catch(() => { /* deja el fallback a /eventos */ });
+    return () => { alive = false; };
+  }, []);
 
   useEffect(() => {
     function onScroll() { setCompact(window.scrollY > 24); }
@@ -68,11 +82,6 @@ export function PublicHeader() {
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
-
-  const featured = editions.find((ed) => ed.id === featuredEditionId);
-  const family   = featured ? getFamily(featured.familyId) : undefined;
-  const eventPath = featured && family ? `/eventos/${family.slug}/${featured.slug}` : '/eventos';
-  const ctaLabel  = featured && salesOpen.includes(featured.status) ? 'Inscripciones abiertas' : 'Próximo evento';
 
   return <>
     <header className={`sticky top-0 z-40 border-b border-white/10 glass-dark transition-[padding,box-shadow] duration-200 ease-emphasis ${compact ? 'py-2 shadow-elev3' : 'py-3.5'}`}>

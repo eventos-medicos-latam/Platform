@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRightIcon } from 'lucide-react';
 import { media } from '../../data/media';
-import { editions, featuredEditionId } from '../../data/editions';
+import { getEventBySlug, publicEventPath } from '../../lib/novo/events';
+import type { NovoEvent } from '../../types/novo';
 import { EASE_EMPHASIS } from '../../utils/motion';
 
 /**
@@ -12,7 +13,14 @@ import { EASE_EMPHASIS } from '../../utils/motion';
  * sección completa. Eventos Médicos LATAM queda como el aval institucional.
  */
 export function HormobiotaBand() {
-  const edition = editions.find((item) => item.id === featuredEditionId);
+  const [edition, setEdition] = useState<NovoEvent | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getEventBySlug('hormobiota-2-2027')
+      .then((event) => { if (alive) setEdition(event); })
+      .catch(() => { if (alive) setEdition(null); });
+    return () => { alive = false; };
+  }, []);
   return <section className="relative isolate overflow-hidden bg-hb-ink py-20 text-white lg:py-24" style={{
     ['--accent-rgb' as string]: 'var(--tone-hormobiota)'
   }} aria-label="Hormobiota">
@@ -57,8 +65,8 @@ export function HormobiotaBand() {
                 Conocer Hormobiota
                 <ArrowRightIcon size={16} className="transition-transform duration-200 ease-emphasis group-hover:translate-x-1" />
               </Link>
-              {edition ? <Link to="/eventos/hormobiota/hormobiota-2-2027" className="inline-flex items-center rounded-full border border-white/30 px-6 py-3.5 text-sm font-semibold text-white transition-colors duration-200 ease-emphasis hover:border-white">
-                  Hormobiota 2 · {edition.year}
+              {edition ? <Link to={publicEventPath(edition)} className="inline-flex items-center rounded-full border border-white/30 px-6 py-3.5 text-sm font-semibold text-white transition-colors duration-200 ease-emphasis hover:border-white">
+                  Hormobiota 2 · {edition.start_date.slice(0, 4)}
                 </Link> : null}
             </div>
           </motion.div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   SearchIcon, PlusIcon, BuildingIcon,
@@ -6,13 +6,16 @@ import {
 } from 'lucide-react';
 import { KPICard } from '../../components/novo/ui/KPICard';
 import { formatCurrency } from '../../lib/novo/events';
+import {
+  listCompanies, createCompany, updateCompany, deleteCompany, duplicateCompany,
+  type CompanyAgreementStatus, type NovoCompany,
+} from '../../lib/novo/companies';
 import { RowActions } from '../../components/novo/ui/RowActions';
 import {
   NovoModal, ModalBtn,
   FormField, FormInput, FormSelect, FormTextarea, FormSection, ImageField,
 } from '../../components/novo/ui/NovoModal';
 
-// ── Catálogos ────────────────────────────────────────────────────────────────
 const SECTORES = [
   'Farmacéutica', 'Nutrición médica', 'Diagnóstico', 'Alimentación',
   'Tecnología', 'Seguros', 'Dispositivos médicos', 'Biotecnología', 'Otro',
@@ -20,84 +23,8 @@ const SECTORES = [
 
 const PAISES = ['Colombia', 'México', 'Perú', 'Chile', 'Argentina', 'Ecuador', 'Panamá', 'Otro'];
 
-// ── Mock ─────────────────────────────────────────────────────────────────────
-const INIT_COMPANIES = [
-  {
-    id: 'co-001', name: 'Laboratorios Roche Colombia', razon_social: 'Roche Colombia S.A.S.',
-    nit: '900.123.456-7', sector: 'Farmacéutica',
-    logo: '', emoji: '🔬',
-    ciudad: 'Bogotá', departamento: 'Cundinamarca', pais: 'Colombia',
-    direccion: 'Calle 100 # 8A-55 Torre A, Oficina 1201',
-    website: 'roche.com.co', email_principal: 'comercial@roche.com.co',
-    contacto_nombre: 'Adriana Mejía', contacto_cargo: 'Gerente de Cuentas',
-    contacto_email: 'adriana.mejia@roche.com', contacto_tel: '+57 310 555 0001',
-    contacts: 8, events: 3, total_deal: 18000000,
-    status: 'cerrado' as const, notas: 'Patrocinador recurrente. Presupuesto aprobado por Marketing.',
-  },
-  {
-    id: 'co-002', name: 'Nestlé Health Science', razon_social: 'Nestlé de Colombia S.A.',
-    nit: '800.234.567-8', sector: 'Nutrición médica',
-    logo: '', emoji: '🥛',
-    ciudad: 'Cali', departamento: 'Valle del Cauca', pais: 'Colombia',
-    direccion: 'Carrera 5 # 47-50, Piso 6',
-    website: 'nestle.com.co', email_principal: 'salud@nestle.com.co',
-    contacto_nombre: 'Felipe Torres', contacto_cargo: 'Director Médico',
-    contacto_email: 'felipe.torres@nestle.com', contacto_tel: '+57 320 555 0002',
-    contacts: 4, events: 1, total_deal: 8500000,
-    status: 'aprobado' as const, notas: '',
-  },
-  {
-    id: 'co-003', name: 'Abbott Laboratories', razon_social: 'Abbott Laboratorios Colombia Ltda.',
-    nit: '890.345.678-9', sector: 'Diagnóstico',
-    logo: '', emoji: '💊',
-    ciudad: 'Bogotá', departamento: 'Cundinamarca', pais: 'Colombia',
-    direccion: 'Av. El Dorado # 92-48, Edificio Punto 99',
-    website: 'abbott.com', email_principal: 'co.medicaabott@abbott.com',
-    contacto_nombre: 'Camila Ruiz', contacto_cargo: 'KAM Diagnóstico',
-    contacto_email: 'camila.ruiz@abbott.com', contacto_tel: '+57 315 555 0003',
-    contacts: 5, events: 2, total_deal: 12000000,
-    status: 'cerrado' as const, notas: 'Stand doble en Hormobiota V. Interesados en patrocinio digital.',
-  },
-  {
-    id: 'co-004', name: 'Pfizer Colombia', razon_social: 'Pfizer S.A.S.',
-    nit: '900.456.789-0', sector: 'Farmacéutica',
-    logo: '', emoji: '🧪',
-    ciudad: 'Bogotá', departamento: 'Cundinamarca', pais: 'Colombia',
-    direccion: 'Calle 113 # 7-21, Oficina 201',
-    website: 'pfizer.com.co', email_principal: 'co.pfizer@pfizer.com',
-    contacto_nombre: 'Rodrigo Sánchez', contacto_cargo: 'Representante Comercial',
-    contacto_email: 'rodrigo.sanchez@pfizer.com', contacto_tel: '+57 300 555 0004',
-    contacts: 3, events: 2, total_deal: null,
-    status: 'pendiente' as const, notas: 'Primera reunión pendiente. Contacto referido por Dr. Gómez.',
-  },
-  {
-    id: 'co-005', name: 'Nutresa Salud', razon_social: 'Grupo Nutresa S.A.',
-    nit: '860.007.386-5', sector: 'Alimentación',
-    logo: '', emoji: '🌿',
-    ciudad: 'Medellín', departamento: 'Antioquia', pais: 'Colombia',
-    direccion: 'Calle 44 # 55-101',
-    website: 'nutresa.com', email_principal: 'salud@nutresa.com',
-    contacto_nombre: 'Laura Henao', contacto_cargo: 'Coord. Nutrición Médica',
-    contacto_email: 'laura.henao@nutresa.com', contacto_tel: '+57 312 555 0005',
-    contacts: 2, events: 1, total_deal: 5000000,
-    status: 'cerrado' as const, notas: '',
-  },
-  {
-    id: 'co-006', name: 'MSD Colombia', razon_social: 'MSD Colombia S.A.S.',
-    nit: '900.567.890-1', sector: 'Farmacéutica',
-    logo: '', emoji: '🏥',
-    ciudad: 'Bogotá', departamento: 'Cundinamarca', pais: 'Colombia',
-    direccion: 'Carrera 7 # 74-56, Piso 11',
-    website: 'msd.com.co', email_principal: 'colombia@merck.com',
-    contacto_nombre: 'Andrés Mora', contacto_cargo: 'Product Manager',
-    contacto_email: 'andres.mora@merck.com', contacto_tel: '+57 318 555 0006',
-    contacts: 4, events: 0, total_deal: null,
-    status: 'pendiente' as const, notas: '',
-  },
-];
-
-type AgreementStatus = 'cerrado' | 'aprobado' | 'pendiente';
-type Company = typeof INIT_COMPANIES[0];
+type AgreementStatus = CompanyAgreementStatus;
+type Company = NovoCompany;
 
 const EMPTY_FORM = {
   name: '', razon_social: '', nit: '', sector: 'Farmacéutica',
@@ -115,7 +42,7 @@ const STATUS_STYLES: Record<AgreementStatus, { color: string; bg: string; label:
 };
 
 export function NovoEmpresas() {
-  const [companies, setCompanies] = useState<Company[]>(INIT_COMPANIES.map(c => ({ ...c })));
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [search, setSearch]       = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing]     = useState<Company | null>(null);
@@ -123,6 +50,10 @@ export function NovoEmpresas() {
   const [saving, setSaving]       = useState(false);
 
   const f = (k: keyof typeof EMPTY_FORM) => (v: string) => setForm(p => ({ ...p, [k]: v }));
+
+  useEffect(() => {
+    listCompanies().then(setCompanies).catch(() => setCompanies([]));
+  }, []);
 
   const openCreate = () => {
     setEditing(null);
@@ -144,33 +75,50 @@ export function NovoEmpresas() {
     setModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
-      const data = { ...form, status: form.status as AgreementStatus };
+    const input = {
+      name: form.name, razon_social: form.razon_social, nit: form.nit,
+      sector: form.sector, logo: form.logo,
+      ciudad: form.ciudad, departamento: form.departamento, pais: form.pais, direccion: form.direccion,
+      website: form.website, email_principal: form.email_principal,
+      contacto_nombre: form.contacto_nombre, contacto_cargo: form.contacto_cargo,
+      contacto_email: form.contacto_email, contacto_tel: form.contacto_tel,
+      notas: form.notas,
+    };
+    try {
       if (editing) {
-        setCompanies(prev => prev.map(c => c.id !== editing.id ? c : { ...c, ...data }));
+        const saved = await updateCompany(editing.id, input);
+        setCompanies(prev => prev.map(c => c.id !== editing.id ? c : saved));
       } else {
-        setCompanies(prev => [{
-          id: `co-${Date.now()}`, ...data,
-          contacts: 0, events: 0, total_deal: null,
-        }, ...prev]);
+        const saved = await createCompany(input);
+        setCompanies(prev => [saved, ...prev]);
       }
       setModalOpen(false);
-    }, 700);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'No se pudo guardar la empresa.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar esta empresa?')) return;
-    setCompanies(prev => prev.filter(c => c.id !== id));
+    try {
+      await deleteCompany(id);
+      setCompanies(prev => prev.filter(c => c.id !== id));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'No se pudo eliminar. Puede tener participaciones o pagos.');
+    }
   };
 
-  const handleDuplicate = (co: Company) => {
-    setCompanies(prev => [{
-      ...co, id: `co-${Date.now()}`, name: `${co.name} (copia)`,
-      contacts: 0, events: 0, total_deal: null, status: 'pendiente' as const,
-    }, ...prev]);
+  const handleDuplicate = async (co: Company) => {
+    try {
+      const copy = await duplicateCompany(co);
+      setCompanies(prev => [copy, ...prev]);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'No se pudo duplicar.');
+    }
   };
 
   const filtered = companies.filter(c =>

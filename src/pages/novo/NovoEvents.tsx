@@ -5,10 +5,18 @@ import type { NovoEvent } from '../../types/novo';
 
 export function NovoEvents() {
   const [events, setEvents] = useState<NovoEvent[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    listEvents().then(setEvents);
+    listEvents()
+      .then(setEvents)
+      .catch((err) => setError(err instanceof Error ? err.message : 'No se pudieron cargar los eventos.'));
   }, []);
 
-  return <EventsTable events={events} onCreateEvent={() => alert('Modal de creación — próximo sprint')} />;
+  return (
+    <div>
+      {error && <p className="mb-4 text-sm" style={{ color: '#F24463' }}>{error}</p>}
+      <EventsTable events={events} />
+    </div>
+  );
 }
