@@ -3,15 +3,16 @@ import { useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutPanelLeftIcon, BuildingIcon, CheckCircleIcon,
-  PlusIcon, GridIcon, LayoutListIcon,
+  PlusIcon, CopyIcon, GridIcon, LayoutListIcon,
 } from 'lucide-react';
 import { KPICard } from '../../../components/novo/ui/KPICard';
 import { RowActions } from '../../../components/novo/ui/RowActions';
 import { formatCurrency } from '../../../lib/novo/events';
 import { listCompanies, type NovoCompany } from '../../../lib/novo/companies';
 import {
-  createStandUnit, deleteStandUnit, listStandTypes, listStandUnits,
-  updateStandUnit, type CatalogStandType, type EventStandUnit, type StandStatus,
+  createStandUnit, createStandUnitsBulk, deleteStandUnit, generateStandCodes,
+  listStandTypes, listStandUnits, updateStandUnit,
+  type CatalogStandType, type EventStandUnit, type StandStatus,
 } from '../../../lib/novo/stands';
 import {
   NovoModal, ModalBtn,
@@ -28,9 +29,11 @@ const STATUS_CONFIG: Record<StandStatus, { label: string; color: string; bg: str
 const STATUS_OPTIONS = Object.entries(STATUS_CONFIG).map(([v, c]) => ({ value: v, label: c.label }));
 
 const EMPTY_FORM = {
-  code: '', zone: 'Zona A', type_id: '',
+  code: '', zone: 'Zona A', type_id: '', quantity: '1',
   price: '', company_id: '', status: 'disponible' as StandStatus, notas: '',
 };
+
+const QTY_PRESETS = [1, 5, 10, 20] as const;
 
 function tileWidth(typeName: string, area: string) {
   const hay = `${typeName} ${area}`.toLowerCase();
@@ -68,36 +71,62 @@ export function NovoEventStands() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event.id]);
 
-  const openCreate = () => {
+  const openCreate = (quantity = '1') => {
     setEditing(null);
-    setForm({ ...EMPTY_FORM, type_id: types[0]?.id ?? '', price: types[0] ? String(types[0].price) : '' });
+    setError(null);
+    setForm({
+      ...EMPTY_FORM,
+      quantity,
+      type_id: types[0]?.id ?? '',
+      price: types[0] ? String(types[0].price) : '',
+    });
     setModalOpen(true);
   };
   const openEdit = (s: EventStandUnit) => {
     setEditing(s);
+    setError(null);
     setForm({
-      code: s.code, zone: s.zone || 'Zona A', type_id: s.type_id,
+      code: s.code, zone: s.zone || 'Zona A', type_id: s.type_id, quantity: '1',
       price: String(s.price), company_id: s.company_id ?? '', status: s.status, notas: s.notas,
     });
     setModalOpen(true);
   };
+
+  const quantity = editing ? 1 : Math.min(40, Math.max(1, Number(form.quantity) || 1));
+  const bulkCodes = !editing && quantity > 1 && form.code.trim()
+    ? generateStandCodes(form.code, quantity, stands.map(s => s.code))
+    : [];
 
   const handleSave = async () => {
     if (!form.type_id) return;
     setSaving(true);
     setError(null);
     const type = types.find(t => t.id === form.type_id);
-    const input = {
-      code: form.code.trim(),
-      type_id: form.type_id,
-      event_id: event.id,
-      company_id: form.company_id || null,
-      status: form.status,
-      price: Number(form.price) || (type?.price ?? 0),
-      zone: form.zone.trim(),
-      notas: form.notas,
-    };
+    const price = Number(form.price) || (type?.price ?? 0);
     try {
+      if (!editing && quantity > 1) {
+        const created = await createStandUnitsBulk({
+          codes: bulkCodes,
+          type_id: form.type_id,
+          event_id: event.id,
+          price,
+          zone: form.zone.trim(),
+          notas: form.notas,
+        });
+        setStands(prev => [...prev, ...created].sort((a, b) => a.code.localeCompare(b.code, 'es')));
+        setModalOpen(false);
+        return;
+      }
+      const input = {
+        code: form.code.trim(),
+        type_id: form.type_id,
+        event_id: event.id,
+        company_id: form.company_id || null,
+        status: form.status,
+        price,
+        zone: form.zone.trim(),
+        notas: form.notas,
+      };
       const saved = editing
         ? await updateStandUnit(editing.id, input, editing.payment_id)
         : await createStandUnit(input);
@@ -151,7 +180,12 @@ export function NovoEventStands() {
               </button>
             ))}
           </div>
-          <button onClick={openCreate}
+          <button onClick={() => openCreate('5')}
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-all active:scale-95"
+            style={{ background: '#182d47', color: '#7A9CB8', border: '1px solid #1e3450' }}>
+            <CopyIcon size={13} /> Crear varios
+          </button>
+          <button onClick={() => openCreate('1')}
             className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-all active:scale-95"
             style={{ background: 'rgba(0,201,160,.12)', color: '#00C9A0', border: '1px solid rgba(0,201,160,.2)' }}>
             <PlusIcon size={13} /> Agregar stand
@@ -333,22 +367,37 @@ export function NovoEventStands() {
 
       <NovoModal
         open={modalOpen} onClose={() => setModalOpen(false)}
-        title={editing ? 'Editar stand' : 'Nuevo stand'}
-        subtitle={editing ? `Stand ${editing.code}` : `Agregar un stand a ${event.name}`}
+        title={editing ? 'Editar stand' : quantity > 1 ? 'Crear varios stands' : 'Nuevo stand'}
+        subtitle={editing ? `Stand ${editing.code}` : quantity > 1
+          ? `Misma zona, tipo y precio · se numeran desde el código`
+          : `Agregar un stand a ${event.name}`}
         width={520}
         footer={
           <>
             <ModalBtn variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
-            <ModalBtn variant="primary" onClick={() => { void handleSave(); }} disabled={saving || !form.code || !form.type_id}>
-              {saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Crear stand'}
+            <ModalBtn
+              variant="primary"
+              onClick={() => { void handleSave(); }}
+              disabled={saving || !form.code || !form.type_id || (!editing && quantity > 1 && bulkCodes.length === 0)}
+            >
+              {saving
+                ? 'Guardando…'
+                : editing
+                  ? 'Guardar cambios'
+                  : quantity > 1
+                    ? `Crear ${bulkCodes.length} stands`
+                    : 'Crear stand'}
             </ModalBtn>
           </>
         }
       >
         <div className="space-y-5">
+          {error ? (
+            <p className="rounded-xl px-3 py-2 text-xs" style={{ background: 'rgba(242,68,99,.12)', color: '#F24463' }}>{error}</p>
+          ) : null}
           <FormSection title="Información del stand">
             <div className="grid grid-cols-3 gap-4">
-              <FormField label="Código" required>
+              <FormField label={quantity > 1 ? 'Código inicial' : 'Código'} required hint={quantity > 1 ? 'Ej. A-01' : undefined}>
                 <FormInput value={form.code} onChange={f('code')} placeholder="A-01" />
               </FormField>
               <FormField label="Zona">
@@ -361,24 +410,65 @@ export function NovoEventStands() {
                 }} options={[{ value: '', label: 'Seleccionar…' }, ...types.map(t => ({ value: t.id, label: t.name }))]} />
               </FormField>
             </div>
+            {!editing ? (
+              <FormField label="Cantidad" hint="Hasta 40. Los que ya existan se saltan.">
+                <div className="flex items-center gap-2">
+                  <div className="w-24">
+                    <FormInput type="number" value={form.quantity} onChange={f('quantity')} placeholder="1" />
+                  </div>
+                  <div className="flex gap-1">
+                    {QTY_PRESETS.map((n) => (
+                      <button key={n} type="button" onClick={() => setForm(p => ({ ...p, quantity: String(n) }))}
+                        className="rounded-lg px-2.5 py-2 text-[11px] font-semibold"
+                        style={{
+                          background: quantity === n ? 'rgba(0,201,160,.15)' : '#182d47',
+                          color: quantity === n ? '#00C9A0' : '#7A9CB8',
+                          border: `1px solid ${quantity === n ? 'rgba(0,201,160,.35)' : '#1e3450'}`,
+                        }}>
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </FormField>
+            ) : null}
+            {bulkCodes.length > 0 ? (
+              <p className="rounded-xl px-3 py-2 text-xs leading-relaxed" style={{ background: '#0d1829', color: '#7A9CB8', border: '1px solid #1e3450' }}>
+                Se crearán {bulkCodes.length}: <span style={{ color: '#E1EAF4' }}>{bulkCodes.slice(0, 12).join(', ')}{bulkCodes.length > 12 ? `… +${bulkCodes.length - 12}` : ''}</span>
+              </p>
+            ) : null}
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Precio ($)">
                 <FormInput type="number" value={form.price} onChange={f('price')} placeholder="3000000" />
               </FormField>
-              <FormField label="Estado">
-                <FormSelect value={form.status} onChange={v => setForm(p => ({ ...p, status: v as StandStatus }))} options={STATUS_OPTIONS} />
-              </FormField>
+              {quantity === 1 ? (
+                <FormField label="Estado">
+                  <FormSelect value={form.status} onChange={v => setForm(p => ({ ...p, status: v as StandStatus }))} options={STATUS_OPTIONS} />
+                </FormField>
+              ) : (
+                <FormField label="Estado" hint="Los lotes salen disponibles.">
+                  <FormInput value="Disponible" onChange={() => {}} disabled />
+                </FormField>
+              )}
             </div>
           </FormSection>
-          <FormSection title="Asignación">
-            <FormField label="Empresa" hint={form.status === 'disponible' ? 'Vacío si está disponible.' : 'Obligatoria al reservar o vender. Se crea una cuota en Pagos.'}>
-              <FormSelect value={form.company_id} onChange={f('company_id')}
-                options={[{ value: '', label: 'Sin asignar' }, ...companies.map(c => ({ value: c.id, label: `${c.name} · ${c.ciudad}` }))]} />
-            </FormField>
-            <FormField label="Notas internas">
-              <FormInput value={form.notas} onChange={f('notas')} placeholder="Observaciones, requerimientos especiales…" />
-            </FormField>
-          </FormSection>
+          {quantity === 1 ? (
+            <FormSection title="Asignación">
+              <FormField label="Empresa" hint={form.status === 'disponible' ? 'Vacío si está disponible.' : 'Obligatoria al reservar o vender. Se crea una cuota en Pagos.'}>
+                <FormSelect value={form.company_id} onChange={f('company_id')}
+                  options={[{ value: '', label: 'Sin asignar' }, ...companies.map(c => ({ value: c.id, label: `${c.name} · ${c.ciudad}` }))]} />
+              </FormField>
+              <FormField label="Notas internas">
+                <FormInput value={form.notas} onChange={f('notas')} placeholder="Observaciones, requerimientos especiales…" />
+              </FormField>
+            </FormSection>
+          ) : (
+            <FormSection title="Notas">
+              <FormField label="Notas internas">
+                <FormInput value={form.notas} onChange={f('notas')} placeholder="Observaciones, requerimientos especiales…" />
+              </FormField>
+            </FormSection>
+          )}
         </div>
       </NovoModal>
     </div>

@@ -174,7 +174,8 @@ export async function listStandUnits(eventId?: string): Promise<EventStandUnit[]
   return ((data as UnitRow[] | null) ?? []).map(mapUnit);
 }
 
-async function ensureInventory(eventId: string, typeId: string, price: number): Promise<string> {
+async function ensureInventory(eventId: string, typeId: string, price: number, add = 1): Promise<string> {
+  const extra = Math.max(1, add);
   const { data: existing, error: findError } = await supabase
     .from('stand_inventory')
     .select('id, quantity')
@@ -185,18 +186,40 @@ async function ensureInventory(eventId: string, typeId: string, price: number): 
   if (existing) {
     const { error } = await supabase
       .from('stand_inventory')
-      .update({ quantity: (existing.quantity ?? 0) + 1, price })
+      .update({ quantity: (existing.quantity ?? 0) + extra, price })
       .eq('id', existing.id);
     if (error) throw error;
     return existing.id;
   }
   const { data: created, error } = await supabase
     .from('stand_inventory')
-    .insert({ event_id: eventId, stand_type_id: typeId, quantity: 1, price })
+    .insert({ event_id: eventId, stand_type_id: typeId, quantity: extra, price })
     .select('id')
     .single();
   if (error) throw error;
   return created.id as string;
+}
+
+/** A-01 × 5 → A-01 … A-05. Si A-01 ya existe, sigue con A-02. */
+export function generateStandCodes(startCode: string, quantity: number, taken: Iterable<string>): string[] {
+  const count = Math.min(40, Math.max(0, Math.floor(quantity)));
+  if (count === 0) return [];
+  const occupied = new Set([...taken].map((code) => code.trim().toLowerCase()));
+  const raw = startCode.trim() || 'A-01';
+  const match = raw.match(/^(.*?)(\d+)$/);
+  const prefix = match ? match[1] : /-$/.test(raw) ? raw : `${raw}-`;
+  const start = match ? Number(match[2]) : 1;
+  const pad = match ? match[2].length : 2;
+  const codes: string[] = [];
+  let n = start;
+  while (codes.length < count && n < start + count + 200) {
+    const next = `${prefix}${String(n).padStart(pad, '0')}`;
+    n += 1;
+    if (occupied.has(next.toLowerCase())) continue;
+    occupied.add(next.toLowerCase());
+    codes.push(next);
+  }
+  return codes;
 }
 
 async function upsertReservation(unitId: string, companyId: string, eventId: string, status: 'pendiente' | 'confirmado') {
@@ -357,6 +380,38 @@ export async function createStandUnit(input: StandUnitWrite): Promise<EventStand
     return mapUnit(linked as UnitRow);
   }
   return created;
+}
+
+export async function createStandUnitsBulk(input: {
+  codes: string[];
+  type_id: string;
+  event_id: string;
+  price: number;
+  zone: string;
+  notas: string;
+}): Promise<EventStandUnit[]> {
+  const codes = [...new Set(input.codes.map((code) => code.trim()).filter(Boolean))];
+  if (codes.length === 0) throw new Error('Indica un código inicial y una cantidad.');
+  const inventoryId = await ensureInventory(input.event_id, input.type_id, input.price, codes.length);
+  const { data, error } = await supabase
+    .from('stand_units')
+    .insert(codes.map((code) => ({
+      inventory_id: inventoryId,
+      event_id: input.event_id,
+      stand_type_id: input.type_id,
+      unit_number: code,
+      status: 'disponible',
+      company_id: null,
+      price: input.price,
+      location_hint: input.zone || null,
+      notes: input.notas || null,
+    })))
+    .select(UNIT_SELECT);
+  if (error) {
+    if (error.code === '23505') throw new Error('Uno de esos códigos ya existe en este evento.');
+    throw error;
+  }
+  return ((data as UnitRow[] | null) ?? []).map(mapUnit);
 }
 
 export async function updateStandUnit(id: string, input: StandUnitWrite, currentPaymentId: string | null): Promise<EventStandUnit> {
