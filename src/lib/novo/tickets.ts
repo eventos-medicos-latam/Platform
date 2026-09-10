@@ -276,3 +276,92 @@ export async function registerPublicTicket(input: {
   if (error) throw new Error(error.message);
   return data as NovoRegisterResult;
 }
+
+export type WompiTicketReceipt = {
+  wompi_id: string;
+  status: string;
+  status_label: string;
+  approved: boolean;
+  amount: number;
+  currency: string;
+  reference: string;
+  email: string | null;
+  payment_method_label: string | null;
+  card_last_four: string | null;
+  ticket_name: string | null;
+  person_name: string | null;
+  qr_token: string | null;
+  event_name: string | null;
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  APPROVED: 'Pago aprobado',
+  PENDING: 'Pago en proceso',
+  DECLINED: 'Pago rechazado',
+  VOIDED: 'Pago anulado',
+  ERROR: 'Error en el pago',
+};
+
+const METHOD_LABEL: Record<string, string> = {
+  CARD: 'Tarjeta',
+  NEQUI: 'Nequi',
+  PSE: 'PSE',
+  BANCOLOMBIA_TRANSFER: 'Transferencia Bancolombia',
+  BANCOLOMBIA_COLLECT: 'Corresponsal Bancolombia',
+  PCOL: 'Punto de pago',
+  DAVIVIENDA: 'Davivienda',
+};
+
+function receiptFromWompiTx(tx: Record<string, unknown>): WompiTicketReceipt {
+  const method = tx.payment_method as { type?: string; extra?: { last_four?: string } } | undefined;
+  const methodType = String(tx.payment_method_type ?? method?.type ?? '');
+  const status = String(tx.status ?? '');
+  const amountInCents = Number(tx.amount_in_cents ?? 0);
+  return {
+    wompi_id: String(tx.id ?? ''),
+    status,
+    status_label: STATUS_LABEL[status] ?? (status || 'Pago recibido'),
+    approved: status === 'APPROVED',
+    amount: amountInCents / 100,
+    currency: String(tx.currency ?? 'COP'),
+    reference: String(tx.reference ?? ''),
+    email: tx.customer_email ? String(tx.customer_email) : null,
+    payment_method_label: METHOD_LABEL[methodType] ?? (methodType || null),
+    card_last_four: method?.extra?.last_four ?? null,
+    ticket_name: null,
+    person_name: null,
+    qr_token: null,
+    event_name: null,
+  };
+}
+
+export async function fetchWompiTicketReceipt(
+  transactionId: string,
+  env?: string | null,
+): Promise<WompiTicketReceipt> {
+  const { data: fnData, error: fnError } = await supabase.functions.invoke('wompi-transaction-status', {
+    body: { transaction_id: transactionId, env: env ?? undefined },
+  });
+  if (!fnError && fnData && !fnData.error && fnData.wompi_id) {
+    return fnData as WompiTicketReceipt;
+  }
+
+  const { data: settings } = await supabase.from('public_settings').select('value').eq('key', 'wompi_public_key').maybeSingle();
+  const publicKey = settings?.value;
+  if (!publicKey) throw new Error('Wompi no está configurado');
+
+  const bases = env === 'prod' || env === 'production'
+    ? ['https://production.wompi.co/v1', 'https://sandbox.wompi.co/v1']
+    : ['https://sandbox.wompi.co/v1', 'https://production.wompi.co/v1'];
+
+  for (const base of bases) {
+    const res = await fetch(`${base}/transactions/${encodeURIComponent(transactionId)}`, {
+      headers: { Authorization: `Bearer ${publicKey}` },
+    });
+    if (!res.ok) continue;
+    const payload = await res.json();
+    if (payload?.data) return receiptFromWompiTx(payload.data as Record<string, unknown>);
+  }
+
+  throw new Error('No se encontró la transacción en Wompi');
+}
