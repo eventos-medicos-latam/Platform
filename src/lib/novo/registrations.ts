@@ -116,7 +116,7 @@ function mapRow(row: QueryRow, qrByPerson: Record<string, string>): EventRegistr
 
 function throwIf(error: { code?: string; message: string } | null) {
   if (!error) return;
-  if (error.code === '23505') throw new Error('Esta persona ya está inscrita en este evento.');
+  if (error.code === '23505') throw new Error('Ese registro ya existe. Revisa correo o referencia de pago.');
   throw error;
 }
 

@@ -250,7 +250,7 @@ export function NovoPublicRegister() {
       <div className="mx-auto max-w-xl px-6 py-14">
         <p className="text-xs font-bold uppercase tracking-widest text-brand">{event.name}</p>
         <h1 className="mt-2 text-2xl font-bold text-ink">Inscripción</h1>
-        <p className="mt-1 text-sm text-ink-muted">Una persona, un cupo. Si el ticket tiene costo, te llevamos a Wompi.</p>
+        <p className="mt-1 text-sm text-ink-muted">Puedes comprar más de una entrada con el mismo correo. Si el ticket tiene costo, te llevamos a Wompi.</p>
 
         <form onSubmit={submit} className="mt-8 space-y-4 rounded-3xl border border-line bg-white p-6 shadow-sm">
           {error ? <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p> : null}

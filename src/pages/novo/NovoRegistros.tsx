@@ -204,7 +204,7 @@ export function NovoRegistros() {
               Registros
             </h1>
             <p className="mt-0.5 text-sm" style={{ color: TEXT_LO }}>
-              Personas reales · eventos Novo · una inscripción por persona y evento
+              Personas reales · eventos Novo · una persona puede tener varias entradas
             </p>
           </div>
           <button
