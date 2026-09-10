@@ -6,7 +6,7 @@ import {
   MapPinIcon, ClockIcon, GlobeIcon, CheckCircleIcon, AlertCircleIcon,
 } from 'lucide-react';
 import { KPICard } from '../../../components/novo/ui/KPICard';
-import { formatCurrency } from '../../../lib/novo/events';
+import { formatCurrency, getEventAlerts } from '../../../lib/novo/events';
 import type { NovoEventOutlet } from '../../../types/novo';
 import { listAgenda, type AgendaItemRow } from '../../../lib/novo/agenda';
 
@@ -16,11 +16,6 @@ const MODALITY_CONFIG: Record<string, { label: string; color: string }> = {
   hibrido:    { label: 'Híbrido',     color: '#A78BFA' },
 };
 
-const MOCK_ALERTS = [
-  { id: 1, type: 'warning', text: 'Nestlé: pago vencido desde el 9 sep 2025' },
-  { id: 2, type: 'info',    text: '2 stands disponibles sin asignar' },
-  { id: 3, type: 'ok',      text: 'Microsite publicado y visible al público' },
-];
 
 const AGENDA_COLORS: Record<string, string> = {
   operacion:  '#3A5470',
@@ -40,10 +35,12 @@ const AGENDA_LABELS: Record<string, string> = {
 export function NovoEventResumen() {
   const { event } = useOutletContext<NovoEventOutlet>();
   const [agenda, setAgenda] = useState<AgendaItemRow[]>([]);
+  const [alerts, setAlerts] = useState<{ id: string; type: 'warning' | 'info' | 'ok'; text: string }[]>([]);
 
   useEffect(() => {
     listAgenda(event.id).then(setAgenda).catch(() => setAgenda([]));
-  }, [event.id]);
+    getEventAlerts(event).then(setAlerts).catch(() => setAlerts([]));
+  }, [event]);
   const agendaPreview = agenda.slice(0, 8);
 
   const pctRegistros = event.goals?.registros && event.registrations_count
@@ -144,12 +141,12 @@ export function NovoEventResumen() {
             Alertas
           </p>
           <div className="space-y-2">
-            {MOCK_ALERTS.map(alert => (
+            {alerts.map((alert, i) => (
               <motion.div
                 key={alert.id}
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.25, delay: alert.id * 0.06 }}
+                transition={{ duration: 0.25, delay: i * 0.06 }}
                 className="flex items-start gap-2.5 rounded-xl px-3.5 py-3"
                 style={{
                   background: '#112035',

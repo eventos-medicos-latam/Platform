@@ -21,6 +21,16 @@ const ALERT_COLOR: Record<string, string> = {
   baja:  '#5B8AF0',
 };
 
+function formatAgo(iso: string) {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diffMs / 60000);
+  const rtf = new Intl.RelativeTimeFormat('es', { numeric: 'auto' });
+  if (Math.abs(mins) < 60) return rtf.format(-Math.max(mins, 0), 'minute');
+  const hours = Math.round(mins / 60);
+  if (Math.abs(hours) < 24) return rtf.format(-hours, 'hour');
+  return rtf.format(-Math.round(hours / 24), 'day');
+}
+
 export function NovoOverview() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [events, setEvents] = useState<NovoEvent[]>([]);
@@ -99,7 +109,7 @@ export function NovoOverview() {
         <KPICard
           label="Ingresos"
           value={stats ? formatCurrency(stats.total_revenue) : '—'}
-          sub="acumulado 2025"
+          sub="tickets e inscripciones"
           icon={DollarSignIcon}
           accent="#FF7043"
           delay={0.14}
@@ -338,6 +348,11 @@ export function NovoOverview() {
             </Link>
           </div>
           <ul>
+            {recent.length === 0 && (
+              <li className="px-5 py-8 text-center text-sm" style={{ color: '#3A5470' }}>
+                Aún no hay inscripciones.
+              </li>
+            )}
             {recent.map((reg, i) => (
               <li
                 key={reg.id}
@@ -364,7 +379,7 @@ export function NovoOverview() {
                     {reg.amount_paid ? formatCurrency(reg.amount_paid) : 'Gratuito'}
                   </p>
                   <p className="text-[10px]" style={{ color: '#3A5470' }}>
-                    {new Intl.RelativeTimeFormat('es', { numeric: 'auto' }).format(-1, 'day')}
+                    {formatAgo(reg.created_at)}
                   </p>
                 </div>
               </li>

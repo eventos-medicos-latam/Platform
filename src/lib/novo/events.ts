@@ -1,6 +1,6 @@
 import { supabase } from '../supabaseClient';
 import type {
-  NovoEvent, DashboardStats, EventKpis, NovoEventType, NovoEventModality,
+  NovoEvent, DashboardStats, EventKpis, EventRegistration, NovoEventType, NovoEventModality,
   NovoEventAudience, NovoEventOperationalStatus, NovoEventPublicationStatus,
 } from '../../types/novo';
 
@@ -174,13 +174,42 @@ function mapEvent(row: EventRow): NovoEvent {
 
 const EVENT_SELECT = '*, companies:contracting_company_id(id, trade_name)';
 
+type EventStat = { count: number; revenue: number };
+
+async function loadEventStats(eventIds: string[]): Promise<Record<string, EventStat>> {
+  const stats: Record<string, EventStat> = {};
+  for (const id of eventIds) stats[id] = { count: 0, revenue: 0 };
+  if (eventIds.length === 0) return stats;
+  const { data, error } = await supabase
+    .from('event_registrations')
+    .select('event_id, amount_paid, status')
+    .in('event_id', eventIds);
+  if (error) throw error;
+  for (const row of data ?? []) {
+    if (row.status === 'cancelado') continue;
+    const bucket = stats[row.event_id] ?? { count: 0, revenue: 0 };
+    bucket.count += 1;
+    bucket.revenue += Number(row.amount_paid) || 0;
+    stats[row.event_id] = bucket;
+  }
+  return stats;
+}
+
+function withStats(event: NovoEvent, stats: Record<string, EventStat>): NovoEvent {
+  const bucket = stats[event.id];
+  if (!bucket) return event;
+  return { ...event, registrations_count: bucket.count, revenue: bucket.revenue };
+}
+
 export async function listEvents(): Promise<NovoEvent[]> {
   const { data, error } = await supabase
     .from('events')
     .select(EVENT_SELECT)
     .order('start_date', { ascending: false });
   if (error) throw error;
-  return (data as EventRow[] | null)?.map(mapEvent) ?? [];
+  const events = (data as EventRow[] | null)?.map(mapEvent) ?? [];
+  const stats = await loadEventStats(events.map((event) => event.id));
+  return events.map((event) => withStats(event, stats));
 }
 
 export async function getEvent(id: string): Promise<NovoEvent | null> {
@@ -190,7 +219,10 @@ export async function getEvent(id: string): Promise<NovoEvent | null> {
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
-  return data ? mapEvent(data as EventRow) : null;
+  if (!data) return null;
+  const event = mapEvent(data as EventRow);
+  const stats = await loadEventStats([event.id]);
+  return withStats(event, stats);
 }
 
 const PUBLIC_EVENT_SELECT = '*';
@@ -380,18 +412,26 @@ export async function deleteEvent(id: string): Promise<void> {
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const [{ count: total_events }, { count: active_events }, { count: upcoming_events }, { count: total_companies }] = await Promise.all([
+  const [
+    { count: total_events },
+    { count: active_events },
+    { count: upcoming_events },
+    { count: total_companies },
+    { data: regs },
+  ] = await Promise.all([
     supabase.from('events').select('*', { count: 'exact', head: true }),
     supabase.from('events').select('*', { count: 'exact', head: true }).eq('operational_status', 'activo'),
     supabase.from('events').select('*', { count: 'exact', head: true }).eq('operational_status', 'proximo'),
     supabase.from('companies').select('*', { count: 'exact', head: true }),
+    supabase.from('event_registrations').select('amount_paid, status'),
   ]);
+  const live = (regs ?? []).filter((row) => row.status !== 'cancelado');
   return {
     total_events: total_events ?? 0,
     active_events: active_events ?? 0,
     upcoming_events: upcoming_events ?? 0,
-    total_registrations: 0,
-    total_revenue: 0,
+    total_registrations: live.length,
+    total_revenue: live.reduce((sum, row) => sum + (Number(row.amount_paid) || 0), 0),
     total_companies: total_companies ?? 0,
   };
 }
@@ -400,16 +440,85 @@ export async function getEventKpis(_eventId: string): Promise<EventKpis | null> 
   return null;
 }
 
-export async function getRecentRegistrations() {
-  return [];
+export async function getRecentRegistrations(): Promise<EventRegistration[]> {
+  const { data, error } = await supabase
+    .from('event_registrations')
+    .select('id, person_id, event_id, registration_type, origin, amount_paid, status, attended, created_at, people:person_id(id, full_name), events:event_id(id, name, slug)')
+    .order('created_at', { ascending: false })
+    .limit(8);
+  if (error) throw error;
+  return (data ?? []).map((row) => {
+    const person = Array.isArray(row.people) ? row.people[0] : row.people;
+    const event = Array.isArray(row.events) ? row.events[0] : row.events;
+    return {
+      id: row.id,
+      person_id: row.person_id,
+      event_id: row.event_id,
+      registration_type: row.registration_type as EventRegistration['registration_type'],
+      origin: row.origin as EventRegistration['origin'],
+      amount_paid: Number(row.amount_paid) || 0,
+      status: (row.status === 'asistio' || row.status === 'espera' || row.status === 'cancelado' || row.status === 'confirmado')
+        ? row.status
+        : (row.attended ? 'asistio' : 'confirmado'),
+      attended: Boolean(row.attended) || row.status === 'asistio',
+      created_at: row.created_at,
+      person: person ? { id: person.id, full_name: person.full_name } : undefined,
+      event: event ? { id: event.id, name: event.name, slug: event.slug } : undefined,
+    };
+  });
 }
 
 export async function getAgreements() {
   return [];
 }
 
-export async function getAlerts() {
-  return [];
+export type NovoAlert = {
+  id: string;
+  level: 'alta' | 'media' | 'baja';
+  message: string;
+  link: string;
+  event?: string;
+};
+
+export async function getAlerts(): Promise<NovoAlert[]> {
+  const [{ count: espera }, { count: libres }] = await Promise.all([
+    supabase.from('event_registrations').select('*', { count: 'exact', head: true }).eq('status', 'espera'),
+    supabase.from('stand_units').select('*', { count: 'exact', head: true }).eq('status', 'disponible'),
+  ]);
+  const alerts: NovoAlert[] = [];
+  if ((espera ?? 0) > 0) {
+    alerts.push({
+      id: 'espera',
+      level: 'alta',
+      message: `${espera} inscripciones en espera de pago`,
+      link: '/novo/registros',
+    });
+  }
+  if ((libres ?? 0) > 0) {
+    alerts.push({
+      id: 'stands',
+      level: 'media',
+      message: `${libres} stands disponibles sin asignar`,
+      link: '/novo/stands',
+    });
+  }
+  return alerts;
+}
+
+export async function getEventAlerts(event: NovoEvent): Promise<{ id: string; type: 'warning' | 'info' | 'ok'; text: string }[]> {
+  const [{ count: espera }, { count: libres }] = await Promise.all([
+    supabase.from('event_registrations').select('*', { count: 'exact', head: true }).eq('event_id', event.id).eq('status', 'espera'),
+    supabase.from('stand_units').select('*', { count: 'exact', head: true }).eq('event_id', event.id).eq('status', 'disponible'),
+  ]);
+  const alerts: { id: string; type: 'warning' | 'info' | 'ok'; text: string }[] = [];
+  if ((espera ?? 0) > 0) alerts.push({ id: 'espera', type: 'warning', text: `${espera} inscripciones en espera de pago` });
+  if ((libres ?? 0) > 0) alerts.push({ id: 'stands', type: 'info', text: `${libres} stands disponibles sin asignar` });
+  if (event.publication_status === 'publicado' && event.is_public) {
+    alerts.push({ id: 'web', type: 'ok', text: 'Microsite publicado y visible al público' });
+  } else {
+    alerts.push({ id: 'web', type: 'info', text: 'Microsite aún no publicado' });
+  }
+  return alerts;
 }
 
 export function formatCurrency(value: number, currency = 'COP'): string {

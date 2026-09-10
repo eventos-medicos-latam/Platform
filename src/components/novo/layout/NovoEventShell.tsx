@@ -7,7 +7,7 @@ import {
   GlobeIcon, SettingsIcon, ChevronDownIcon, UsersIcon,
   ZapIcon, ExternalLinkIcon, ChevronRightIcon,
 } from 'lucide-react';
-import { listEvents, getEvent } from '../../../lib/novo/events';
+import { listEvents, getEvent, publicEventPath } from '../../../lib/novo/events';
 import type { NovoEvent } from '../../../types/novo';
 
 const EVENT_NAV = [
@@ -155,13 +155,13 @@ export function NovoEventShell() {
             )}
             <span className="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-bold"
               style={{ color: status.color, background: status.bg }}>{status.label}</span>
-            <Link to={`/novo/eventos/${event.id}/web`}
+            <a href={publicEventPath(event)} target="_blank" rel="noreferrer"
               className="hidden lg:flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
               style={{ background: 'rgba(0,201,160,.08)', color: '#00C9A0', border: '1px solid rgba(0,201,160,.2)' }}
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,201,160,.15)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,201,160,.08)'; }}>
               <ExternalLinkIcon size={11} /> Ver página
-            </Link>
+            </a>
           </div>
         </div>
 

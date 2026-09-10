@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { NovoEventSubnav, type NovoEventNavItem } from '../../components/public/NovoEventSubnav';
+import { editionStatusMeta, type BadgeTone } from '../../components/ui/StatusBadge';
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import {
   AwardIcon, CalendarDaysIcon, CheckIcon, MapPinIcon, MicIcon, RouteIcon, TicketIcon, UsersIcon,
@@ -19,15 +21,27 @@ import {
 import { listAgenda, type AgendaItemRow } from '../../lib/novo/agenda';
 import { listPublicTickets, type EventTicketRow } from '../../lib/novo/tickets';
 import { listPublicEventSpeakers, type PublicEventSpeaker } from '../../lib/novo/speakers';
+import { listPublicSponsors, type EventSponsorRow } from '../../lib/novo/sponsors';
 import { axisFromContent, pickList, pickText } from '../../lib/novo/webContent';
 import { cascadeChild, cascadeParent, EASE_EMPHASIS } from '../../utils/motion';
 import type { NovoEvent } from '../../types/novo';
+import type { EditionSection } from '../../types/event';
 
 const MODALITY: Record<NovoEvent['modality'], string> = {
   presencial: 'Presencial',
   virtual: 'Virtual',
   hibrido: 'Híbrido',
 };
+
+const EDITION_SALES_OPEN = ['preventa', 'venta-activa'];
+const NOVO_SALES_OPEN: NovoEvent['operational_status'][] = ['proximo', 'activo'];
+
+function novoStatusMeta(status: NovoEvent['operational_status']): { label: string; tone: BadgeTone } {
+  if (status === 'activo') return editionStatusMeta['en-curso'];
+  if (status === 'finalizado') return editionStatusMeta.historico;
+  if (status === 'cancelado') return { label: 'Cancelado', tone: 'danger' };
+  return editionStatusMeta.proximamente;
+}
 
 export function NovoPublicEvent() {
   const { slug } = useParams<{ slug: string }>();
@@ -37,6 +51,7 @@ export function NovoPublicEvent() {
   const [agenda, setAgenda] = useState<AgendaItemRow[]>([]);
   const [tickets, setTickets] = useState<EventTicketRow[]>([]);
   const [speakers, setSpeakers] = useState<PublicEventSpeaker[]>([]);
+  const [sponsors, setSponsors] = useState<EventSponsorRow[]>([]);
 
   useEffect(() => {
     if (!slug) return;
@@ -51,11 +66,13 @@ export function NovoPublicEvent() {
           listAgenda(found.id).catch(() => []),
           listPublicTickets(found.id).catch(() => []),
           listPublicEventSpeakers(found.id).catch(() => []),
+          listPublicSponsors(found.id).catch(() => []),
           getPublicEventWeb(found.id),
-        ]).then(([nextAgenda, nextTickets, nextSpeakers, nextWeb]) => {
+        ]).then(([nextAgenda, nextTickets, nextSpeakers, nextSponsors, nextWeb]) => {
           setAgenda(nextAgenda);
           setTickets(nextTickets);
           setSpeakers(nextSpeakers);
+          setSponsors(nextSponsors);
           setWeb(nextWeb);
         });
       })
@@ -89,18 +106,20 @@ export function NovoPublicEvent() {
       agenda={agenda}
       tickets={tickets}
       speakers={speakers}
+      sponsors={sponsors}
     />
   );
 }
 
 function NovoEventHome({
-  event, web, agenda, tickets, speakers,
+  event, web, agenda, tickets, speakers, sponsors,
 }: {
   event: NovoEvent;
   web: PublicEventWeb | null;
   agenda: AgendaItemRow[];
   tickets: EventTicketRow[];
   speakers: PublicEventSpeaker[];
+  sponsors: EventSponsorRow[];
 }) {
   const edition = getEditionByNovoSlug(event.slug);
   const family = edition ? getFamily(edition.familyId) : undefined;
@@ -173,6 +192,10 @@ function NovoEventHome({
   const showAgenda = webSectionOn(web, 'agenda') && agenda.length > 0;
   const showSpeakers = webSectionOn(web, 'speakers') && speakers.length > 0;
   const showAllies = extraOn('aliados', allies.length > 0) && allies.length > 0;
+  const showSponsors = webSectionOn(web, 'sponsors') && sponsors.length > 0;
+  const standsTitle = pickText(copy.stands_title);
+  const standsBody = pickText(copy.stands_body);
+  const showStands = webSectionOn(web, 'stands') && Boolean(standsTitle || standsBody);
   const showLocation = webSectionOn(web, 'location') && Boolean(venueLabel);
   const showFaq = (webSectionOn(web, 'faq') || (legacyWeb && faqs.length > 0)) && faqs.length > 0;
   const showGallery = webSectionOn(web, 'gallery') && gallery.length > 0;
@@ -186,12 +209,44 @@ function NovoEventHome({
   const ctaBody = pickText(copy.cta_body, dateLabel);
   const ctaLabel = pickText(copy.cta_label, 'Inscribirme');
   const ctaUrl = pickText(copy.cta_url) || registerTo;
+  const year = edition?.year ?? Number(event.start_date.slice(0, 4));
+  const status = edition ? editionStatusMeta[edition.status] : novoStatusMeta(event.operational_status);
+  const canRegister = edition
+    ? EDITION_SALES_OPEN.includes(edition.status) && tickets.length > 0
+    : NOVO_SALES_OPEN.includes(event.operational_status) && tickets.length > 0;
+  const editionHas = (section: EditionSection) => Boolean(edition?.sections.includes(section));
+  const navAgenda = showAgenda || showSpeakers || showTickets || showLocation
+    || editionHas('agenda') || editionHas('speakers') || editionHas('tickets') || editionHas('ubicacion');
+  const navAllies = showAllies || showSponsors || editionHas('aliados') || editionHas('patrocinadores');
+  const navFaq = showFaq || editionHas('faq');
+  const showNavCta = webSectionOn(web, 'tickets') || tickets.length > 0 || editionHas('tickets');
+  const navCtaLabel = canRegister ? 'Inscribirme' : 'Recibir información';
+  const agendaHref = showAgenda ? '#agenda' : showSpeakers ? '#speakers' : showTickets ? '#entradas' : showLocation ? '#ubicacion' : '#inicio';
+  const alliesHref = showAllies ? '#aliados' : showSponsors ? '#patrocinadores' : '#aliados';
+  const subNav: NovoEventNavItem[] = [
+    { href: '#inicio', label: 'Inicio' },
+    ...(navAgenda ? [{ href: agendaHref, label: 'Agenda' }] : []),
+    ...(navAllies ? [{ href: alliesHref, label: 'Aliados' }] : []),
+    ...(navFaq ? [{ href: '#faq', label: 'Preguntas y respuestas' }] : []),
+  ];
 
   return (
     <PageTransition>
       <div style={{ ['--accent-rgb' as string]: accentRgb }}>
+        <NovoEventSubnav
+          familyName={family?.name}
+          familySlug={family?.slug}
+          familyLogo={family?.logoLight}
+          eventName={event.name}
+          year={year}
+          statusLabel={status.label}
+          statusTone={status.tone}
+          items={subNav}
+          ctaLabel={showNavCta ? navCtaLabel : undefined}
+          ctaTo={showNavCta ? registerTo : undefined}
+        />
         {showHero ? (
-          <section ref={heroRef} className="surface-deep relative isolate overflow-hidden text-white">
+          <section id="inicio" ref={heroRef} className="surface-deep relative isolate overflow-hidden text-white scroll-mt-28">
             <motion.div className="absolute inset-0 -z-10" style={reduce ? undefined : { y: heroImageY, scale: heroImageScale }}>
               {heroImage ? (
                 <img src={heroImage} alt="" aria-hidden="true" className="h-full w-full object-cover opacity-50" />
@@ -409,7 +464,7 @@ function NovoEventHome({
         ) : null}
 
         {showTickets ? (
-          <section id="entradas" className="tint-aurora border-t border-white/60 py-20 lg:py-24">
+          <section id="entradas" className="tint-aurora border-t border-white/60 py-20 lg:py-24 scroll-mt-28">
             <div className="mx-auto max-w-shell px-6">
               <Reveal>
                 <RevealItem>
@@ -459,7 +514,7 @@ function NovoEventHome({
         ) : null}
 
         {showAgenda ? (
-          <section id="agenda" className="surface-deep py-20 text-white lg:py-24">
+          <section id="agenda" className="surface-deep py-20 text-white lg:py-24 scroll-mt-28">
             <div className="mx-auto max-w-shell px-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-hb-violet mb-3">Programa</p>
               <DisplayTitle size="lg" surface="dark" parts={[{ text: 'Agenda', tone: 'bold' }]} />
@@ -486,7 +541,7 @@ function NovoEventHome({
         ) : null}
 
         {showSpeakers ? (
-          <section className="tint-aurora py-20 lg:py-24">
+          <section id="speakers" className="tint-aurora py-20 lg:py-24 scroll-mt-28">
             <div className="mx-auto max-w-shell px-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent mb-3">Ponentes</p>
               <DisplayTitle size="lg" parts={[{ text: 'Quiénes', tone: 'bold' }, { text: 'comparten', tone: 'light' }]} />
@@ -509,7 +564,7 @@ function NovoEventHome({
         ) : null}
 
         {showAllies ? (
-          <section className="tint-aurora py-16">
+          <section id="aliados" className="tint-aurora py-16 scroll-mt-28">
             <div className="mx-auto max-w-shell px-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent mb-3">
                 {pickText(copy.aliados_title, 'Nos apoyan')}
@@ -526,8 +581,54 @@ function NovoEventHome({
           </section>
         ) : null}
 
+        {showSponsors ? (
+          <section id="patrocinadores" className="tint-aurora py-16 scroll-mt-28">
+            <div className="mx-auto max-w-shell px-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent mb-3">
+                {pickText(copy.patrocinadores_title, 'Patrocinadores')}
+              </p>
+              {copy.patrocinadores_body ? (
+                <p className="max-w-2xl text-sm leading-relaxed text-ink">{copy.patrocinadores_body}</p>
+              ) : null}
+              <div className="mt-6 flex flex-wrap items-center gap-6">
+                {sponsors.map((sponsor) => (
+                  <div key={sponsor.id} className="flex items-center gap-3">
+                    {sponsor.logo ? (
+                      <img src={sponsor.logo} alt={sponsor.company_name} className="h-10 w-auto object-contain" />
+                    ) : null}
+                    <p className="text-sm font-semibold text-brand">{sponsor.company_name}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {navAllies && !showAllies && !showSponsors ? (
+          <section id="aliados" className="tint-aurora py-16 scroll-mt-28">
+            <div className="mx-auto max-w-shell px-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent mb-3">
+                {pickText(copy.aliados_title, copy.patrocinadores_title, 'Aliados')}
+              </p>
+              <p className="max-w-2xl text-sm leading-relaxed text-ink">
+                {pickText(copy.patrocinadores_body, 'Los aliados y patrocinadores de esta edición se publicarán aquí.')}
+              </p>
+            </div>
+          </section>
+        ) : null}
+
+        {showStands ? (
+          <section className="tint-aurora py-16">
+            <div className="mx-auto max-w-shell px-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent mb-3">Exposición</p>
+              <DisplayTitle size="lg" parts={[{ text: standsTitle || 'Área de stands', tone: 'bold' }]} />
+              {standsBody ? <p className="mt-4 max-w-2xl text-sm leading-relaxed text-ink">{standsBody}</p> : null}
+            </div>
+          </section>
+        ) : null}
+
         {showLocation ? (
-          <section className="tint-aurora py-20 lg:py-24">
+          <section id="ubicacion" className="tint-aurora py-20 lg:py-24 scroll-mt-28">
             <div className="mx-auto max-w-shell px-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent mb-3">Cómo llegar</p>
               <DisplayTitle size="lg" parts={[{ text: 'Sede del', tone: 'light' }, { text: 'evento', tone: 'bold' }]} />
@@ -600,7 +701,7 @@ function NovoEventHome({
         ) : null}
 
         {showFaq ? (
-          <section className="tint-aurora py-20 lg:py-24">
+          <section id="faq" className="tint-aurora py-20 lg:py-24 scroll-mt-28">
             <div className="mx-auto max-w-shell px-6">
               <DisplayTitle size="lg" parts={[{ text: 'Preguntas', tone: 'bold' }, { text: 'frecuentes', tone: 'light' }]} />
               <div className="mt-8 space-y-3">
@@ -611,6 +712,15 @@ function NovoEventHome({
                   </details>
                 ))}
               </div>
+            </div>
+          </section>
+        ) : null}
+
+        {navFaq && !showFaq ? (
+          <section id="faq" className="tint-aurora py-20 lg:py-24 scroll-mt-28">
+            <div className="mx-auto max-w-shell px-6">
+              <DisplayTitle size="lg" parts={[{ text: 'Preguntas', tone: 'bold' }, { text: 'frecuentes', tone: 'light' }]} />
+              <p className="mt-6 max-w-2xl text-sm leading-relaxed text-ink">Pronto publicaremos las preguntas frecuentes de este evento.</p>
             </div>
           </section>
         ) : null}
@@ -642,6 +752,18 @@ function NovoEventHome({
               </div>
             </div>
           </section>
+        ) : null}
+
+        {showNavCta ? (
+          <>
+            <div className="h-14 md:hidden" aria-hidden="true" />
+            <div className="fixed inset-x-0 bottom-[52px] z-30 border-t border-line bg-brand px-4 py-2.5 md:hidden">
+              <Link to={registerTo} className="block rounded-lg bg-white py-2.5 text-center text-sm font-semibold text-brand">
+                {canRegister ? 'Inscribirme a ' : 'Recibir información de '}
+                {event.name}
+              </Link>
+            </div>
+          </>
         ) : null}
       </div>
     </PageTransition>

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import {
   LayoutDashboardIcon, CalendarDaysIcon, UsersIcon, MicIcon,
   BuildingIcon, ShoppingBagIcon, LayoutPanelLeftIcon, WalletIcon,
-  TvIcon, GlobeIcon, FolderIcon, HeadphonesIcon,
+  TvIcon, GlobeIcon, FolderIcon, HeadphonesIcon, QrCodeIcon,
   SettingsIcon, LogOutIcon, ChevronRightIcon, Trash2Icon,
 } from 'lucide-react';
 import { usePlatform } from '../../../contexts/PlatformContext';
@@ -24,6 +24,7 @@ const NAV = [
       { to: '/novo/eventos',   label: 'Mis Eventos',        icon: CalendarDaysIcon },
       { to: '/novo/registros', label: 'Registros',          icon: UsersIcon },
       { to: '/novo/speakers',  label: 'Speakers',           icon: MicIcon },
+      { to: '/novo/scanner',   label: 'Scanner',            icon: QrCodeIcon },
     ],
   },
   {

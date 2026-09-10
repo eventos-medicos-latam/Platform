@@ -49,6 +49,7 @@ interface Payment {
   receipt_url?: string;
   kind: 'empresa' | 'ticket';
   payer_name: string;
+  reference?: string;
 }
 
 function paymentPayerName(item: Payment, companies: NovoCompany[]) {
@@ -78,6 +79,7 @@ function fromLedger(row: CompanyPaymentRow): Payment {
     status: toNovoStatus(row.status, row.due_date),
     kind: 'empresa',
     payer_name: '',
+    reference: row.wompi_reference ?? row.paid_reference ?? undefined,
   };
 }
 
@@ -126,6 +128,7 @@ export function NovoPagos() {
   const [form, setForm]          = useState(EMPTY_FORM);
   const [saving, setSaving]      = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
 
   const reloadPayments = async () => {
     const [companyRows, regs] = await Promise.all([
@@ -152,6 +155,7 @@ export function NovoPagos() {
           status: paid ? 'pagado' as const : row.status === 'cancelado' ? 'vencido' as const : 'proximo' as const,
           kind: 'ticket' as const,
           payer_name: row.full_name,
+          reference: row.wompi_reference || undefined,
         };
       });
     setPayments([...tickets, ...companyRows.map(fromLedger)]);
@@ -272,6 +276,29 @@ export function NovoPagos() {
 
   const f = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }));
 
+  const exportCSV = () => {
+    const headers = ['Pagador', 'Evento', 'Concepto', 'Monto', 'Fecha', 'Estado', 'Referencia'];
+    const rows = filtered.map((p) => [
+      paymentPayerName(p, companies),
+      p.event_name,
+      p.description,
+      p.amount,
+      p.due_date,
+      STATUS_CFG[p.status].label,
+      p.reference ?? '',
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'facturacion-novo.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   /* ─────────────────────────────────────────────────────── */
   return (
     <div>
@@ -283,7 +310,7 @@ export function NovoPagos() {
           <p className="mt-0.5 text-sm" style={{ color: TEXT_LO }}>Tickets web · acuerdos de empresas · Wompi</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => {}} className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold"
+          <button type="button" onClick={exportCSV} className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold"
             style={{ background: '#182d47', color: TEXT_LO, border: `1px solid ${BORDER}` }}>
             <DownloadIcon size={13} /> Exportar CSV
           </button>
@@ -438,6 +465,12 @@ export function NovoPagos() {
                       <p className="text-xs" style={{ color: TEXT_LO }}>{METHOD_LABEL[selected.method]}</p>
                     </div>
                   )}
+                  {selected.reference && (
+                    <div className="flex items-center gap-2.5">
+                      <ReceiptIcon size={13} style={{ color: TEXT_DIM, flexShrink: 0 }} />
+                      <p className="text-xs break-all" style={{ color: TEXT_LO }}>{selected.reference}</p>
+                    </div>
+                  )}
                   {selected.notes && (
                     <div className="rounded-xl p-3" style={{ background: BG_DEEP }}>
                       <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: TEXT_DIM }}>Notas</p>
@@ -462,7 +495,7 @@ export function NovoPagos() {
                       <PencilIcon size={12} /> Editar
                     </button>
                   )}
-                  <button onClick={() => {}}
+                  <button type="button" onClick={() => setReceiptOpen(true)}
                     className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold"
                     style={{ background: '#182d47', color: TEXT_LO, border: `1px solid ${BORDER}` }}>
                     <ReceiptIcon size={12} /> Ver comprobante
@@ -557,6 +590,54 @@ export function NovoPagos() {
             <FormTextarea value={form.notes} onChange={f('notes')} rows={2} placeholder="Observaciones del pago…" />
           </FormField>
         </FormSection>
+      </NovoModal>
+
+      <NovoModal
+        open={receiptOpen && Boolean(selected)}
+        onClose={() => setReceiptOpen(false)}
+        title="Comprobante"
+        subtitle={selected ? paymentPayerName(selected, companies) : undefined}
+        width={480}
+        footer={<ModalBtn variant="secondary" onClick={() => setReceiptOpen(false)}>Cerrar</ModalBtn>}
+      >
+        {selected && (
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between gap-4">
+              <span style={{ color: TEXT_DIM }}>Pagador</span>
+              <span className="font-semibold text-right" style={{ color: TEXT_HI }}>{paymentPayerName(selected, companies)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span style={{ color: TEXT_DIM }}>Evento</span>
+              <span className="text-right" style={{ color: TEXT_HI }}>{selected.event_name}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span style={{ color: TEXT_DIM }}>Concepto</span>
+              <span className="text-right" style={{ color: TEXT_HI }}>{selected.description}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span style={{ color: TEXT_DIM }}>Monto</span>
+              <span className="font-bold tabular-nums" style={{ color: TEXT_HI }}>{formatCurrency(selected.amount)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span style={{ color: TEXT_DIM }}>Método</span>
+              <span style={{ color: TEXT_HI }}>{selected.method ? METHOD_LABEL[selected.method] : '—'}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span style={{ color: TEXT_DIM }}>Estado</span>
+              <span style={{ color: STATUS_CFG[selected.status].color }}>{STATUS_CFG[selected.status].label}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span style={{ color: TEXT_DIM }}>Fecha</span>
+              <span style={{ color: TEXT_HI }}>{formatDate(selected.paid_at || selected.due_date)}</span>
+            </div>
+            {selected.reference ? (
+              <div className="rounded-xl p-3" style={{ background: BG_DEEP }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: TEXT_DIM }}>Referencia</p>
+                <p className="text-xs break-all" style={{ color: TEXT_LO }}>{selected.reference}</p>
+              </div>
+            ) : null}
+          </div>
+        )}
       </NovoModal>
     </div>
   );

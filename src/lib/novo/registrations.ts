@@ -23,6 +23,7 @@ export type EventRegistrationRow = {
   notes: string;
   created_at: string;
   qr_token: string;
+  wompi_reference: string;
 };
 
 export type RegistrationWrite = {
@@ -60,13 +61,14 @@ type QueryRow = {
   notes: string | null;
   status: string | null;
   created_at: string;
+  wompi_reference: string | null;
   people: PersonEmbed | PersonEmbed[] | null;
   events: { id: string; name: string } | { id: string; name: string }[] | null;
   companies: { id: string; trade_name: string } | { id: string; trade_name: string }[] | null;
 };
 
 const SELECT = `
-  id, person_id, event_id, registration_type, origin, company_id, amount_paid, attended, notes, status, created_at,
+  id, person_id, event_id, registration_type, origin, company_id, amount_paid, attended, notes, status, created_at, wompi_reference,
   people:person_id(id, full_name, person_identifiers(identifier_type, raw_value), professional_profiles(specialty, institution)),
   events:event_id(id, name),
   companies:company_id(id, trade_name)
@@ -111,6 +113,7 @@ function mapRow(row: QueryRow, qrByPerson: Record<string, string>): EventRegistr
     notes: row.notes ?? '',
     created_at: row.created_at,
     qr_token: qrByPerson[row.person_id] ?? '',
+    wompi_reference: row.wompi_reference ?? '',
   };
 }
 

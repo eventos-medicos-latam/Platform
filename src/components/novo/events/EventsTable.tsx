@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import type { NovoEvent, NovoEventOperationalStatus, NovoEventType, NovoEventModality, NovoEventAudience } from '../../../types/novo';
 import { EventStatusPill, ModalityBadge } from '../ui/StatusPill';
-import { formatDate, formatCurrency, createEvent, updateEvent, deleteEvent } from '../../../lib/novo/events';
+import { formatDate, formatCurrency, createEvent, updateEvent, deleteEvent, publicEventPath } from '../../../lib/novo/events';
 import { listCompanies, type NovoCompany } from '../../../lib/novo/companies';
 import { RowActions } from '../ui/RowActions';
 import {
@@ -329,7 +329,7 @@ export function EventsTable({ events: initialEvents }: Props) {
               </div>
               <div><EventStatusPill status={event.operational_status} /></div>
               <div className="flex items-center gap-1 pl-2" onClick={e => e.stopPropagation()}>
-                <Link to={`/eventos/${event.slug}`} target="_blank"
+                <Link to={publicEventPath(event)} target="_blank"
                   className="flex h-7 w-7 items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
                   style={{ color: '#3A5470', background: '#182d47' }} title="Ver sitio público">
                   <ExternalLinkIcon size={13} />

@@ -12,30 +12,18 @@ import {
   FormField, FormInput, FormSelect, FormTextarea, FormSection,
 } from '../../../components/novo/ui/NovoModal';
 import { listCompanies, type NovoCompany } from '../../../lib/novo/companies';
+import {
+  createEventSponsor, deleteEventSponsor, listEventSponsors, updateEventSponsor,
+  type EventSponsorRow, type PlanTier, type SponsorStatus,
+} from '../../../lib/novo/sponsors';
 import type { NovoEvent } from '../../../types/novo';
 
 interface EventContext { event: NovoEvent }
 
-type PlanTier = 'platino' | 'oro' | 'plata' | 'bronce' | 'aliado';
-type SponsorStatus = 'activo' | 'pendiente_pago' | 'negociacion' | 'declinado';
-
-interface Sponsor {
-  id: string;
-  company_id: string;
-  logo: string;
-  contact_name: string;
-  contact_email: string;
-  contact_tel: string;
-  plan: PlanTier;
-  amount: number;
-  status: SponsorStatus;
-  benefits_checked: number;
-  benefits_total: number;
-  notas: string;
-}
+type Sponsor = EventSponsorRow;
 
 function sponsorCompanyName(sp: Sponsor, companies: NovoCompany[]) {
-  return companies.find(c => c.id === sp.company_id)?.name ?? 'Empresa';
+  return companies.find(c => c.id === sp.company_id)?.name ?? sp.company_name ?? 'Empresa';
 }
 
 const PLAN_CONFIG: Record<PlanTier, { label: string; color: string; bg: string; order: number }> = {
@@ -53,8 +41,6 @@ const STATUS_CONFIG: Record<SponsorStatus, { label: string; color: string; bg: s
   declinado:      { label: 'Declinado',    color: '#F24463', bg: 'rgba(242,68,99,.12)'  },
 };
 
-const INIT_SPONSORS: Sponsor[] = [];
-
 const EMPTY_FORM = {
   company_id: '', logo: '', contact_name: '', contact_email: '', contact_tel: '',
   plan: 'oro' as PlanTier, amount: '', status: 'negociacion' as SponsorStatus,
@@ -66,19 +52,24 @@ const fmt = (n: number) => n === 0 ? 'Aliado' : `$${(n / 1_000_000).toFixed(1)}M
 export function NovoEventPatrocinadores() {
   const { event } = useOutletContext<EventContext>();
   const [companies, setCompanies] = useState<NovoCompany[]>([]);
-  const [sponsors, setSponsors] = useState<Sponsor[]>(INIT_SPONSORS);
+  const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [selected, setSelected] = useState<Sponsor | null>(null);
   const [filter, setFilter]     = useState<PlanTier | 'todos'>('todos');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing]     = useState<Sponsor | null>(null);
   const [form, setForm]           = useState(EMPTY_FORM);
   const [saving, setSaving]       = useState(false);
+  const [error, setError]         = useState<string | null>(null);
 
   const f = (k: keyof typeof EMPTY_FORM) => (v: string) => setForm(p => ({ ...p, [k]: v }));
 
   useEffect(() => {
     listCompanies().then(setCompanies).catch(() => setCompanies([]));
   }, []);
+
+  useEffect(() => {
+    listEventSponsors(event.id).then(setSponsors).catch(() => setSponsors([]));
+  }, [event.id]);
 
   const assignedIds = useMemo(() => new Set(sponsors.map(s => s.company_id)), [sponsors]);
   const availableCompanies = useMemo(
@@ -102,9 +93,10 @@ export function NovoEventPatrocinadores() {
     }));
   };
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setModalOpen(true); };
+  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setError(null); setModalOpen(true); };
   const openEdit   = (sp: Sponsor) => {
     setEditing(sp);
+    setError(null);
     setForm({
       company_id: sp.company_id, logo: sp.logo,
       contact_name: sp.contact_name, contact_email: sp.contact_email, contact_tel: sp.contact_tel,
@@ -115,37 +107,50 @@ export function NovoEventPatrocinadores() {
     setModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.company_id) return;
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
-      const data: Partial<Sponsor> = {
-        company_id: form.company_id, logo: form.logo,
-        contact_name: form.contact_name, contact_email: form.contact_email, contact_tel: form.contact_tel,
-        plan: form.plan, amount: Number(form.amount) || 0, status: form.status,
-        benefits_checked: Number(form.benefits_checked) || 0,
-        benefits_total:   Number(form.benefits_total)   || 5,
-        notas: form.notas,
-      };
-      if (editing) {
-        setSponsors(prev => prev.map(s => s.id !== editing.id ? s : { ...s, ...data } as Sponsor));
-        if (selected?.id === editing.id) setSelected(s => s ? { ...s, ...data } as Sponsor : null);
-      } else {
-        if (sponsors.some(s => s.company_id === form.company_id)) {
-          setModalOpen(false);
-          return;
-        }
-        setSponsors(prev => [...prev, { id: `sp-${Date.now()}`, ...data } as Sponsor]);
-      }
+    setError(null);
+    const co = companies.find(c => c.id === form.company_id);
+    const data = {
+      company_id: form.company_id,
+      company_name: co?.name,
+      logo: form.logo,
+      contact_name: form.contact_name,
+      contact_email: form.contact_email,
+      contact_tel: form.contact_tel,
+      plan: form.plan,
+      amount: Number(form.amount) || 0,
+      status: form.status,
+      benefits_checked: Number(form.benefits_checked) || 0,
+      benefits_total: Number(form.benefits_total) || 5,
+      notas: form.notas,
+    };
+    try {
+      const saved = editing
+        ? await updateEventSponsor(editing.id, event.id, data)
+        : await createEventSponsor(event.id, data);
+      setSponsors(prev => editing
+        ? prev.map(s => s.id === saved.id ? saved : s)
+        : [...prev, saved]);
+      if (selected?.id === saved.id || selected?.id === editing?.id) setSelected(saved);
       setModalOpen(false);
-    }, 600);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el patrocinador.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('¿Quitar este patrocinador del evento? La empresa sigue en el CRM.')) return;
-    setSponsors(prev => prev.filter(s => s.id !== id));
-    if (selected?.id === id) setSelected(null);
+    try {
+      await deleteEventSponsor(id);
+      setSponsors(prev => prev.filter(s => s.id !== id));
+      if (selected?.id === id) setSelected(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar.');
+    }
   };
 
   const filtered = filter === 'todos' ? sponsors : sponsors.filter(s => s.plan === filter);
@@ -178,6 +183,10 @@ export function NovoEventPatrocinadores() {
           </button>
         </div>
       </div>
+
+      {error && !modalOpen ? (
+        <p className="mb-4 rounded-xl px-4 py-2.5 text-xs" style={{ background: 'rgba(242,68,99,.12)', color: '#F24463' }}>{error}</p>
+      ) : null}
 
       {/* KPIs */}
       <div className="mb-6 grid grid-cols-4 gap-4">
@@ -212,6 +221,11 @@ export function NovoEventPatrocinadores() {
               <p key={i} className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#3A5470' }}>{h}</p>
             ))}
           </div>
+          {filtered.length === 0 && (
+            <div className="px-5 py-12 text-center">
+              <p className="text-sm" style={{ color: '#7A9CB8' }}>Todavía no hay patrocinadores en este evento.</p>
+            </div>
+          )}
           {filtered.map((sp, i) => {
             const plan = PLAN_CONFIG[sp.plan];
             const st   = STATUS_CONFIG[sp.status];
@@ -265,7 +279,7 @@ export function NovoEventPatrocinadores() {
                 <div className="flex items-center" onClick={e => e.stopPropagation()}>
                   <RowActions
                     onEdit={() => openEdit(sp)}
-                    onDelete={() => handleDelete(sp.id)}
+                    onDelete={() => { void handleDelete(sp.id); }}
                   />
                 </div>
               </motion.div>
@@ -337,7 +351,7 @@ export function NovoEventPatrocinadores() {
                     style={{ background: 'rgba(0,201,160,.1)', color: '#00C9A0', border: '1px solid rgba(0,201,160,.2)' }}>
                     Editar
                   </button>
-                  <button onClick={() => handleDelete(selected.id)}
+                  <button onClick={() => { void handleDelete(selected.id); }}
                     className="rounded-xl py-2.5 text-xs font-semibold transition-all active:scale-95"
                     style={{ background: 'rgba(242,68,99,.08)', color: '#F24463', border: '1px solid rgba(242,68,99,.2)' }}>
                     Eliminar
@@ -358,12 +372,15 @@ export function NovoEventPatrocinadores() {
         footer={
           <>
             <ModalBtn variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
-            <ModalBtn variant="primary" onClick={handleSave} disabled={saving || !form.company_id}>
+            <ModalBtn variant="primary" onClick={() => { void handleSave(); }} disabled={saving || !form.company_id}>
               {saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Agregar patrocinador'}
             </ModalBtn>
           </>
         }
       >
+        {error && modalOpen ? (
+          <p className="mb-4 rounded-xl px-3 py-2 text-xs" style={{ background: 'rgba(242,68,99,.12)', color: '#F24463' }}>{error}</p>
+        ) : null}
         <div className="space-y-5">
           <FormSection title="Empresa">
             <FormField

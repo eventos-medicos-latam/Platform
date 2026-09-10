@@ -1,33 +1,27 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { QrCodeIcon, CheckCircleIcon, XCircleIcon, LogInIcon, CoffeeIcon, UtensilsIcon, GiftIcon, StarIcon, AwardIcon } from 'lucide-react';
+import {
+  QrCodeIcon, CheckCircleIcon, XCircleIcon, LogInIcon, CoffeeIcon,
+  UtensilsIcon, GiftIcon, StarIcon, AwardIcon,
+} from 'lucide-react';
+import { listEvents } from '../../lib/novo/events';
+import {
+  countTodayScans, listRecentScans, scanPersonQr,
+  type ScanInteractionKey, type ScanLogEntry,
+} from '../../lib/novo/scanner';
+import type { NovoEvent } from '../../types/novo';
 
-interface ScanResult {
-  id: string;
-  person: string;
-  interaction: string;
-  ok: boolean;
-  time: string;
-}
-
-const INTERACTION_TYPES = [
-  { id: 'entrada',     label: 'Entrada',     emoji: '🚪', rule: 'Una vez',    icon: LogInIcon,      color: '#00C9A0' },
-  { id: 'coffee',      label: 'Coffee',      emoji: '☕', rule: 'Una vez/día', icon: CoffeeIcon,     color: '#F59E0B' },
-  { id: 'lunch',       label: 'Lunch',       emoji: '🍽',  rule: 'Una vez/día', icon: UtensilsIcon,   color: '#FF7043' },
-  { id: 'kit',         label: 'Kit',         emoji: '🎁', rule: 'Una vez',    icon: GiftIcon,       color: '#A78BFA' },
-  { id: 'vip',         label: 'VIP',         emoji: '⭐', rule: 'Múltiples',  icon: StarIcon,       color: '#5B8AF0' },
-  { id: 'certificado', label: 'Certificado', emoji: '📜', rule: 'Una vez',    icon: AwardIcon,      color: '#7A9CB8' },
-];
-
-const MOCK_LOG: ScanResult[] = [
-  { id: 'sc-001', person: 'Dra. Valentina Ospina',  interaction: 'Entrada',     ok: true,  time: 'hace 2 min'  },
-  { id: 'sc-002', person: 'Dr. Andrés Morales',     interaction: 'Coffee',      ok: true,  time: 'hace 8 min'  },
-  { id: 'sc-003', person: 'Juan Pablo Restrepo',    interaction: 'Entrada',     ok: false, time: 'hace 12 min' },
-  { id: 'sc-004', person: 'Dra. Carolina Mejía',    interaction: 'Kit',         ok: true,  time: 'hace 15 min' },
+const INTERACTION_TYPES: { id: ScanInteractionKey; label: string; emoji: string; rule: string; icon: typeof LogInIcon; color: string }[] = [
+  { id: 'entrada',     label: 'Entrada',     emoji: '🚪', rule: 'Una vez',     icon: LogInIcon,    color: '#00C9A0' },
+  { id: 'coffee',      label: 'Coffee',      emoji: '☕', rule: 'Una vez/día', icon: CoffeeIcon,   color: '#F59E0B' },
+  { id: 'lunch',       label: 'Lunch',       emoji: '🍽',  rule: 'Una vez/día', icon: UtensilsIcon, color: '#FF7043' },
+  { id: 'kit',         label: 'Kit',         emoji: '🎁', rule: 'Una vez',     icon: GiftIcon,     color: '#A78BFA' },
+  { id: 'vip',         label: 'VIP',         emoji: '⭐', rule: 'Múltiples',   icon: StarIcon,     color: '#5B8AF0' },
+  { id: 'certificado', label: 'Certificado', emoji: '📜', rule: 'Una vez',     icon: AwardIcon,    color: '#7A9CB8' },
 ];
 
 function initials(name: string) {
-  return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 }
 
 const GRADIENTS = [
@@ -37,19 +31,71 @@ const GRADIENTS = [
   'linear-gradient(135deg,#5B8AF0,#00C9A0)',
 ];
 
-export function NovoScanner() {
-  const [activeType, setActiveType] = useState('entrada');
-  const [scanning, setScanning]   = useState(false);
-  const [lastResult, setLastResult] = useState<{ ok: boolean; name: string } | null>(null);
+function formatAgo(iso: string) {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diffMs / 60000);
+  const rtf = new Intl.RelativeTimeFormat('es', { numeric: 'auto' });
+  if (Math.abs(mins) < 60) return rtf.format(-Math.max(mins, 0), 'minute');
+  const hours = Math.round(mins / 60);
+  if (Math.abs(hours) < 24) return rtf.format(-hours, 'hour');
+  return rtf.format(-Math.round(hours / 24), 'day');
+}
 
-  function handleScan() {
+export function NovoScanner() {
+  const [events, setEvents] = useState<NovoEvent[]>([]);
+  const [eventId, setEventId] = useState('');
+  const [activeType, setActiveType] = useState<ScanInteractionKey>('entrada');
+  const [token, setToken] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const [lastResult, setLastResult] = useState<{ ok: boolean; name: string; message: string } | null>(null);
+  const [log, setLog] = useState<ScanLogEntry[]>([]);
+  const [today, setToday] = useState<Record<string, number>>({});
+  const [error, setError] = useState<string | null>(null);
+
+  const selectedEvent = events.find((event) => event.id === eventId);
+
+  const reloadLog = async (id: string) => {
+    const [nextLog, nextToday] = await Promise.all([
+      listRecentScans(id),
+      countTodayScans(id),
+    ]);
+    setLog(nextLog);
+    setToday(nextToday);
+  };
+
+  useEffect(() => {
+    listEvents().then((rows) => {
+      setEvents(rows);
+      const live = rows.find((event) => event.operational_status === 'activo')
+        ?? rows.find((event) => event.operational_status === 'proximo')
+        ?? rows[0];
+      if (live) setEventId(live.id);
+    }).catch(() => setEvents([]));
+  }, []);
+
+  useEffect(() => {
+    if (!eventId) return;
+    reloadLog(eventId).catch(() => {
+      setLog([]);
+      setToday({});
+    });
+  }, [eventId]);
+
+  async function handleScan() {
+    if (!eventId || scanning) return;
     setScanning(true);
-    setTimeout(() => {
+    setError(null);
+    try {
+      const outcome = await scanPersonQr({ eventId, token, interaction: activeType });
+      setLastResult({ ok: outcome.ok, name: outcome.name, message: outcome.message });
+      setToken('');
+      await reloadLog(eventId);
+      window.setTimeout(() => setLastResult(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo registrar el escaneo.');
+    } finally {
       setScanning(false);
-      const ok = Math.random() > 0.3;
-      setLastResult({ ok, name: 'Dra. Valentina Ospina' });
-      setTimeout(() => setLastResult(null), 3000);
-    }, 1800);
+    }
   }
 
   return (
@@ -70,18 +116,27 @@ export function NovoScanner() {
           <div className="flex items-center gap-2 rounded-xl px-3 py-2"
             style={{ background: '#112035', border: '1px solid #1e3450' }}>
             <div className="h-2 w-2 rounded-full" style={{ background: '#00C9A0', boxShadow: '0 0 6px #00C9A0' }} />
-            <span className="text-sm font-semibold" style={{ color: '#E1EAF4' }}>Hormobiota VI</span>
-          </div>
-          <div className="rounded-xl px-3 py-2" style={{ background: '#112035', border: '1px solid #1e3450' }}>
-            <span className="text-sm" style={{ color: '#7A9CB8' }}>Stand B-01</span>
+            <select
+              value={eventId}
+              onChange={(e) => setEventId(e.target.value)}
+              className="bg-transparent text-sm font-semibold outline-none"
+              style={{ color: '#E1EAF4' }}
+            >
+              {events.length === 0 ? <option value="">Sin eventos</option> : null}
+              {events.map((event) => (
+                <option key={event.id} value={event.id}>{event.name}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
 
+      {error ? (
+        <p className="mb-4 rounded-xl px-4 py-2.5 text-xs" style={{ background: 'rgba(242,68,99,.12)', color: '#F24463' }}>{error}</p>
+      ) : null}
+
       <div className="grid grid-cols-2 gap-6">
-        {/* Panel izquierdo — scanner + KPIs */}
         <div className="space-y-4">
-          {/* Frame scanner */}
           <div className="rounded-2xl p-6 flex flex-col items-center gap-5"
             style={{ background: '#112035', border: '1px solid #1e3450' }}>
             <div
@@ -93,7 +148,6 @@ export function NovoScanner() {
                 transition: 'border-color .3s, background .3s',
               }}
             >
-              {/* Esquinas */}
               {[
                 { top: -2, left: -2, borderRight: 'none', borderBottom: 'none', borderRadius: '4px 0 0 0' },
                 { top: -2, right: -2, borderLeft: 'none', borderBottom: 'none', borderRadius: '0 4px 0 0' },
@@ -107,7 +161,6 @@ export function NovoScanner() {
                 }} />
               ))}
 
-              {/* Línea de escaneo */}
               {scanning && (
                 <motion.div
                   animate={{ y: [-80, 80, -80] }}
@@ -119,12 +172,10 @@ export function NovoScanner() {
                 />
               )}
 
-              {/* Icono cuando no escanea */}
               {!scanning && (
                 <QrCodeIcon size={48} strokeWidth={1} style={{ color: '#1e3450' }} />
               )}
 
-              {/* Resultado overlay */}
               <AnimatePresence>
                 {lastResult && (
                   <motion.div
@@ -140,38 +191,48 @@ export function NovoScanner() {
                     }
                     <p className="mt-2 text-xs font-semibold text-center px-4"
                       style={{ color: lastResult.ok ? '#00C9A0' : '#F24463' }}>
-                      {lastResult.ok ? '✓ Acceso permitido' : '✗ Ya utilizado / no válido'}
+                      {lastResult.ok ? '✓ Acceso permitido' : `✗ ${lastResult.message}`}
                     </p>
-                    <p className="text-xs mt-1 text-center px-4" style={{ color: '#7A9CB8' }}>
-                      {lastResult.name}
-                    </p>
+                    {lastResult.name ? (
+                      <p className="text-xs mt-1 text-center px-4" style={{ color: '#7A9CB8' }}>
+                        {lastResult.name}
+                      </p>
+                    ) : null}
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
 
             <p className="text-sm text-center" style={{ color: '#7A9CB8' }}>
-              {scanning ? 'Escaneando...' : 'Apunta la cámara al QR del asistente'}
+              {scanning ? 'Validando inscripción…' : selectedEvent ? `Escaneo para ${selectedEvent.name}` : 'Elige un evento'}
             </p>
+
+            <input
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void handleScan(); }}
+              placeholder="Pega el código QR"
+              className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
+              style={{ background: '#0d1829', border: '1px solid #1e3450', color: '#E1EAF4' }}
+            />
 
             <button
               type="button"
-              onClick={handleScan}
-              disabled={scanning}
+              onClick={() => { void handleScan(); }}
+              disabled={scanning || !eventId || !token.trim()}
               className="w-full rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95"
-              style={{ background: scanning ? '#1e3450' : '#00C9A0', color: scanning ? '#3A5470' : '#0d1829' }}
+              style={{ background: scanning || !token.trim() ? '#1e3450' : '#00C9A0', color: scanning || !token.trim() ? '#3A5470' : '#0d1829' }}
             >
-              {scanning ? 'Procesando...' : 'Escanear QR'}
+              {scanning ? 'Procesando...' : 'Validar QR'}
             </button>
           </div>
 
-          {/* Contadores del día */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Entradas',  value: 247, color: '#00C9A0' },
-              { label: 'Coffee',    value: 89,  color: '#F59E0B' },
-              { label: 'Stands',    value: 34,  color: '#A78BFA' },
-            ].map(kpi => (
+              { label: 'Entradas',  value: today.entrada ?? 0, color: '#00C9A0' },
+              { label: 'Coffee',    value: today.coffee ?? 0,  color: '#F59E0B' },
+              { label: 'Kit',       value: today.kit ?? 0,     color: '#A78BFA' },
+            ].map((kpi) => (
               <div key={kpi.label} className="rounded-xl p-3 text-center"
                 style={{ background: '#112035', border: '1px solid #1e3450' }}>
                 <p className="text-xl font-bold tabular-nums" style={{ color: kpi.color, fontFamily: "'Sora', sans-serif" }}>
@@ -185,15 +246,13 @@ export function NovoScanner() {
           </div>
         </div>
 
-        {/* Panel derecho — tipos de interacción + log */}
         <div className="space-y-4">
-          {/* Tipos */}
           <div>
             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#3A5470' }}>
               Tipo de interacción activo
             </p>
             <div className="grid grid-cols-3 gap-2">
-              {INTERACTION_TYPES.map(t => (
+              {INTERACTION_TYPES.map((t) => (
                 <button
                   key={t.id}
                   type="button"
@@ -214,34 +273,41 @@ export function NovoScanner() {
             </div>
           </div>
 
-          {/* Log */}
           <div>
             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#3A5470' }}>
               Últimas capturas
             </p>
             <div className="overflow-hidden rounded-2xl" style={{ background: '#112035', border: '1px solid #1e3450' }}>
-              {MOCK_LOG.map((entry, i) => (
-                <div
-                  key={entry.id}
-                  className="flex items-center gap-3 px-4 py-3"
-                  style={{ borderBottom: i < MOCK_LOG.length - 1 ? '1px solid #1a2e45' : 'none' }}
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-                    style={{ background: GRADIENTS[i % GRADIENTS.length], color: '#fff' }}>
-                    {initials(entry.person)}
+              {log.length === 0 && (
+                <p className="px-4 py-10 text-center text-sm" style={{ color: '#3A5470' }}>
+                  Aún no hay escaneos en este evento.
+                </p>
+              )}
+              {log.map((entry, i) => {
+                const meta = INTERACTION_TYPES.find((t) => t.id === entry.interaction);
+                return (
+                  <div
+                    key={entry.id}
+                    className="flex items-center gap-3 px-4 py-3"
+                    style={{ borderBottom: i < log.length - 1 ? '1px solid #1a2e45' : 'none' }}
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                      style={{ background: GRADIENTS[i % GRADIENTS.length], color: '#fff' }}>
+                      {initials(entry.person)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate text-sm font-medium" style={{ color: '#E1EAF4' }}>{entry.person}</p>
+                      <p className="text-xs" style={{ color: '#3A5470' }}>
+                        {meta?.label ?? entry.interaction} · {formatAgo(entry.occurred_at)}
+                      </p>
+                    </div>
+                    {entry.ok
+                      ? <CheckCircleIcon size={16} style={{ color: '#00C9A0', flexShrink: 0 }} />
+                      : <XCircleIcon    size={16} style={{ color: '#F24463', flexShrink: 0 }} />
+                    }
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="truncate text-sm font-medium" style={{ color: '#E1EAF4' }}>{entry.person}</p>
-                    <p className="text-xs" style={{ color: '#3A5470' }}>
-                      {entry.interaction} · {entry.time}
-                    </p>
-                  </div>
-                  {entry.ok
-                    ? <CheckCircleIcon size={16} style={{ color: '#00C9A0', flexShrink: 0 }} />
-                    : <XCircleIcon    size={16} style={{ color: '#F24463', flexShrink: 0 }} />
-                  }
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
