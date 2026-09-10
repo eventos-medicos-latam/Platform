@@ -128,11 +128,13 @@ export async function listPublicAllies(): Promise<NovoCompany[]> {
   return (data as CompanyRow[] | null)?.map(mapCompany) ?? [];
 }
 
-export async function listCompanies(): Promise<NovoCompany[]> {
-  const { data, error } = await supabase
+export async function listCompanies(opts?: { includeSample?: boolean }): Promise<NovoCompany[]> {
+  let query = supabase
     .from('companies')
     .select(COMPANY_SELECT)
     .order('trade_name');
+  if (!opts?.includeSample) query = query.eq('is_sample_data', false);
+  const { data, error } = await query;
   if (error) throw error;
   return (data as CompanyRow[] | null)?.map(mapCompany) ?? [];
 }

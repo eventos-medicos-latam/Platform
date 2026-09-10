@@ -174,6 +174,48 @@ export async function listStandUnits(eventId?: string): Promise<EventStandUnit[]
   return ((data as UnitRow[] | null) ?? []).map(mapUnit);
 }
 
+export function standCodeFromLabel(label: string): string {
+  return label.split(/[·|,]/)[0].trim();
+}
+
+function normalizeStandCode(value: string): string {
+  return standCodeFromLabel(value).toLowerCase().replace(/[\s-]/g, '');
+}
+
+export type StandReserveResult =
+  | { status: 'reserved' | 'already' | 'missing'; code: string }
+  | { status: 'taken'; code: string; holder: string };
+
+export async function reserveStandForCompany(
+  eventId: string,
+  standLabel: string,
+  companyId: string,
+): Promise<StandReserveResult> {
+  const code = standCodeFromLabel(standLabel);
+  if (!code) return { status: 'missing', code: '' };
+  const units = await listStandUnits(eventId);
+  const needle = normalizeStandCode(code);
+  const unit = units.find((item) => normalizeStandCode(item.code) === needle);
+  if (!unit) return { status: 'missing', code };
+  if (unit.company_id === companyId && (unit.status === 'reservado' || unit.status === 'vendido')) {
+    return { status: 'already', code: unit.code };
+  }
+  if (unit.company_id && unit.company_id !== companyId && unit.status !== 'disponible') {
+    return { status: 'taken', code: unit.code, holder: unit.company_name ?? 'otra empresa' };
+  }
+  await updateStandUnit(unit.id, {
+    code: unit.code,
+    type_id: unit.type_id,
+    event_id: eventId,
+    company_id: companyId,
+    status: unit.status === 'vendido' ? 'vendido' : 'reservado',
+    price: unit.price,
+    zone: unit.zone,
+    notas: unit.notas,
+  }, unit.payment_id);
+  return { status: 'reserved', code: unit.code };
+}
+
 async function ensureInventory(eventId: string, typeId: string, price: number, add = 1): Promise<string> {
   const extra = Math.max(1, add);
   const { data: existing, error: findError } = await supabase

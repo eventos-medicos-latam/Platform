@@ -1,16 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   ArrowLeftIcon, ArrowRightIcon, BuildingIcon, CalendarDaysIcon,
   CheckCircle2Icon, Loader2Icon, MapPinIcon, SearchIcon, UserIcon, XIcon,
-  LayoutPanelLeftIcon,
+  LayoutPanelLeftIcon, Maximize2Icon,
 } from 'lucide-react';
 import { PlanShowcase } from '../event/PlanShowcase';
 import { DisplayTitle } from '../ui/DisplayTitle';
 import { editions } from '../../data/editions';
 import { getEditionPlans } from '../../data/editionPlans';
+import { getEventBySlug } from '../../lib/novo/events';
+import { getFloorPlanUrl, listEventParticipations, participationToPublicPlan, enumPlanId } from '../../lib/novo/participations';
+import { listStandUnits } from '../../lib/novo/stands';
+import { submitPublicPlanRequest } from '../../lib/novo/planRequests';
 import { supabase } from '../../lib/supabaseClient';
-import type { PlanId } from '../../types/participation';
+import type { ParticipationPlan } from '../../types/participation';
 import { EASE_EMPHASIS, DURATION } from '../../utils/motion';
 import { editionMedia, media } from '../../data/media';
 
@@ -49,9 +54,18 @@ interface CompanyResult {
 
 type FormStep = 'idle' | 'stand' | 'search' | 'email' | 'empresa' | 'contacto' | 'submitting' | 'success';
 
-interface StandOption { id: string; code: string; size: string; zone: string; }
+interface StandOption { id: string; code: string; size: string; zone: string; taken?: boolean; }
 
-/* Stands mock por edición — en producción vendría de Supabase */
+function sameZone(a: string, b: string) {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+function inPlanZone(stand: Pick<StandOption, 'zone'>, zone: string) {
+  if (!zone.trim()) return true;
+  return sameZone(stand.zone, zone);
+}
+
+/* Stands mock por edición — se usa si el evento aún no tiene inventario en Stands */
 const MOCK_STANDS: StandOption[] = [
   { id: 'st04', code: 'A-04', size: '3×3 m', zone: 'Zona A' },
   { id: 'st05', code: 'A-05', size: '3×3 m', zone: 'Zona A' },
@@ -59,6 +73,10 @@ const MOCK_STANDS: StandOption[] = [
   { id: 'st09', code: 'B-04', size: '3×3 m', zone: 'Zona B' },
   { id: 'st11', code: 'C-01', size: '3×3 m', zone: 'Zona C' },
   { id: 'st12', code: 'C-02', size: '3×3 m', zone: 'Zona C' },
+  { id: 'pu-01', code: 'PU-01', size: '1×2 m', zone: 'Estaciones Pop Up' },
+  { id: 'pu-02', code: 'PU-02', size: '1×2 m', zone: 'Estaciones Pop Up' },
+  { id: 'pu-03', code: 'PU-03', size: '1×2 m', zone: 'Estaciones Pop Up' },
+  { id: 'pu-04', code: 'PU-04', size: '1×2 m', zone: 'Estaciones Pop Up' },
 ];
 
 const STEP_TITLE: Record<FormStep, string> = {
@@ -117,20 +135,26 @@ function CompanyBar({
 }
 
 /* ── Main component ───────────────────────────────────────────────────────── */
-export function AllyPlansSection({ fixedEditionId }: { fixedEditionId?: string }) {
+export function AllyPlansSection({ fixedEditionId, novoEventId }: { fixedEditionId?: string; novoEventId?: string }) {
   const reduce = useReducedMotion();
 
   /* event selector */
   const [activeEditionId, setActiveEditionId] = useState(fixedEditionId ?? upcomingEditions[0]?.id ?? '');
   const activeEdition = upcomingEditions.find((e) => e.id === activeEditionId) ?? upcomingEditions[0];
-  const editionPlans = getEditionPlans(activeEdition?.id ?? '');
-  const [activePlanId, setActivePlanId] = useState<PlanId | null>(null);
+  const catalogPlans = getEditionPlans(activeEdition?.id ?? '');
+  const [novoPlans, setNovoPlans] = useState<ParticipationPlan[] | null>(null);
+  const [floorPlanUrl, setFloorPlanUrl] = useState('');
+  const [eventStands, setEventStands] = useState<StandOption[]>([]);
+  const [mapExpanded, setMapExpanded] = useState(false);
+  const editionPlans = (novoPlans && novoPlans.length > 0) ? novoPlans : catalogPlans;
+  const [activePlanId, setActivePlanId] = useState<string | null>(null);
 
   /* form */
   const [formOpen, setFormOpen] = useState(false);
   const [step, setStep] = useState<FormStep>('idle');
-  const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [selectedStand, setSelectedStand] = useState<StandOption | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   /* search */
   const [query, setQuery] = useState('');
@@ -161,6 +185,62 @@ export function AllyPlansSection({ fixedEditionId }: { fixedEditionId?: string }
   });
 
   const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const slug = activeEdition?.slug;
+    if (!novoEventId && !slug) {
+      setNovoPlans(null);
+      setFloorPlanUrl('');
+      setEventStands([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const eventId = novoEventId ?? (slug ? (await getEventBySlug(slug))?.id : undefined);
+        if (!eventId || cancelled) {
+          if (!cancelled) {
+            setNovoPlans(null);
+            setFloorPlanUrl('');
+            setEventStands([]);
+          }
+          return;
+        }
+        const [rows, mapUrl, units] = await Promise.all([
+          listEventParticipations(eventId),
+          getFloorPlanUrl(eventId),
+          listStandUnits(eventId).catch(() => []),
+        ]);
+        if (cancelled) return;
+        const active = rows.filter((row) => row.is_active);
+        setNovoPlans(active.length ? active.map(participationToPublicPlan) : []);
+        setFloorPlanUrl(mapUrl);
+        setEventStands(units.map((unit) => ({
+          id: unit.id,
+          code: unit.code,
+          size: unit.type_name || '',
+          zone: unit.zone || 'Sin zona',
+          taken: unit.status !== 'disponible',
+        })));
+      } catch {
+        if (!cancelled) {
+          setNovoPlans([]);
+          setFloorPlanUrl('');
+          setEventStands([]);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [novoEventId, activeEdition?.slug]);
+
+  useEffect(() => {
+    if (!mapExpanded) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMapExpanded(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mapExpanded]);
 
   /* company search */
   useEffect(() => {
@@ -194,11 +274,12 @@ export function AllyPlansSection({ fixedEditionId }: { fixedEditionId?: string }
     } catch { setEmailStatus('new'); }
   };
 
-  const openForm = (planId?: PlanId) => {
+  const openForm = (planId?: string) => {
     const plan = editionPlans.find((p) => p.id === planId);
     const hasMap = plan?.has_map ?? false;
     setSelectedPlan(planId ?? null);
     setSelectedStand(null);
+    setSubmitError(null);
     setStep(hasMap ? 'stand' : 'search');
     setFormOpen(true);
     setQuery(''); setResults([]); setSelectedCompany(null);
@@ -208,7 +289,11 @@ export function AllyPlansSection({ fixedEditionId }: { fixedEditionId?: string }
     if (!hasMap) setTimeout(() => searchRef.current?.focus(), 120);
   };
 
-  const closeForm = () => { setFormOpen(false); setTimeout(() => setStep('idle'), 300); };
+  const closeForm = () => {
+    setMapExpanded(false);
+    setFormOpen(false);
+    setTimeout(() => setStep('idle'), 300);
+  };
 
   const selectCompany = (company: CompanyResult) => {
     setSelectedCompany(company);
@@ -233,33 +318,33 @@ export function AllyPlansSection({ fixedEditionId }: { fixedEditionId?: string }
   const submitRequest = async () => {
     if (!activeEdition) return;
     setStep('submitting');
-    const payload = {
-      edition_id: activeEdition.id,
-      plan_id: selectedPlan,
-      ally_role: null,
-      space_id: null,
-      track_id: null,
-      speaker_choice: null,
-      company: empresa.trade_name || query,
-      nit: empresa.nit || null,
-      contact_name: contacto.name,
-      contact_email: email.toLowerCase().trim(),
-      contact_whatsapp: contacto.whatsapp || null,
-      category: empresa.sector || null,
-      country: empresa.country || null,
-      city: empresa.city || null,
-      notes: [
-        contacto.cargo ? `Cargo: ${contacto.cargo}` : '',
-        empresa.legal_name ? `Razón social: ${empresa.legal_name}` : '',
-        contacto.notes,
-      ].filter(Boolean).join('\n') || null,
-      status: 'nueva',
-    };
+    setSubmitError(null);
+    const plan = editionPlans.find((item) => item.id === selectedPlan);
     try {
-      const { error } = await supabase.from('plan_requests').insert(payload);
-      if (error) console.warn('plan_requests insert:', error.message);
-    } catch (err) { console.warn('Supabase no disponible:', err); }
-    setStep('success');
+      await submitPublicPlanRequest({
+        editionId: activeEdition.id,
+        planId: enumPlanId(selectedPlan),
+        company: empresa.trade_name || query,
+        nit: empresa.nit || null,
+        contactName: contacto.cargo ? `${contacto.name} (${contacto.cargo})` : contacto.name,
+        contactEmail: email.toLowerCase().trim(),
+        contactWhatsapp: contacto.whatsapp || null,
+        category: empresa.sector || null,
+        country: empresa.country || null,
+        city: empresa.city || null,
+        notes: [
+          plan ? `Plan: ${plan.name}` : '',
+          selectedStand ? `Stand: ${selectedStand.code}${selectedStand.zone ? ` · ${selectedStand.zone}` : ''}` : '',
+          contacto.cargo ? `Cargo: ${contacto.cargo}` : '',
+          empresa.legal_name ? `Razón social: ${empresa.legal_name}` : '',
+          contacto.notes,
+        ].filter(Boolean).join('\n') || null,
+      });
+      setStep('success');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'No pudimos enviar tu solicitud. Intenta de nuevo en un momento.');
+      setStep('contacto');
+    }
   };
 
   const canProceedEmail = email.includes('@') && email.includes('.') && emailStatus !== 'checking';
@@ -269,7 +354,13 @@ export function AllyPlansSection({ fixedEditionId }: { fixedEditionId?: string }
   const companyDisplayName = empresa.trade_name || query;
 
   /* step dots */
-  const planHasMap = editionPlans.find((p) => p.id === selectedPlan)?.has_map ?? false;
+  const selectedPlanData = editionPlans.find((p) => p.id === selectedPlan);
+  const planHasMap = selectedPlanData?.has_map ?? false;
+  const planZone = selectedPlanData?.stand_zone?.trim() ?? '';
+  const standSource = eventStands.length ? eventStands : MOCK_STANDS;
+  const planStands = standSource.filter((stand) => inPlanZone(stand, planZone));
+  const showStandChips = Boolean(floorPlanUrl || eventStands.length || planZone);
+  const svgInteractive = !floorPlanUrl && eventStands.length === 0;
   const stepDots: FormStep[] = planHasMap
     ? ['stand', 'search', 'email', 'empresa', 'contacto']
     : ['search', 'email', 'empresa', 'contacto'];
@@ -448,20 +539,47 @@ export function AllyPlansSection({ fixedEditionId }: { fixedEditionId?: string }
                       className="flex flex-col gap-4 px-6 py-5"
                     >
                       <p className="text-sm leading-relaxed text-ink">
-                        Haz clic en el stand de tu preferencia en el plano. El equipo comercial confirmará disponibilidad.
+                        {planZone
+                          ? `Este plan solo habilita stands de ${planZone}. Elige uno disponible; el equipo comercial confirmará el espacio.`
+                          : floorPlanUrl
+                            ? 'Revisa el plano y elige un stand disponible. El equipo comercial confirmará disponibilidad.'
+                            : 'Haz clic en el stand de tu preferencia en el plano. El equipo comercial confirmará disponibilidad.'}
                       </p>
 
-                      {/* Floor plan SVG */}
+                      {/* Floor plan */}
                       <div className="overflow-hidden rounded-2xl border border-line bg-[#f0f4f8]">
                         <div className="border-b border-line bg-white px-4 py-2 flex items-center gap-2">
                           <LayoutPanelLeftIcon size={14} className="text-brand" />
                           <span className="text-xs font-semibold text-brand">Plano del evento</span>
+                          {floorPlanUrl ? (
+                            <button
+                              type="button"
+                              onClick={() => setMapExpanded(true)}
+                              className="ml-auto inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-1 text-[10px] font-bold text-brand hover:border-brand/40"
+                            >
+                              <Maximize2Icon size={11} /> Ampliar
+                            </button>
+                          ) : null}
                           {selectedStand && (
-                            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-brand/10 px-2.5 py-1 text-[10px] font-bold text-brand">
+                            <span className={`inline-flex items-center gap-1 rounded-full bg-brand/10 px-2.5 py-1 text-[10px] font-bold text-brand ${floorPlanUrl ? '' : 'ml-auto'}`}>
                               <CheckCircle2Icon size={11} /> Stand {selectedStand.code} seleccionado
                             </span>
                           )}
                         </div>
+                        {floorPlanUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => setMapExpanded(true)}
+                            className="block w-full cursor-zoom-in text-left"
+                            aria-label="Ampliar plano del evento"
+                          >
+                            <img
+                              src={floorPlanUrl}
+                              alt="Plano de stands del evento"
+                              className="w-full max-h-[420px] object-contain bg-[#f0f4f8]"
+                            />
+                          </button>
+                        ) : (
                         <div className="p-3 overflow-x-auto">
                           <svg viewBox="0 0 340 260" xmlns="http://www.w3.org/2000/svg"
                             className="w-full min-w-[280px]" style={{ fontFamily: 'inherit' }}>
@@ -488,19 +606,22 @@ export function AllyPlansSection({ fixedEditionId }: { fixedEditionId?: string }
                               { id: 'st05', code: 'A-05', x: 55, y: 110, taken: false },
                               { id: 'st-a06', code: 'A-06', x: 55, y: 155, taken: true },
                             ].map((s) => {
+                              const zone = 'Zona A';
+                              const offPlan = !inPlanZone({ zone }, planZone);
+                              const locked = s.taken || offPlan || !svgInteractive;
                               const isSelected = selectedStand?.id === s.id;
-                              const fill = s.taken ? '#e2e8f0' : isSelected ? '#112035' : '#ffffff';
-                              const stroke = s.taken ? '#cbd5e1' : isSelected ? '#112035' : '#94a3b8';
-                              const textFill = s.taken ? '#94a3b8' : isSelected ? '#ffffff' : '#112035';
+                              const fill = s.taken || offPlan ? '#e2e8f0' : isSelected ? '#112035' : '#ffffff';
+                              const stroke = s.taken || offPlan ? '#cbd5e1' : isSelected ? '#112035' : '#94a3b8';
+                              const textFill = s.taken || offPlan ? '#94a3b8' : isSelected ? '#ffffff' : '#112035';
                               return (
-                                <g key={s.id} style={{ cursor: s.taken ? 'not-allowed' : 'pointer' }}
-                                  onClick={() => !s.taken && setSelectedStand(isSelected ? null : { id: s.id, code: s.code, size: '3×3 m', zone: 'Zona A' })}>
+                                <g key={s.id} style={{ cursor: locked ? 'default' : 'pointer' }}
+                                  onClick={() => !locked && setSelectedStand(isSelected ? null : { id: s.id, code: s.code, size: '3×3 m', zone })}>
                                   <rect x={s.x} y={s.y} width="40" height="38" rx="5"
                                     fill={fill} stroke={stroke} strokeWidth={isSelected ? 2 : 1.2}
                                     style={{ transition: 'fill 0.18s, stroke 0.18s' }} />
                                   <text x={s.x + 20} y={s.y + 16} textAnchor="middle" fill={textFill} fontSize="8" fontWeight="700">{s.code}</text>
-                                  <text x={s.x + 20} y={s.y + 28} textAnchor="middle" fill={s.taken ? '#cbd5e1' : isSelected ? '#00C9A0' : '#64748b'} fontSize="7">
-                                    {s.taken ? 'Ocupado' : '3×3 m'}
+                                  <text x={s.x + 20} y={s.y + 28} textAnchor="middle" fill={s.taken ? '#cbd5e1' : offPlan ? '#94a3b8' : isSelected ? '#00C9A0' : '#64748b'} fontSize="7">
+                                    {s.taken ? 'Ocupado' : offPlan ? 'Otro plan' : '3×3 m'}
                                   </text>
                                 </g>
                               );
@@ -515,19 +636,22 @@ export function AllyPlansSection({ fixedEditionId }: { fixedEditionId?: string }
                               { id: 'st-b05', code: 'B-05', x: 170, y: 110, taken: true },
                               { id: 'st-b06', code: 'B-06', x: 170, y: 155, taken: true },
                             ].map((s) => {
+                              const zone = 'Zona B';
+                              const offPlan = !inPlanZone({ zone }, planZone);
+                              const locked = s.taken || offPlan || !svgInteractive;
                               const isSelected = selectedStand?.id === s.id;
-                              const fill = s.taken ? '#e2e8f0' : isSelected ? '#112035' : '#ffffff';
-                              const stroke = s.taken ? '#cbd5e1' : isSelected ? '#112035' : '#94a3b8';
-                              const textFill = s.taken ? '#94a3b8' : isSelected ? '#ffffff' : '#112035';
+                              const fill = s.taken || offPlan ? '#e2e8f0' : isSelected ? '#112035' : '#ffffff';
+                              const stroke = s.taken || offPlan ? '#cbd5e1' : isSelected ? '#112035' : '#94a3b8';
+                              const textFill = s.taken || offPlan ? '#94a3b8' : isSelected ? '#ffffff' : '#112035';
                               return (
-                                <g key={s.id} style={{ cursor: s.taken ? 'not-allowed' : 'pointer' }}
-                                  onClick={() => !s.taken && setSelectedStand(isSelected ? null : { id: s.id, code: s.code, size: '3×3 m', zone: 'Zona B' })}>
+                                <g key={s.id} style={{ cursor: locked ? 'default' : 'pointer' }}
+                                  onClick={() => !locked && setSelectedStand(isSelected ? null : { id: s.id, code: s.code, size: '3×3 m', zone })}>
                                   <rect x={s.x} y={s.y} width="40" height="38" rx="5"
                                     fill={fill} stroke={stroke} strokeWidth={isSelected ? 2 : 1.2}
                                     style={{ transition: 'fill 0.18s, stroke 0.18s' }} />
                                   <text x={s.x + 20} y={s.y + 16} textAnchor="middle" fill={textFill} fontSize="8" fontWeight="700">{s.code}</text>
-                                  <text x={s.x + 20} y={s.y + 28} textAnchor="middle" fill={s.taken ? '#cbd5e1' : isSelected ? '#00C9A0' : '#64748b'} fontSize="7">
-                                    {s.taken ? 'Ocupado' : '3×3 m'}
+                                  <text x={s.x + 20} y={s.y + 28} textAnchor="middle" fill={s.taken ? '#cbd5e1' : offPlan ? '#94a3b8' : isSelected ? '#00C9A0' : '#64748b'} fontSize="7">
+                                    {s.taken ? 'Ocupado' : offPlan ? 'Otro plan' : '3×3 m'}
                                   </text>
                                 </g>
                               );
@@ -540,19 +664,22 @@ export function AllyPlansSection({ fixedEditionId }: { fixedEditionId?: string }
                               { id: 'st-c03', code: 'C-03', x: 290, y: 65, taken: true },
                               { id: 'st-c04', code: 'C-04', x: 290, y: 110, taken: true },
                             ].map((s) => {
+                              const zone = 'Zona C';
+                              const offPlan = !inPlanZone({ zone }, planZone);
+                              const locked = s.taken || offPlan || !svgInteractive;
                               const isSelected = selectedStand?.id === s.id;
-                              const fill = s.taken ? '#e2e8f0' : isSelected ? '#112035' : '#ffffff';
-                              const stroke = s.taken ? '#cbd5e1' : isSelected ? '#112035' : '#94a3b8';
-                              const textFill = s.taken ? '#94a3b8' : isSelected ? '#ffffff' : '#112035';
+                              const fill = s.taken || offPlan ? '#e2e8f0' : isSelected ? '#112035' : '#ffffff';
+                              const stroke = s.taken || offPlan ? '#cbd5e1' : isSelected ? '#112035' : '#94a3b8';
+                              const textFill = s.taken || offPlan ? '#94a3b8' : isSelected ? '#ffffff' : '#112035';
                               return (
-                                <g key={s.id} style={{ cursor: s.taken ? 'not-allowed' : 'pointer' }}
-                                  onClick={() => !s.taken && setSelectedStand(isSelected ? null : { id: s.id, code: s.code, size: '3×3 m', zone: 'Zona C' })}>
+                                <g key={s.id} style={{ cursor: locked ? 'default' : 'pointer' }}
+                                  onClick={() => !locked && setSelectedStand(isSelected ? null : { id: s.id, code: s.code, size: '3×3 m', zone })}>
                                   <rect x={s.x} y={s.y} width="40" height="38" rx="5"
                                     fill={fill} stroke={stroke} strokeWidth={isSelected ? 2 : 1.2}
                                     style={{ transition: 'fill 0.18s, stroke 0.18s' }} />
                                   <text x={s.x + 20} y={s.y + 16} textAnchor="middle" fill={textFill} fontSize="8" fontWeight="700">{s.code}</text>
-                                  <text x={s.x + 20} y={s.y + 28} textAnchor="middle" fill={s.taken ? '#cbd5e1' : isSelected ? '#00C9A0' : '#64748b'} fontSize="7">
-                                    {s.taken ? 'Ocupado' : '3×3 m'}
+                                  <text x={s.x + 20} y={s.y + 28} textAnchor="middle" fill={s.taken ? '#cbd5e1' : offPlan ? '#94a3b8' : isSelected ? '#00C9A0' : '#64748b'} fontSize="7">
+                                    {s.taken ? 'Ocupado' : offPlan ? 'Otro plan' : '3×3 m'}
                                   </text>
                                 </g>
                               );
@@ -565,13 +692,26 @@ export function AllyPlansSection({ fixedEditionId }: { fixedEditionId?: string }
                               { id: 'pu-02', code: 'PU-02', x: 115 },
                               { id: 'pu-03', code: 'PU-03', x: 180 },
                               { id: 'pu-04', code: 'PU-04', x: 245 },
-                            ].map((s) => (
-                              <g key={s.id}>
-                                <rect x={s.x} y={220} width="42" height="28" rx="4" fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="1" />
-                                <text x={s.x + 21} y={232} textAnchor="middle" fill="#94a3b8" fontSize="7" fontWeight="600">{s.code}</text>
-                                <text x={s.x + 21} y={242} textAnchor="middle" fill="#cbd5e1" fontSize="6">1×2 m</text>
-                              </g>
-                            ))}
+                            ].map((s) => {
+                              const zone = 'Estaciones Pop Up';
+                              const offPlan = !inPlanZone({ zone }, planZone);
+                              const locked = offPlan || !svgInteractive;
+                              const isSelected = selectedStand?.id === s.id;
+                              const fill = offPlan ? '#e2e8f0' : isSelected ? '#112035' : '#ffffff';
+                              const stroke = offPlan ? '#cbd5e1' : isSelected ? '#112035' : '#94a3b8';
+                              const textFill = offPlan ? '#94a3b8' : isSelected ? '#ffffff' : '#112035';
+                              return (
+                                <g key={s.id} style={{ cursor: locked ? 'default' : 'pointer' }}
+                                  onClick={() => !locked && setSelectedStand(isSelected ? null : { id: s.id, code: s.code, size: '1×2 m', zone })}>
+                                  <rect x={s.x} y={220} width="42" height="28" rx="4"
+                                    fill={fill} stroke={stroke} strokeWidth={isSelected ? 2 : 1} />
+                                  <text x={s.x + 21} y={232} textAnchor="middle" fill={textFill} fontSize="7" fontWeight="600">{s.code}</text>
+                                  <text x={s.x + 21} y={242} textAnchor="middle" fill={offPlan ? '#cbd5e1' : isSelected ? '#00C9A0' : '#64748b'} fontSize="6">
+                                    {offPlan ? 'Otro plan' : '1×2 m'}
+                                  </text>
+                                </g>
+                              );
+                            })}
 
                             {/* Legend */}
                             <rect x="10" y="205" width="10" height="10" rx="2" fill="#ffffff" stroke="#94a3b8" strokeWidth="1.2" />
@@ -582,7 +722,39 @@ export function AllyPlansSection({ fixedEditionId }: { fixedEditionId?: string }
                             <text x="174" y="214" fill="#94a3b8" fontSize="7">Ocupado</text>
                           </svg>
                         </div>
+                        )}
                       </div>
+
+                      {showStandChips ? (
+                        <div className="flex flex-col gap-2">
+                          {planStands.length === 0 ? (
+                            <p className="text-xs text-ink-muted">
+                              Aún no hay stands cargados{planZone ? ` en ${planZone}` : ''}. Puedes continuar y el equipo comercial te asignará uno.
+                            </p>
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              {planStands.map((s) => {
+                                const on = selectedStand?.id === s.id;
+                                return (
+                                  <button
+                                    key={s.id}
+                                    type="button"
+                                    disabled={s.taken}
+                                    onClick={() => setSelectedStand(on ? null : s)}
+                                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                                      on
+                                        ? 'border-brand bg-brand text-white'
+                                        : 'border-line bg-white text-ink hover:border-brand/50'
+                                    }`}
+                                  >
+                                    {s.code}{s.size ? ` · ${s.size}` : ''}{s.taken ? ' · Ocupado' : ''}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
 
                       <p className="text-xs text-ink-muted">
                         ¿No ves el que quieres? El equipo comercial te mostrará todas las opciones disponibles durante la reunión de cierre.
@@ -878,6 +1050,10 @@ export function AllyPlansSection({ fixedEditionId }: { fixedEditionId?: string }
                           className={inp} />
                       </label>
 
+                      {submitError ? (
+                        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{submitError}</p>
+                      ) : null}
+
                       <div className="mt-2 flex flex-col gap-2">
                         <button type="button" disabled={!canSubmitContacto}
                           onClick={submitRequest}
@@ -1006,6 +1182,40 @@ export function AllyPlansSection({ fixedEditionId }: { fixedEditionId?: string }
           </>
         )}
       </AnimatePresence>
+      {mapExpanded && floorPlanUrl && createPortal(
+        <div
+          className="fixed inset-0 z-[80] flex flex-col bg-brand-deep/90 p-4 sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Plano del evento ampliado"
+          onClick={() => setMapExpanded(false)}
+        >
+          <div className="mb-3 flex items-center justify-between gap-3 text-white">
+            <p className="text-sm font-semibold">Plano del evento</p>
+            <button
+              type="button"
+              onClick={() => setMapExpanded(false)}
+              className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold hover:bg-white/20"
+            >
+              <XIcon size={14} /> Cerrar
+            </button>
+          </div>
+          <div
+            className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-transparent p-2"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <img
+              src={floorPlanUrl}
+              alt="Plano de stands del evento"
+              className="mx-auto h-auto w-auto max-h-[62vh] max-w-[min(800px,85vw)] object-contain drop-shadow-lg"
+            />
+          </div>
+          <p className="mt-2 text-center text-[11px] text-white/70">
+            Esc o toca fuera para cerrar.
+          </p>
+        </div>,
+        document.body,
+      )}
     </section>
   );
 }

@@ -2,19 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowRightIcon, CheckIcon, SparklesIcon } from 'lucide-react';
 import { participationPlans } from '../../data/plans';
-import type { ParticipationPlan, PlanId } from '../../types/participation';
+import type { ParticipationPlan } from '../../types/participation';
 import { EASE_EMPHASIS } from '../../utils/motion';
 interface PlanShowcaseProps {
   /** Plan abierto. Se controla desde fuera para sincronizar con el configurador. */
-  activeId: PlanId | null;
-  onSelect: (id: PlanId) => void;
+  activeId: string | null;
+  onSelect: (id: string) => void;
   /** Texto y acción del CTA de cada plan. */
   ctaLabel: string;
-  onCta: (id: PlanId) => void;
+  onCta: (id: string) => void;
   /** Lista completa de planes a mostrar. Tiene prioridad sobre planIds. */
   plans?: ParticipationPlan[];
   /** Subconjunto de planes del catálogo global. Solo aplica si no se pasa `plans`. */
-  planIds?: PlanId[];
+  planIds?: string[];
 }
 
 /** Primeros 3 ítems del primer grupo de beneficios del plan. */
@@ -36,7 +36,7 @@ export function PlanShowcase({
   planIds
 }: PlanShowcaseProps) {
   const reduce = useReducedMotion();
-  const [hovered, setHovered] = useState<PlanId | null>(null);
+  const [hovered, setHovered] = useState<string | null>(null);
   // En móvil las tarjetas se apilan: repartir el espacio con flex-basis 0
   // colapsaría su altura a cero. El acordeón horizontal solo existe en ancho.
   const [isWide, setIsWide] = useState(true);
@@ -52,7 +52,7 @@ export function PlanShowcase({
   return <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
       {plans.map((plan) => {
       const isActive = plan.id === activeId;
-      const isHero = plan.id === 'protagonista';
+      const isHero = Boolean(plan.featured) || plan.id === 'protagonista';
       const left = plan.totalInventory === null ? null : plan.totalInventory - plan.sold;
       return <motion.article key={plan.id} layout onMouseEnter={() => setHovered(plan.id)} onMouseLeave={() => setHovered(null)} transition={reduce ? {
         duration: 0

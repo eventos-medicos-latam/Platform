@@ -81,6 +81,39 @@ export async function listPlanRequestsForEvent(event: { id: string; slug: string
   return (data ?? []).map((row) => mapRow(row as Record<string, unknown>));
 }
 
+export async function submitPublicPlanRequest(input: {
+  editionId: string;
+  planId: string | null;
+  company: string;
+  nit: string | null;
+  contactName: string;
+  contactEmail: string;
+  contactWhatsapp: string | null;
+  category: string | null;
+  country: string | null;
+  city: string | null;
+  notes: string | null;
+}): Promise<string> {
+  const { data, error } = await supabase.rpc('submit_plan_request', {
+    p_edition_id: input.editionId,
+    p_plan_id: input.planId,
+    p_ally_role: null,
+    p_company: input.company,
+    p_nit: input.nit,
+    p_category: input.category,
+    p_country: input.country,
+    p_city: input.city,
+    p_contact_name: input.contactName,
+    p_contact_email: input.contactEmail,
+    p_contact_whatsapp: input.contactWhatsapp,
+    p_notes: input.notes,
+  });
+  if (error || !data) {
+    throw new Error(error?.message || 'No pudimos enviar tu solicitud. Intenta de nuevo en un momento.');
+  }
+  return String(data);
+}
+
 export async function updatePlanRequestStatus(id: string, status: PlanRequestStatus): Promise<PlanRequestRow> {
   const { data, error } = await supabase
     .from('plan_requests')

@@ -82,6 +82,7 @@ const eternaPrimaveraPlans: ParticipationPlan[] = [
     sold: 0,
     availabilityNote: '4 cupos disponibles · 1 marca por tema.',
     has_map: true,
+    featured: true,
   },
   {
     id: 'conexion',

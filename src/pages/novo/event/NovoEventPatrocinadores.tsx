@@ -12,11 +12,19 @@ import {
   FormField, FormInput, FormSelect, FormTextarea, FormSection,
 } from '../../../components/novo/ui/NovoModal';
 import { listCompanies, type NovoCompany } from '../../../lib/novo/companies';
+import { formatCurrency } from '../../../lib/novo/events';
+import {
+  defaultParticipationsForSlug,
+  listEventParticipations,
+  type EventParticipation,
+} from '../../../lib/novo/participations';
+import { reserveStandForCompany } from '../../../lib/novo/stands';
 import {
   createEventSponsor, deleteEventSponsor, listEventSponsors, updateEventSponsor,
   type EventSponsorRow, type PlanTier, type SponsorStatus,
 } from '../../../lib/novo/sponsors';
-import { NovoPlanRequestsPanel } from '../../../components/novo/sponsors/NovoPlanRequestsPanel';
+import { NovoPlanRequestsPanel, parseStandFromNotes } from '../../../components/novo/sponsors/NovoPlanRequestsPanel';
+import { updatePlanRequestStatus } from '../../../lib/novo/planRequests';
 import type { NovoEvent } from '../../../types/novo';
 
 interface EventContext { event: NovoEvent }
@@ -46,6 +54,7 @@ const EMPTY_FORM = {
   company_id: '', logo: '', contact_name: '', contact_email: '', contact_tel: '',
   plan: 'oro' as PlanTier, amount: '', status: 'negociacion' as SponsorStatus,
   benefits_checked: '0', benefits_total: '5', notas: '',
+  participation_id: '', stand_code: '', plan_request_id: '',
 };
 
 const fmt = (n: number) => n === 0 ? 'Aliado' : `$${(n / 1_000_000).toFixed(1)}M`;
@@ -61,22 +70,40 @@ export function NovoEventPatrocinadores() {
   const [form, setForm]           = useState(EMPTY_FORM);
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState<string | null>(null);
+  const [companyQuery, setCompanyQuery] = useState('');
+  const [participations, setParticipations] = useState<EventParticipation[]>([]);
+  const [requestsReloadToken, setRequestsReloadToken] = useState(0);
 
   const f = (k: keyof typeof EMPTY_FORM) => (v: string) => setForm(p => ({ ...p, [k]: v }));
 
   useEffect(() => {
-    listCompanies().then(setCompanies).catch(() => setCompanies([]));
+    listCompanies()
+      .then(setCompanies)
+      .catch((err) => {
+        setCompanies([]);
+        setError(err instanceof Error ? err.message : 'No se pudieron cargar las empresas del CRM.');
+      });
   }, []);
 
   useEffect(() => {
     listEventSponsors(event.id).then(setSponsors).catch(() => setSponsors([]));
-  }, [event.id]);
+    listEventParticipations(event.id)
+      .then((rows) => setParticipations(rows.length ? rows : defaultParticipationsForSlug(event.slug)))
+      .catch(() => setParticipations(defaultParticipationsForSlug(event.slug)));
+  }, [event.id, event.slug]);
 
   const assignedIds = useMemo(() => new Set(sponsors.map(s => s.company_id)), [sponsors]);
   const availableCompanies = useMemo(
     () => companies.filter(c => !assignedIds.has(c.id) || c.id === editing?.company_id),
     [companies, assignedIds, editing],
   );
+  const visibleCompanies = useMemo(() => {
+    const q = companyQuery.trim().toLowerCase();
+    if (!q) return availableCompanies;
+    return availableCompanies.filter((c) =>
+      [c.name, c.razon_social, c.nit, c.ciudad, c.sector].join(' ').toLowerCase().includes(q),
+    );
+  }, [availableCompanies, companyQuery]);
 
   const applyCompany = (companyId: string) => {
     const co = companies.find(c => c.id === companyId);
@@ -94,18 +121,44 @@ export function NovoEventPatrocinadores() {
     }));
   };
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setError(null); setModalOpen(true); };
+  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setError(null); setCompanyQuery(''); setModalOpen(true); };
   const openEdit   = (sp: Sponsor) => {
     setEditing(sp);
     setError(null);
+    setCompanyQuery('');
     setForm({
       company_id: sp.company_id, logo: sp.logo,
       contact_name: sp.contact_name, contact_email: sp.contact_email, contact_tel: sp.contact_tel,
       plan: sp.plan, amount: String(sp.amount), status: sp.status,
       benefits_checked: String(sp.benefits_checked), benefits_total: String(sp.benefits_total),
       notas: sp.notas,
+      participation_id: participations.find((row) => sp.notas.toLowerCase().includes(row.name.toLowerCase()))?.id ?? '',
+      stand_code: parseStandFromNotes(sp.notas),
+      plan_request_id: '',
     });
     setModalOpen(true);
+  };
+
+  const applyParticipation = (id: string) => {
+    const row = participations.find((item) => item.id === id);
+    const hay = `${row?.id ?? ''} ${row?.name ?? ''}`.toLowerCase();
+    const metal: PlanTier = hay.includes('protagonista')
+      ? 'oro'
+      : hay.includes('conexion') || hay.includes('conexión')
+        ? 'plata'
+        : hay.includes('pop')
+          ? 'aliado'
+          : form.plan;
+    const benefits = row
+      ? Math.max(1, row.benefit_groups.reduce((sum, group) => sum + group.items.filter(Boolean).length, 0) || 5)
+      : Number(form.benefits_total) || 5;
+    setForm((prev) => ({
+      ...prev,
+      participation_id: id,
+      amount: row ? String(row.price) : prev.amount,
+      plan: metal,
+      benefits_total: String(benefits),
+    }));
   };
 
   const handleSave = async () => {
@@ -113,6 +166,14 @@ export function NovoEventPatrocinadores() {
     setSaving(true);
     setError(null);
     const co = companies.find(c => c.id === form.company_id);
+    const participation = participations.find((row) => row.id === form.participation_id);
+    let notas = form.notas.trim();
+    if (participation && !/participación:/i.test(notas)) {
+      notas = `Participación: ${participation.name}\nValor: ${formatCurrency(participation.price)}\n${notas}`.trim();
+    }
+    if (form.stand_code.trim() && !/^stand:/im.test(notas)) {
+      notas = `${notas}\nStand: ${form.stand_code.trim()}`.trim();
+    }
     const data = {
       company_id: form.company_id,
       company_name: co?.name,
@@ -125,16 +186,39 @@ export function NovoEventPatrocinadores() {
       status: form.status,
       benefits_checked: Number(form.benefits_checked) || 0,
       benefits_total: Number(form.benefits_total) || 5,
-      notas: form.notas,
+      notas,
     };
     try {
       const saved = editing
         ? await updateEventSponsor(editing.id, event.id, data)
         : await createEventSponsor(event.id, data);
+      const warnings: string[] = [];
+      const standLabel = form.stand_code.trim();
+      if (standLabel) {
+        try {
+          const reserved = await reserveStandForCompany(event.id, standLabel, form.company_id);
+          if (reserved.status === 'missing') {
+            warnings.push(`El stand ${reserved.code || standLabel} no está en el inventario de este evento. El patrocinador quedó creado; asígnalo en Stands.`);
+          } else if (reserved.status === 'taken') {
+            warnings.push(`El stand ${reserved.code} ya está asignado a ${reserved.holder}. El patrocinador quedó creado sin cambiar ese espacio.`);
+          }
+        } catch {
+          warnings.push('El patrocinador quedó creado, pero no se pudo reservar el stand. Revisa Stands.');
+        }
+      }
       setSponsors(prev => editing
         ? prev.map(s => s.id === saved.id ? saved : s)
         : [...prev, saved]);
       if (selected?.id === saved.id || selected?.id === editing?.id) setSelected(saved);
+      if (!editing && form.plan_request_id) {
+        try {
+          await updatePlanRequestStatus(form.plan_request_id, 'aprobada');
+        } catch {
+          warnings.push('El patrocinador quedó creado, pero no se pudo marcar la postulación como aprobada. Cámbiala a Aprobada en la lista.');
+        }
+        setRequestsReloadToken((n) => n + 1);
+      }
+      if (warnings.length) setError(warnings.join(' '));
       setModalOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo guardar el patrocinador.');
@@ -159,6 +243,8 @@ export function NovoEventPatrocinadores() {
   const ingresos = activos.reduce((sum, s) => sum + s.amount, 0);
   const pending  = sponsors.filter(s => s.status === 'pendiente_pago').length;
   const selectedCompany = companies.find(c => c.id === form.company_id);
+  const sponsorParticipationName = (sp: Sponsor) =>
+    participations.find((row) => sp.notas.toLowerCase().includes(row.name.toLowerCase()))?.name;
 
   return (
     <div>
@@ -201,6 +287,8 @@ export function NovoEventPatrocinadores() {
       <NovoPlanRequestsPanel
         event={event}
         companies={companies}
+        participations={participations}
+        reloadToken={requestsReloadToken}
         onConvert={(draft) => {
           setEditing(null);
           setError(null);
@@ -215,7 +303,13 @@ export function NovoEventPatrocinadores() {
             notas: draft.notas,
             status: draft.status,
             plan: draft.plan,
+            amount: draft.amount,
+            participation_id: draft.participation_id,
+            stand_code: draft.stand_code,
+            benefits_total: draft.benefits_total || '5',
+            plan_request_id: draft.plan_request_id,
           });
+          setCompanyQuery('');
           setModalOpen(true);
         }}
       />
@@ -285,7 +379,7 @@ export function NovoEventPatrocinadores() {
                 <div className="flex items-center">
                   <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
                     style={{ color: plan.color, background: plan.bg }}>
-                    <StarIcon size={9} /> {plan.label}
+                    <StarIcon size={9} /> {sponsorParticipationName(sp) ?? plan.label}
                   </span>
                 </div>
                 <p className="flex items-center text-sm font-semibold tabular-nums" style={{ color: '#E1EAF4' }}>{fmt(sp.amount)}</p>
@@ -325,10 +419,13 @@ export function NovoEventPatrocinadores() {
                 {/* Plan badge */}
                 <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold mb-3"
                   style={{ color: PLAN_CONFIG[selected.plan].color, background: PLAN_CONFIG[selected.plan].bg }}>
-                  <StarIcon size={9} /> {PLAN_CONFIG[selected.plan].label}
+                  <StarIcon size={9} /> {sponsorParticipationName(selected) ?? PLAN_CONFIG[selected.plan].label}
                 </span>
                 <p className="text-sm font-bold" style={{ color: '#E1EAF4' }}>{sponsorCompanyName(selected, companies)}</p>
                 <p className="text-xs mt-0.5 mb-4" style={{ color: '#7A9CB8' }}>{selected.contact_name}</p>
+                {parseStandFromNotes(selected.notas) ? (
+                  <p className="mb-4 text-xs" style={{ color: '#7A9CB8' }}>Stand {parseStandFromNotes(selected.notas)}</p>
+                ) : null}
 
                 {/* Contacto */}
                 {(selected.contact_email || selected.contact_tel) && (
@@ -409,16 +506,50 @@ export function NovoEventPatrocinadores() {
             <FormField
               label="Empresa"
               required
-              hint="Solo empresas del CRM. Si no aparece, créala primero en Empresas."
+              hint="Empresas del CRM (Novo → Empresas). No incluye datos de muestra."
             >
-              <FormSelect
-                value={form.company_id}
-                onChange={applyCompany}
-                options={[
-                  { value: '', label: availableCompanies.length ? 'Seleccionar empresa…' : 'Todas las empresas ya están en este evento' },
-                  ...availableCompanies.map(c => ({ value: c.id, label: `${c.name} · ${c.ciudad}` })),
-                ]}
+              <FormInput
+                value={companyQuery}
+                onChange={setCompanyQuery}
+                placeholder="Buscar por nombre, NIT o ciudad"
               />
+              <div
+                className="mt-2 max-h-48 overflow-y-auto rounded-xl"
+                style={{ border: '1px solid #1e3450', background: '#0d1829' }}
+              >
+                {visibleCompanies.length === 0 ? (
+                  <p className="px-3.5 py-3 text-xs" style={{ color: '#7A9CB8' }}>
+                    {availableCompanies.length === 0
+                      ? 'No hay empresas disponibles en el CRM. Créala primero en Empresas.'
+                      : 'Ninguna empresa coincide con la búsqueda.'}
+                  </p>
+                ) : (
+                  visibleCompanies.map((c) => {
+                    const on = form.company_id === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => applyCompany(c.id)}
+                        className="flex w-full items-start gap-2 px-3.5 py-2.5 text-left transition-colors"
+                        style={{
+                          background: on ? 'rgba(0,201,160,.12)' : 'transparent',
+                          borderBottom: '1px solid #1e3450',
+                        }}
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold" style={{ color: on ? '#00C9A0' : '#E1EAF4' }}>
+                            {c.name}
+                          </span>
+                          <span className="block truncate text-[11px]" style={{ color: '#7A9CB8' }}>
+                            {[c.nit, c.ciudad, c.sector].filter(Boolean).join(' · ') || 'Sin NIT ni ciudad'}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
             </FormField>
             {selectedCompany && (
                 <div className="flex items-center gap-3 rounded-xl px-3.5 py-3" style={{ background: '#0d1829', border: '1px solid #1e3450' }}>
@@ -439,7 +570,23 @@ export function NovoEventPatrocinadores() {
               <Link to="/novo/empresas" className="font-semibold" style={{ color: '#00C9A0' }}>Crearla en el CRM</Link>
             </p>
             <div className="grid grid-cols-2 gap-4">
-              <FormField label="Plan">
+              <FormField label="Participación" hint="Plan que eligió en Aliados">
+                <FormSelect
+                  value={form.participation_id}
+                  onChange={applyParticipation}
+                  options={[
+                    { value: '', label: 'Elegir participación…' },
+                    ...participations.map((row) => ({
+                      value: row.id,
+                      label: `${row.name} · ${formatCurrency(row.price)}`,
+                    })),
+                  ]}
+                />
+              </FormField>
+              <FormField label="Stand" hint="Si eligió uno en el plano">
+                <FormInput value={form.stand_code} onChange={f('stand_code')} placeholder="B-01 · Zona B" />
+              </FormField>
+              <FormField label="Nivel comercial">
                 <FormSelect value={form.plan} onChange={v => setForm(p => ({ ...p, plan: v as PlanTier }))}
                   options={Object.entries(PLAN_CONFIG)
                     .sort(([,a],[,b]) => a.order - b.order)
@@ -449,8 +596,8 @@ export function NovoEventPatrocinadores() {
                 <FormSelect value={form.status} onChange={v => setForm(p => ({ ...p, status: v as SponsorStatus }))}
                   options={Object.entries(STATUS_CONFIG).map(([v, c]) => ({ value: v, label: c.label }))} />
               </FormField>
-              <FormField label="Monto (COP)" hint="0 para aliados sin pago">
-                <FormInput type="number" value={form.amount} onChange={f('amount')} placeholder="12000000" />
+              <FormField label="Monto (COP)" hint="Se toma del plan de participación">
+                <FormInput type="number" value={form.amount} onChange={f('amount')} placeholder="3200000" />
               </FormField>
               <div className="grid grid-cols-2 gap-2">
                 <FormField label="Beneficios entregados">

@@ -17,7 +17,7 @@ export interface PlanBenefitGroup {
 }
 
 export interface ParticipationPlan {
-  id: PlanId;
+  id: string;
   /** Nombre comercial: POP UP, PAQUETE CONEXIÓN, PAQUETE PROTAGONISTA. */
   name: string;
   /** Verbo de posicionamiento: Estar presente / Conectar / Posicionarte. */
@@ -47,6 +47,10 @@ export interface ParticipationPlan {
 
   /** Si es true, la web muestra el plano de stands antes del formulario. */
   has_map?: boolean;
+  /** Zona del plano habilitada para este plan. Vacío = todas las secciones. */
+  stand_zone?: string;
+  /** Plan principal en la vitrina pública. */
+  featured?: boolean;
 }
 
 /** Fila de la tabla comparativa. */

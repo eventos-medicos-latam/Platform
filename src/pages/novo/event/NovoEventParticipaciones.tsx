@@ -1,109 +1,32 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   PlusIcon, StarIcon, CopyIcon, Trash2Icon, PencilIcon,
   ChevronDownIcon, ChevronUpIcon, GripVerticalIcon, MapIcon,
-  CheckCircleIcon, XCircleIcon, ImageIcon, LayoutPanelLeftIcon,
+  CheckCircleIcon, XCircleIcon, ImageIcon, LayoutPanelLeftIcon, UploadIcon, Maximize2Icon,
 } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { KPICard } from '../../../components/novo/ui/KPICard';
 import {
   NovoModal, ModalBtn,
   FormField, FormInput, FormSelect, FormTextarea, FormSection, ImageField,
 } from '../../../components/novo/ui/NovoModal';
+import {
+  defaultParticipationsForSlug,
+  getFloorPlanUrl,
+  listEventParticipations,
+  saveEventParticipations,
+  saveFloorPlanUrl,
+  type BenefitGroup,
+  type EventParticipation as Participation,
+  type StandType,
+} from '../../../lib/novo/participations';
+import { listStandUnits } from '../../../lib/novo/stands';
+import { uploadPublicAsset } from '../../../lib/storage';
 import type { NovoEvent } from '../../../types/novo';
 
 interface EventContext { event: NovoEvent }
-
-/* ── Types ─────────────────────────────────────────────────────────────── */
-
-type StandType = 'estacion' | 'stand-pequeno' | 'stand-mediano' | 'stand-grande' | 'ninguno';
-
-interface BenefitGroup {
-  id: string;
-  title: string;
-  items: string[];
-}
-
-interface Participation {
-  id: string;
-  name: string;
-  verb: string;
-  tagline: string;
-  price: number;
-  spots: number;
-  sold: number;
-  image_url: string;
-  stand_type: StandType;
-  has_map: boolean;
-  is_featured: boolean;
-  is_active: boolean;
-  benefit_groups: BenefitGroup[];
-  closing: string;
-}
-
-/* ── Mock data ─────────────────────────────────────────────────────────── */
-
-const MOCK_PARTICIPATIONS: Participation[] = [
-  {
-    id: 'p1',
-    name: 'Paquete Protagonista',
-    verb: 'Posicionarte',
-    tagline: 'Posicionamiento integral + speaker + presencia académica',
-    price: 19500000,
-    spots: 4,
-    sold: 0,
-    image_url: '',
-    stand_type: 'stand-grande',
-    has_map: true,
-    is_featured: true,
-    is_active: true,
-    benefit_groups: [
-      { id: 'bg1', title: 'Presencia física', items: ['Stand 3×2 m', 'Branding en backing y señalética', 'Máximo 4 colaboradores'] },
-      { id: 'bg2', title: 'Presencia web y digital', items: ['Logo destacado en la página web', 'Presencia digital en comunicaciones', 'Visibilidad 3 a 6 meses'] },
-      { id: 'bg3', title: 'Speaker', items: ['Participación con speaker propio', 'Sujeto a aprobación del comité científico'] },
-    ],
-    closing: 'Protagonista integra tu marca dentro de la conversación científica del evento.',
-  },
-  {
-    id: 'p2',
-    name: 'Paquete Conexión',
-    verb: 'Conectar',
-    tagline: 'Presencia digital + web + stand + relacionamiento',
-    price: 8900000,
-    spots: 6,
-    sold: 0,
-    image_url: '',
-    stand_type: 'stand-mediano',
-    has_map: true,
-    is_featured: false,
-    is_active: true,
-    benefit_groups: [
-      { id: 'bg4', title: 'Presencia física', items: ['Stand 3×2 m', 'Máximo 4 colaboradores'] },
-      { id: 'bg5', title: 'Presencia digital', items: ['Logo en la web oficial', '3 menciones en redes sociales'] },
-      { id: 'bg6', title: 'Relacionamiento', items: ['Mesa de nicho en almuerzo', '10 invitaciones para profesionales'] },
-    ],
-    closing: 'Conexión combina presencia física y digital para tu marca.',
-  },
-  {
-    id: 'p3',
-    name: 'Pop Up',
-    verb: 'Estar presente',
-    tagline: 'Presencia de marca simple y directa',
-    price: 3200000,
-    spots: 4,
-    sold: 0,
-    image_url: '',
-    stand_type: 'estacion',
-    has_map: false,
-    is_featured: false,
-    is_active: true,
-    benefit_groups: [
-      { id: 'bg7', title: 'Presencia física', items: ['Estación compacta', '1 mesa + 2 sillas', '1 pendón roll-up', 'Máximo 2 colaboradores'] },
-    ],
-    closing: 'Una forma práctica de acercar tu marca al evento.',
-  },
-];
 
 const STAND_TYPE_OPTIONS: { value: StandType; label: string }[] = [
   { value: 'ninguno',        label: 'Sin stand físico' },
@@ -123,8 +46,14 @@ const STAND_TYPE_LABEL: Record<StandType, string> = {
 
 const EVENTS_LIBRARY: { id: string; name: string; participations: Participation[] }[] = [
   {
-    id: 'hormobiota-2', name: 'Hormobiota 2 · 2027',
-    participations: MOCK_PARTICIPATIONS,
+    id: 'eterna-primavera-2026',
+    name: 'La Eterna Primavera · 2026',
+    participations: defaultParticipationsForSlug('eterna-primavera-2026'),
+  },
+  {
+    id: 'hormobiota-2-2027',
+    name: 'Hormobiota 2 · 2027',
+    participations: defaultParticipationsForSlug('hormobiota-2-2027'),
   },
 ];
 
@@ -158,7 +87,7 @@ const EMPTY_GROUP = (): BenefitGroup => ({ id: `bg-${Date.now()}`, title: '', it
 
 const EMPTY_PARTICIPATION = (): Partial<Participation> => ({
   name: '', verb: '', tagline: '', price: 0, spots: 0, image_url: '',
-  stand_type: 'ninguno', has_map: false, is_featured: false, is_active: true,
+  stand_type: 'ninguno', stand_zone: '', has_map: false, is_featured: false, is_active: true,
   benefit_groups: [EMPTY_GROUP()], closing: '',
 });
 
@@ -166,13 +95,103 @@ const EMPTY_PARTICIPATION = (): Partial<Participation> => ({
 
 export function NovoEventParticipaciones() {
   const { event } = useOutletContext<EventContext>();
-  const [participations, setParticipations] = useState<Participation[]>(MOCK_PARTICIPATIONS);
+  const [participations, setParticipations] = useState<Participation[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [cloneOpen, setCloneOpen] = useState(false);
   const [editing, setEditing] = useState<Participation | null>(null);
   const [form, setForm] = useState<Partial<Participation>>(EMPTY_PARTICIPATION());
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [floorPlanUrl, setFloorPlanUrl] = useState('');
+  const [mapUrlDraft, setMapUrlDraft] = useState('');
+  const [uploadingMap, setUploadingMap] = useState(false);
+  const [savingMap, setSavingMap] = useState(false);
+  const [standZones, setStandZones] = useState<string[]>([]);
+  const [mapExpanded, setMapExpanded] = useState(false);
+  const mapFileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    (async () => {
+      try {
+        const [saved, mapUrl, units] = await Promise.all([
+          listEventParticipations(event.id),
+          getFloorPlanUrl(event.id),
+          listStandUnits(event.id).catch(() => []),
+        ]);
+        if (cancelled) return;
+        setFloorPlanUrl(mapUrl);
+        setMapUrlDraft(mapUrl);
+        setStandZones(
+          [...new Set(units.map((unit) => unit.zone.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')),
+        );
+        if (saved.length) {
+          setParticipations(saved);
+          return;
+        }
+        const seeded = defaultParticipationsForSlug(event.slug);
+        setParticipations(seeded);
+        if (seeded.length) await saveEventParticipations(event.id, seeded);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : 'No se pudieron cargar las participaciones.');
+        setParticipations(defaultParticipationsForSlug(event.slug));
+        setStandZones([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [event.id, event.slug]);
+
+  useEffect(() => {
+    if (!mapExpanded) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMapExpanded(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mapExpanded]);
+
+  const persistFloorPlan = async (url: string) => {
+    setSavingMap(true);
+    setError(null);
+    try {
+      await saveFloorPlanUrl(event.id, url);
+      setFloorPlanUrl(url);
+      setMapUrlDraft(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el plano.');
+    } finally {
+      setSavingMap(false);
+    }
+  };
+
+  const onMapFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploadingMap(true);
+    setError(null);
+    try {
+      const { url, error: uploadError } = await uploadPublicAsset(file);
+      if (uploadError || !url) throw new Error(uploadError ?? 'No se pudo subir el plano.');
+      await persistFloorPlan(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo subir el plano.');
+    } finally {
+      setUploadingMap(false);
+    }
+  };
+
+  const persist = async (next: Participation[]) => {
+    setParticipations(next);
+    await saveEventParticipations(event.id, next);
+  };
 
   /* form helpers */
   const f = <K extends keyof Participation>(k: K) => (v: Participation[K]) =>
@@ -190,55 +209,86 @@ export function NovoEventParticipaciones() {
     setModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
-      const data = { ...EMPTY_PARTICIPATION(), ...form } as Participation;
-      if (editing) {
-        setParticipations(prev => prev.map(p => p.id === editing.id ? { ...p, ...data } : p));
-      } else {
-        setParticipations(prev => [...prev, { ...data, id: `p-${Date.now()}`, sold: 0 }]);
-      }
+    setError(null);
+    const data = { ...EMPTY_PARTICIPATION(), ...form, sold: editing?.sold ?? 0 } as Participation;
+    const next = editing
+      ? participations.map((row) => (row.id === editing.id ? { ...row, ...data, id: editing.id } : row))
+      : [...participations, { ...data, id: `p-${Date.now()}`, sold: 0 }];
+    try {
+      await persist(next);
       setModalOpen(false);
-    }, 600);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar la participación.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar esta participación?')) return;
-    setParticipations(prev => prev.filter(p => p.id !== id));
+    setError(null);
+    try {
+      await persist(participations.filter((row) => row.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar.');
+    }
   };
 
-  const handleDuplicate = (p: Participation) => {
-    setParticipations(prev => [...prev, {
-      ...p,
-      id: `p-${Date.now()}`,
-      name: `${p.name} (copia)`,
-      sold: 0,
-      is_active: false,
-    }]);
+  const handleDuplicate = async (p: Participation) => {
+    setError(null);
+    try {
+      await persist([...participations, {
+        ...p,
+        id: `p-${Date.now()}`,
+        name: `${p.name} (copia)`,
+        sold: 0,
+        is_active: false,
+        is_featured: false,
+      }]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo duplicar.');
+    }
   };
 
-  const handleToggleActive = (id: string) => {
-    setParticipations(prev => prev.map(p => p.id === id ? { ...p, is_active: !p.is_active } : p));
+  const handleToggleActive = async (id: string) => {
+    setError(null);
+    try {
+      await persist(participations.map((row) => (row.id === id ? { ...row, is_active: !row.is_active } : row)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo actualizar.');
+    }
   };
 
-  const handleToggleFeatured = (id: string) => {
-    setParticipations(prev => prev.map(p => p.id === id
-      ? { ...p, is_featured: !p.is_featured }
-      : { ...p, is_featured: false }
-    ));
+  const handleToggleFeatured = async (id: string) => {
+    setError(null);
+    try {
+      await persist(participations.map((row) => (
+        row.id === id
+          ? { ...row, is_featured: !row.is_featured }
+          : { ...row, is_featured: false }
+      )));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo actualizar.');
+    }
   };
 
-  const handleClone = (source: Participation) => {
-    setParticipations(prev => [...prev, {
-      ...source,
-      id: `p-${Date.now()}`,
-      name: `${source.name} (importado)`,
-      sold: 0,
-      is_active: false,
-    }]);
-    setCloneOpen(false);
+  const handleClone = async (source: Participation) => {
+    setError(null);
+    try {
+      await persist([...participations, {
+        ...source,
+        id: `p-${Date.now()}`,
+        name: `${source.name} (importado)`,
+        sold: 0,
+        is_active: false,
+        is_featured: false,
+      }]);
+      setCloneOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo importar.');
+    }
   };
 
   /* benefit group helpers */
@@ -320,12 +370,86 @@ export function NovoEventParticipaciones() {
         </div>
       </div>
 
+      {error ? (
+        <p className="mb-4 rounded-xl px-4 py-2.5 text-xs" style={{ background: 'rgba(242,68,99,.12)', color: '#F24463' }}>{error}</p>
+      ) : null}
+      {loading ? (
+        <p className="mb-4 text-xs" style={{ color: TEXT_MID }}>Cargando participaciones…</p>
+      ) : null}
+
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 mb-7 lg:grid-cols-4">
         <KPICard label="Activas" value={String(active)} sub={`de ${participations.length} total`} icon={CheckCircleIcon} accent={ACCENT} />
         <KPICard label="Cupos totales" value={String(totalSpots)} sub={`${totalSold} vendidos`} icon={LayoutPanelLeftIcon} accent="#5B8AF0" />
         <KPICard label="Con plano" value={String(withMap)} sub="muestran mapa al elegir" icon={MapIcon} accent="#A78BFA" />
         <KPICard label="Destacada" value={participations.find(p => p.is_featured)?.name ?? '—'} sub="plan principal" icon={StarIcon} accent="#F59E0B" />
+      </div>
+
+      {/* Plano de stands del recinto */}
+      <div className="mb-7 overflow-hidden rounded-2xl" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+        <div className="flex flex-wrap items-start justify-between gap-4 p-5 pb-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: ACCENT }}>Mapa del recinto</p>
+            <h2 className="mt-1 text-base font-bold" style={{ color: TEXT_HI, fontFamily: "'Sora', sans-serif" }}>
+              Plano de stands
+            </h2>
+            <p className="mt-1 max-w-xl text-xs" style={{ color: TEXT_MID }}>
+              Un plano por evento. Se muestra en Aliados cuando un plan tiene “Mostrar plano” activo.
+            </p>
+          </div>
+          <input ref={mapFileRef} type="file" accept="image/*" className="hidden" onChange={onMapFile} />
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" disabled={uploadingMap || savingMap}
+              onClick={() => mapFileRef.current?.click()}
+              className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50"
+              style={{ background: ACCENT, color: '#0d1829' }}>
+              <UploadIcon size={14} />
+              {uploadingMap ? 'Subiendo…' : floorPlanUrl ? 'Reemplazar imagen' : 'Subir imagen'}
+            </button>
+            {floorPlanUrl ? (
+              <button type="button" disabled={savingMap}
+                onClick={() => { void persistFloorPlan(''); }}
+                className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
+                style={{ background: 'rgba(242,68,99,.1)', color: '#F24463', border: '1px solid rgba(242,68,99,.3)' }}>
+                Quitar
+              </button>
+            ) : null}
+          </div>
+        </div>
+        {floorPlanUrl ? (
+          <button
+            type="button"
+            onClick={() => setMapExpanded(true)}
+            className="relative mx-5 mb-4 block w-[calc(100%-2.5rem)] overflow-hidden rounded-xl text-left"
+            style={{ background: '#0d1829', border: `1px solid ${BORDER}` }}
+            aria-label="Ampliar plano de stands"
+          >
+            <img src={floorPlanUrl} alt="Plano de stands del evento" className="max-h-72 w-full object-contain" />
+            <span
+              className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold"
+              style={{ background: 'rgba(0,201,160,.18)', color: ACCENT }}
+            >
+              <Maximize2Icon size={11} /> Ampliar
+            </span>
+          </button>
+        ) : (
+          <div className="mx-5 mb-4 flex h-36 flex-col items-center justify-center gap-2 rounded-xl"
+            style={{ background: '#0d1829', border: `1px dashed ${BORDER}` }}>
+            <MapIcon size={22} style={{ color: TEXT_MID }} />
+            <p className="text-xs" style={{ color: TEXT_MID }}>Aún no hay plano cargado</p>
+          </div>
+        )}
+        <div className="px-5 pb-5">
+          <FormField label="O pega una URL" hint="PNG, JPG o SVG público">
+            <div className="flex gap-2">
+              <FormInput value={mapUrlDraft} onChange={setMapUrlDraft} placeholder="https://…/plano-stands.png" />
+              <ModalBtn variant="primary" disabled={savingMap || mapUrlDraft.trim() === floorPlanUrl}
+                onClick={() => { void persistFloorPlan(mapUrlDraft.trim()); }}>
+                {savingMap ? 'Guardando…' : 'Guardar URL'}
+              </ModalBtn>
+            </div>
+          </FormField>
+        </div>
       </div>
 
       {/* Cards */}
@@ -393,7 +517,9 @@ export function NovoEventParticipaciones() {
                     </div>
                     <div>
                       <p className="text-sm font-bold" style={{ color: TEXT_HI }}>{STAND_TYPE_LABEL[p.stand_type]}</p>
-                      <p className="text-[10px]" style={{ color: TEXT_MID }}>tipo de stand</p>
+                      <p className="text-[10px]" style={{ color: TEXT_MID }}>
+                        {p.stand_zone ? p.stand_zone : 'tipo de stand'}
+                      </p>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <MapIcon size={12} style={{ color: p.has_map ? ACCENT : TEXT_MID }} />
@@ -546,10 +672,52 @@ export function NovoEventParticipaciones() {
               options={STAND_TYPE_OPTIONS}
             />
           </FormField>
+          <FormField
+            label="Sección de stands"
+            hint="El aliado solo podrá elegir stands de esta zona del plano. Déjalo vacío para mostrar todas."
+          >
+            <FormInput
+              value={form.stand_zone ?? ''}
+              onChange={f('stand_zone')}
+              placeholder="Ej. Zona A, Foyer, Estaciones Pop Up"
+            />
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => f('stand_zone')('')}
+                className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                style={{
+                  background: !(form.stand_zone ?? '').trim() ? 'rgba(0,201,160,.18)' : 'rgba(255,255,255,0.06)',
+                  color: !(form.stand_zone ?? '').trim() ? ACCENT : TEXT_MID,
+                  border: `1px solid ${!(form.stand_zone ?? '').trim() ? 'rgba(0,201,160,.35)' : BORDER}`,
+                }}
+              >
+                Todas
+              </button>
+              {standZones.map((zone) => {
+                const on = (form.stand_zone ?? '').trim().toLowerCase() === zone.toLowerCase();
+                return (
+                  <button
+                    key={zone}
+                    type="button"
+                    onClick={() => f('stand_zone')(zone)}
+                    className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                    style={{
+                      background: on ? 'rgba(0,201,160,.18)' : 'rgba(255,255,255,0.06)',
+                      color: on ? ACCENT : TEXT_MID,
+                      border: `1px solid ${on ? 'rgba(0,201,160,.35)' : BORDER}`,
+                    }}
+                  >
+                    {zone}
+                  </button>
+                );
+              })}
+            </div>
+          </FormField>
           <div className="mt-3 space-y-3 rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}` }}>
             <Toggle
               label="Mostrar plano del evento al elegir este plan"
-              desc="El cliente verá el mapa y elegirá un stand antes del formulario"
+              desc="Usa el plano cargado arriba. El aliado lo verá al postularse y podrá indicar un stand"
               on={form.has_map ?? false}
               onChange={f('has_map')}
             />
@@ -675,6 +843,39 @@ export function NovoEventParticipaciones() {
           </div>
         ))}
       </NovoModal>
+      {mapExpanded && floorPlanUrl && createPortal(
+        <div
+          className="fixed inset-0 z-[80] flex flex-col p-4 sm:p-6"
+          style={{ background: 'rgba(5,10,20,.88)' }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Plano de stands ampliado"
+          onClick={() => setMapExpanded(false)}
+        >
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold" style={{ color: TEXT_HI }}>Plano de stands</p>
+            <button
+              type="button"
+              onClick={() => setMapExpanded(false)}
+              className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold"
+              style={{ background: 'rgba(255,255,255,.08)', color: TEXT_HI }}
+            >
+              Cerrar
+            </button>
+          </div>
+          <div
+            className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-transparent p-2"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <img
+              src={floorPlanUrl}
+              alt="Plano de stands del evento"
+              className="mx-auto h-auto w-auto max-h-[62vh] max-w-[min(800px,85vw)] object-contain drop-shadow-lg"
+            />
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

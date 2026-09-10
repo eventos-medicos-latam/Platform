@@ -52,7 +52,7 @@ export function NovoEmpresas() {
   const f = (k: keyof typeof EMPTY_FORM) => (v: string) => setForm(p => ({ ...p, [k]: v }));
 
   useEffect(() => {
-    listCompanies().then(setCompanies).catch(() => setCompanies([]));
+    listCompanies({ includeSample: true }).then(setCompanies).catch(() => setCompanies([]));
   }, []);
 
   const openCreate = () => {

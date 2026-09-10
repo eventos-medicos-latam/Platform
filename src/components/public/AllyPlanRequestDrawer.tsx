@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  ArrowLeftIcon, ArrowRightIcon, BuildingIcon,
+  AlertCircleIcon, ArrowLeftIcon, ArrowRightIcon, BuildingIcon,
   CheckCircle2Icon, Loader2Icon, SearchIcon, UserIcon, XIcon,
 } from 'lucide-react';
+import { submitPublicPlanRequest } from '../../lib/novo/planRequests';
 import { supabase } from '../../lib/supabaseClient';
 import type { PlanId } from '../../types/participation';
 import { EASE_EMPHASIS } from '../../utils/motion';
@@ -34,17 +35,17 @@ interface CompanyResult {
   contact_name: string | null; contact_whatsapp: string | null;
 }
 
-type FormStep = 'search' | 'email' | 'empresa' | 'contacto' | 'submitting' | 'success';
+type FormStep = 'search' | 'email' | 'empresa' | 'contacto' | 'submitting' | 'success' | 'error';
 
 const STEP_TITLE: Record<FormStep, string> = {
   search: 'Busca tu empresa', email: 'Correo de contacto',
   empresa: 'Datos de la empresa', contacto: 'Persona de contacto',
-  submitting: 'Registrando…', success: 'Solicitud enviada',
+  submitting: 'Registrando…', success: 'Solicitud enviada', error: 'No se pudo enviar',
 };
 
 const STEP_PROGRESS: Record<FormStep, string> = {
   search: '20%', email: '40%',
-  empresa: '65%', contacto: '85%', submitting: '95%', success: '100%',
+  empresa: '65%', contacto: '85%',   submitting: '95%', success: '100%', error: '85%',
 };
 
 const inp = 'w-full rounded-xl border border-line bg-canvas px-4 py-2.5 text-sm text-ink outline-none transition-colors focus:border-brand';
@@ -127,6 +128,7 @@ export function AllyPlanRequestDrawer({
   const [emailStatus, setEmailStatus] = useState<'idle' | 'checking' | 'found' | 'new'>('idle');
   const [empresa, setEmpresa] = useState(emptyEmpresa);
   const [contacto, setContacto] = useState(emptyContacto);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -136,6 +138,7 @@ export function AllyPlanRequestDrawer({
     setEmail(''); setEmailStatus('idle');
     setEmpresa(emptyEmpresa);
     setContacto(emptyContacto);
+    setSubmitError(null);
     const timer = window.setTimeout(() => searchRef.current?.focus(), 120);
     return () => window.clearTimeout(timer);
   }, [open]);
@@ -193,33 +196,30 @@ export function AllyPlanRequestDrawer({
 
   const submitRequest = async () => {
     setStep('submitting');
-    const payload = {
-      edition_id: editionId,
-      plan_id: planId,
-      ally_role: null,
-      space_id: null,
-      track_id: null,
-      speaker_choice: null,
-      company: empresa.trade_name || query,
-      nit: empresa.nit || null,
-      contact_name: contacto.name,
-      contact_email: email.toLowerCase().trim(),
-      contact_whatsapp: contacto.whatsapp || null,
-      category: empresa.sector || null,
-      country: empresa.country || null,
-      city: empresa.city || null,
-      notes: [
-        contacto.cargo ? `Cargo: ${contacto.cargo}` : '',
-        empresa.legal_name ? `Razón social: ${empresa.legal_name}` : '',
-        contacto.notes,
-      ].filter(Boolean).join('\n') || null,
-      status: 'nueva',
-    };
+    setSubmitError(null);
     try {
-      const { error } = await supabase.from('plan_requests').insert(payload);
-      if (error) console.warn('plan_requests insert:', error.message);
-    } catch (err) { console.warn('Supabase no disponible:', err); }
-    setStep('success');
+      await submitPublicPlanRequest({
+        editionId,
+        planId,
+        company: empresa.trade_name || query,
+        nit: empresa.nit || null,
+        contactName: contacto.cargo ? `${contacto.name} (${contacto.cargo})` : contacto.name,
+        contactEmail: email.toLowerCase().trim(),
+        contactWhatsapp: contacto.whatsapp || null,
+        category: empresa.sector || null,
+        country: empresa.country || null,
+        city: empresa.city || null,
+        notes: [
+          contacto.cargo ? `Cargo: ${contacto.cargo}` : '',
+          empresa.legal_name ? `Razón social: ${empresa.legal_name}` : '',
+          contacto.notes,
+        ].filter(Boolean).join('\n') || null,
+      });
+      setStep('success');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'No pudimos enviar tu solicitud. Intenta de nuevo en un momento.');
+      setStep('error');
+    }
   };
 
   const canProceedEmail = email.includes('@') && email.includes('.') && emailStatus !== 'checking';
@@ -278,7 +278,6 @@ export function AllyPlanRequestDrawer({
             </div>
 
             <div className="flex flex-1 flex-col overflow-y-auto">
-              <AnimatePresence mode="wait">
                 {step === 'search' && (
                   <motion.div key="search"
                     initial={{ opacity: 0, x: 28 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -28 }}
@@ -373,25 +372,21 @@ export function AllyPlanRequestDrawer({
                       </div>
                     </div>
 
-                    <AnimatePresence>
-                      {emailStatus === 'found' && (
-                        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                          className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                          <CheckCircle2Icon size={17} className="mt-0.5 shrink-0 text-emerald-600" />
-                          <div>
-                            <p className="text-sm font-bold text-emerald-800">Empresa verificada en el sistema</p>
-                            <p className="text-xs text-emerald-700">Puedes enviar la postulación directamente.</p>
-                          </div>
-                        </motion.div>
-                      )}
-                      {emailStatus === 'new' && (
-                        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                          className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                          <p className="text-sm font-bold text-amber-800">Correo no registrado aún</p>
-                          <p className="mt-0.5 text-xs text-amber-700">Completa los datos de tu empresa y contacto en los siguientes pasos.</p>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                    {emailStatus === 'found' && (
+                      <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                        <CheckCircle2Icon size={17} className="mt-0.5 shrink-0 text-emerald-600" />
+                        <div>
+                          <p className="text-sm font-bold text-emerald-800">Empresa verificada en el sistema</p>
+                          <p className="text-xs text-emerald-700">Puedes enviar la postulación directamente.</p>
+                        </div>
+                      </div>
+                    )}
+                    {emailStatus === 'new' && (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                        <p className="text-sm font-bold text-amber-800">Correo no registrado aún</p>
+                        <p className="mt-0.5 text-xs text-amber-700">Completa los datos de tu empresa y contacto en los siguientes pasos.</p>
+                      </div>
+                    )}
 
                     {emailStatus === 'found' && (
                       <button type="button" onClick={submitRequest}
@@ -570,6 +565,30 @@ export function AllyPlanRequestDrawer({
                   </motion.div>
                 )}
 
+                {step === 'error' && (
+                  <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="flex flex-1 flex-col items-center gap-5 px-6 py-12 text-center"
+                  >
+                    <span className="grid h-20 w-20 place-items-center rounded-full bg-red-50">
+                      <AlertCircleIcon size={40} className="text-red-500" />
+                    </span>
+                    <div>
+                      <h3 className="text-xl font-bold text-brand">No se pudo enviar</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-ink-muted">
+                        {submitError || 'No pudimos registrar tu postulación. Intenta de nuevo en un momento.'}
+                      </p>
+                    </div>
+                    <button type="button" onClick={() => setStep('contacto')}
+                      className="w-full rounded-full bg-brand py-3.5 text-sm font-bold text-white">
+                      Reintentar
+                    </button>
+                    <button type="button" onClick={onClose}
+                      className="w-full rounded-full border border-line py-3 text-sm font-semibold text-ink hover:border-brand hover:text-brand">
+                      Cerrar
+                    </button>
+                  </motion.div>
+                )}
+
                 {step === 'success' && (
                   <motion.div key="success"
                     initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
@@ -657,10 +676,9 @@ export function AllyPlanRequestDrawer({
                     </button>
                   </motion.div>
                 )}
-              </AnimatePresence>
             </div>
 
-            {step !== 'success' && step !== 'submitting' && (
+            {step !== 'success' && step !== 'submitting' && step !== 'error' && (
               <div className="shrink-0 border-t border-line px-6 py-3">
                 <p className="text-[11px] text-ink-muted">
                   La postulación no implica compromiso de pago. El equipo comercial confirma disponibilidad y condiciones antes de cualquier cobro.

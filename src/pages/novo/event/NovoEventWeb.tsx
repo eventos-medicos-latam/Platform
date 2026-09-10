@@ -72,7 +72,7 @@ const ALL_SECTIONS: WebSection[] = [
   { id: 'tickets',        label: 'Tickets / Inscripción', description: 'Tarifas, tipos y botón de registro',            icon: TicketIcon,       enabled: true,  status: 'ok' },
   { id: 'patrocinadores', label: 'Patrocinadores',        description: 'Texto de la sección; logos en Patrocinadores',  icon: BuildingIcon,     enabled: true,  status: 'ok' },
   { id: 'aliados',        label: 'Aliados / Apoyan',      description: 'Instituciones y logos de apoyo',                 icon: ZapIcon,          enabled: false, status: 'empty' },
-  { id: 'stands',         label: 'Stands / Exposición',   description: 'Texto de la sección; mapa en Stands',            icon: BuildingIcon,     enabled: false, status: 'empty' },
+  { id: 'stands',         label: 'Stands / Exposición',   description: 'Texto de la sección; el plano se carga en Participaciones', icon: BuildingIcon,     enabled: false, status: 'empty' },
   { id: 'ubicacion',      label: 'Ubicación y mapa',      description: 'Dirección, cómo llegar, transporte',            icon: MapPinIcon,       enabled: true,  status: 'ok' },
   { id: 'faq',            label: 'Preguntas frecuentes',  description: 'Preguntas y respuestas para asistentes',        icon: HelpCircleIcon,   enabled: true,  status: 'empty' },
   { id: 'galeria',        label: 'Galería',               description: 'Fotos del evento o ediciones pasadas',          icon: ImageIcon,        enabled: false, status: 'empty' },

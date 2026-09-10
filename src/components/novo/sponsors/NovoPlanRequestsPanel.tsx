@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { InboxIcon } from 'lucide-react';
 import { RowActions } from '../ui/RowActions';
 import { NovoModal, ModalBtn, FormField, FormSelect } from '../ui/NovoModal';
+import { formatCurrency } from '../../../lib/novo/events';
+import type { EventParticipation } from '../../../lib/novo/participations';
 import type { NovoCompany } from '../../../lib/novo/companies';
 import {
   listPlanRequestsForEvent, planRequestKindLabel, updatePlanRequestStatus,
@@ -11,6 +13,7 @@ import type { NovoEvent } from '../../../types/novo';
 import type { PlanTier, SponsorStatus } from '../../../lib/novo/sponsors';
 
 export type SponsorDraftFromRequest = {
+  plan_request_id: string;
   company_id: string;
   contact_name: string;
   contact_email: string;
@@ -18,7 +21,41 @@ export type SponsorDraftFromRequest = {
   notas: string;
   status: SponsorStatus;
   plan: PlanTier;
+  amount: string;
+  participation_id: string;
+  stand_code: string;
+  benefits_total: string;
 };
+
+function metalForParticipation(row: EventParticipation | undefined, planId: string | null): PlanTier {
+  const hay = `${row?.id ?? ''} ${row?.name ?? ''} ${planId ?? ''}`.toLowerCase();
+  if (hay.includes('protagonista')) return 'oro';
+  if (hay.includes('conexion') || hay.includes('conexión')) return 'plata';
+  if (hay.includes('pop')) return 'aliado';
+  return 'aliado';
+}
+
+export function parseStandFromNotes(notes: string | null | undefined): string {
+  if (!notes) return '';
+  const line = notes.split('\n').find((item) => /^stand:/i.test(item.trim()));
+  return line ? line.replace(/^stand:\s*/i, '').trim() : '';
+}
+
+export function matchParticipation(request: PlanRequestRow, rows: EventParticipation[]): EventParticipation | undefined {
+  const planId = (request.plan_id ?? '').trim().toLowerCase();
+  if (planId) {
+    const byId = rows.find((row) => row.id.toLowerCase() === planId);
+    if (byId) return byId;
+  }
+  const label = planRequestKindLabel(request).trim().toLowerCase();
+  return rows.find((row) => row.name.trim().toLowerCase() === label || row.name.toLowerCase().includes(label) || label.includes(row.name.toLowerCase()));
+}
+
+function countBenefits(row: EventParticipation | undefined): number {
+  if (!row) return 5;
+  const n = row.benefit_groups.reduce((sum, group) => sum + group.items.filter(Boolean).length, 0);
+  return n || 5;
+}
 
 const STATUS_CONFIG: Record<PlanRequestStatus, { label: string; color: string; bg: string }> = {
   nueva:            { label: 'Nueva',           color: '#5B8AF0', bg: 'rgba(91,138,240,.12)'  },
@@ -42,33 +79,54 @@ function matchCompany(request: PlanRequestRow, companies: NovoCompany[]): NovoCo
   });
 }
 
-function draftFromRequest(request: PlanRequestRow, companies: NovoCompany[]): SponsorDraftFromRequest {
+function draftFromRequest(
+  request: PlanRequestRow,
+  companies: NovoCompany[],
+  participations: EventParticipation[],
+): SponsorDraftFromRequest {
   const matched = matchCompany(request, companies);
+  const participation = matchParticipation(request, participations);
+  const stand = parseStandFromNotes(request.notes);
   const lines = [
-    request.plan_id || request.ally_role ? `Plan web: ${planRequestKindLabel(request)}` : '',
+    participation ? `Participación: ${participation.name}` : (request.plan_id ? `Plan: ${planRequestKindLabel(request)}` : ''),
+    participation?.price ? `Valor: ${formatCurrency(participation.price)}` : '',
+    stand ? `Stand: ${stand}` : '',
     request.nit ? `NIT: ${request.nit}` : '',
     request.category ? `Sector: ${request.category}` : '',
     [request.city, request.country].filter(Boolean).join(', '),
     request.notes,
   ].filter(Boolean);
   return {
+    plan_request_id: request.id,
     company_id: matched?.id ?? '',
     contact_name: request.contact_name,
     contact_email: request.contact_email,
     contact_tel: request.contact_whatsapp ?? '',
     notas: lines.join('\n'),
     status: 'negociacion',
-    plan: 'aliado',
+    plan: metalForParticipation(participation, request.plan_id),
+    amount: participation?.price ? String(participation.price) : '',
+    participation_id: participation?.id ?? request.plan_id ?? '',
+    stand_code: stand,
+    benefits_total: String(countBenefits(participation)),
   };
+}
+
+function canConvertRequest(status: PlanRequestStatus) {
+  return status === 'nueva' || status === 'en-conversacion';
 }
 
 export function NovoPlanRequestsPanel({
   event,
   companies,
+  participations,
+  reloadToken = 0,
   onConvert,
 }: {
   event: NovoEvent;
   companies: NovoCompany[];
+  participations: EventParticipation[];
+  reloadToken?: number;
   onConvert: (draft: SponsorDraftFromRequest) => void;
 }) {
   const [requests, setRequests] = useState<PlanRequestRow[]>([]);
@@ -87,7 +145,7 @@ export function NovoPlanRequestsPanel({
     setError(null);
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [event.id, event.slug]);
+  }, [event.id, event.slug, reloadToken]);
 
   const visible = filter === 'todas' ? requests : requests.filter((row) => row.status === filter);
   const nuevas = requests.filter((row) => row.status === 'nueva').length;
@@ -193,15 +251,17 @@ export function NovoPlanRequestsPanel({
         footer={selected ? (
           <>
             <ModalBtn variant="secondary" onClick={() => setSelected(null)}>Cerrar</ModalBtn>
-            <ModalBtn
-              variant="primary"
-              onClick={() => {
-                onConvert(draftFromRequest(selected, companies));
-                setSelected(null);
-              }}
-            >
-              Pasar a patrocinadores
-            </ModalBtn>
+            {canConvertRequest(selected.status) ? (
+              <ModalBtn
+                variant="primary"
+                onClick={() => {
+                  onConvert(draftFromRequest(selected, companies, participations));
+                  setSelected(null);
+                }}
+              >
+                Pasar a patrocinadores
+              </ModalBtn>
+            ) : null}
           </>
         ) : undefined}
       >
@@ -215,21 +275,38 @@ export function NovoPlanRequestsPanel({
               />
             </FormField>
             {saving ? <p className="text-xs" style={{ color: '#7A9CB8' }}>Guardando estado…</p> : null}
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <Info label="Contacto" value={selected.contact_name} />
-              <Info label="Correo" value={selected.contact_email} />
-              <Info label="WhatsApp" value={selected.contact_whatsapp} />
-              <Info label="NIT" value={selected.nit} />
-              <Info label="Sector" value={selected.category} />
-              <Info label="Ubicación" value={[selected.city, selected.country].filter(Boolean).join(', ')} />
-            </div>
+            {(() => {
+              const participation = matchParticipation(selected, participations);
+              const stand = parseStandFromNotes(selected.notes);
+              return (
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <Info label="Participación" value={participation?.name || planRequestKindLabel(selected)} />
+                  <Info label="Valor" value={participation ? formatCurrency(participation.price) : '—'} />
+                  <Info label="Stand" value={stand || 'Sin stand elegido'} />
+                  <Info label="Contacto" value={selected.contact_name} />
+                  <Info label="Correo" value={selected.contact_email} />
+                  <Info label="WhatsApp" value={selected.contact_whatsapp} />
+                  <Info label="NIT" value={selected.nit} />
+                  <Info label="Sector" value={selected.category} />
+                  <Info label="Ubicación" value={[selected.city, selected.country].filter(Boolean).join(', ')} />
+                </div>
+              );
+            })()}
             {selected.notes ? (
               <div className="rounded-xl px-3.5 py-3" style={{ background: '#0d1829', border: '1px solid #1e3450' }}>
                 <p className="text-[10px] uppercase tracking-wider font-semibold mb-1" style={{ color: '#3A5470' }}>Notas</p>
                 <p className="text-xs whitespace-pre-line leading-relaxed" style={{ color: '#7A9CB8' }}>{selected.notes}</p>
               </div>
             ) : null}
-            {!matchCompany(selected, companies) ? (
+            {selected.status === 'aprobada' ? (
+              <p className="text-[11px]" style={{ color: '#00C9A0' }}>
+                Esta postulación ya está en patrocinadores. No hace falta pasarla otra vez.
+              </p>
+            ) : selected.status === 'descartada' ? (
+              <p className="text-[11px]" style={{ color: '#7A9CB8' }}>
+                Esta postulación está descartada.
+              </p>
+            ) : !matchCompany(selected, companies) ? (
               <p className="text-[11px]" style={{ color: '#3A5470' }}>
                 Esta empresa no está en el CRM. Al pasarla a patrocinadores tendrás que elegirla o crearla.
               </p>
