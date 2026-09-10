@@ -1,0 +1,3 @@
+# JWT off: Wompi no envía un bearer de Supabase. La firma va en signature.checksum.
+[functions.wompi-webhook]
+verify_jwt = false

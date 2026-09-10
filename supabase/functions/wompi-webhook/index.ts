@@ -36,9 +36,16 @@ const WOMPI_STATUS_MAP: Record<string, string> = {
   PENDING: 'pending',
 };
 
+function jsonOk() {
+  return new Response(JSON.stringify({ status: 'ok' }), {
+    status: 200,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return jsonOk();
   }
 
   try {
@@ -69,13 +76,13 @@ Deno.serve(async (req) => {
 
     const transaction = data.transaction;
     if (!transaction?.reference || !transaction?.status) {
-      return new Response('ok', { headers: corsHeaders });
+      return jsonOk();
     }
 
     const mappedStatus = WOMPI_STATUS_MAP[transaction.status];
     if (!mappedStatus) {
       // Estado desconocido/no mapeado: se ignora sin error para no romper el webhook.
-      return new Response('ok', { headers: corsHeaders });
+      return jsonOk();
     }
 
     const admin = supabaseAdmin();
@@ -92,7 +99,7 @@ Deno.serve(async (req) => {
       if (mappedStatus !== 'approved') {
         // company_payments no tiene un estado "rechazado" equivalente;
         // solo se actualiza cuando Wompi aprueba el pago.
-        return new Response('ok', { headers: corsHeaders });
+        return jsonOk();
       }
       const paymentId = reference.slice('HB-PAY-'.length);
       const { error } = await admin
@@ -110,14 +117,14 @@ Deno.serve(async (req) => {
         console.error('wompi-webhook: error actualizando company_payment', error);
         return new Response('Error interno', { status: 500 });
       }
-      return new Response('ok', { headers: corsHeaders });
+      return jsonOk();
     }
 
     // Pago de todas las cuotas pendientes del mismo evento (Novo) o edición.
     // HB-EALL-<company_payment.id> usa esa fila como semilla de company_id + event_id/edition_id.
     if (reference.startsWith('HB-EALL-')) {
       if (mappedStatus !== 'approved') {
-        return new Response('ok', { headers: corsHeaders });
+        return jsonOk();
       }
       const paymentId = reference.slice('HB-EALL-'.length);
       const { data: seed, error: seedError } = await admin
@@ -167,49 +174,41 @@ Deno.serve(async (req) => {
         console.error('wompi-webhook: error guardando referencia HB-EALL', refError);
       }
 
-      return new Response('ok', { headers: corsHeaders });
+      return jsonOk();
     }
 
     // Compra de ticket Novo (persona). NV-TKT-<uuid> queda en event_registrations.wompi_reference.
     if (reference.startsWith('NV-TKT-')) {
       if (mappedStatus !== 'approved') {
-        return new Response('ok', { headers: corsHeaders });
+        return jsonOk();
       }
-      const { data: registration, error: findError } = await admin
-        .from('event_registrations')
-        .select('id, person_id, event_id, ticket_type_id, amount_paid')
-        .eq('wompi_reference', reference)
-        .maybeSingle();
-
-      if (findError || !registration) {
-        console.error('wompi-webhook: inscripción Novo no encontrada para NV-TKT', findError);
-        return new Response('Error interno', { status: 500 });
-      }
-
       const amountInCents = Number(transaction.amount_in_cents ?? 0);
-      const amount = amountInCents > 0 ? amountInCents / 100 : Number(registration.amount_paid) || 0;
-
-      const { error: updateError } = await admin
-        .from('event_registrations')
-        .update({
-          status: 'confirmado',
-          amount_paid: amount,
-        })
-        .eq('id', registration.id);
-
-      if (updateError) {
-        console.error('wompi-webhook: error confirmando inscripción Novo', updateError);
-        return new Response('Error interno', { status: 500 });
-      }
-
-      if (registration.ticket_type_id) {
-        const { data: existingEntitlement } = await admin
-          .from('ticket_entitlements')
-          .select('id')
-          .eq('registration_id', registration.id)
+      const amount = amountInCents > 0 ? amountInCents / 100 : 0;
+      const { data: confirmed, error: confirmError } = await admin.rpc('novo_confirm_ticket_payment', {
+        p_reference: reference,
+        p_amount: amount,
+        p_transaction_id: transaction.id ? String(transaction.id) : null,
+      });
+      if (confirmError || confirmed !== true) {
+        const { data: registration, error: findError } = await admin
+          .from('event_registrations')
+          .select('id, person_id, event_id, ticket_type_id')
+          .eq('wompi_reference', reference)
           .maybeSingle();
-        if (!existingEntitlement) {
-          const { error: entError } = await admin.from('ticket_entitlements').insert({
+        if (findError || !registration) {
+          console.error('wompi-webhook: no se confirmó el ticket Novo', confirmError, findError);
+          return new Response('Error interno', { status: 500 });
+        }
+        const { error: updateError } = await admin
+          .from('event_registrations')
+          .update({ status: 'confirmado', amount_paid: amount })
+          .eq('id', registration.id);
+        if (updateError) {
+          console.error('wompi-webhook: error confirmando inscripción Novo', updateError);
+          return new Response('Error interno', { status: 500 });
+        }
+        if (registration.ticket_type_id) {
+          await admin.from('ticket_entitlements').insert({
             registration_id: registration.id,
             ticket_type_id: registration.ticket_type_id,
             person_id: registration.person_id,
@@ -217,20 +216,16 @@ Deno.serve(async (req) => {
             price_paid: amount,
             status: 'activo',
           });
-          if (entError) {
-            console.error('wompi-webhook: error creando entitlement Novo', entError);
-          }
         }
       }
-
-      return new Response('ok', { headers: corsHeaders });
+      return jsonOk();
     }
 
     // Pago del saldo restante del contrato (todas las cuotas pendientes).
     // HB-BAL-<participation_id>
     if (reference.startsWith('HB-BAL-')) {
       if (mappedStatus !== 'approved') {
-        return new Response('ok', { headers: corsHeaders });
+        return jsonOk();
       }
       const participationId = reference.slice('HB-BAL-'.length);
       const { data: participation, error: partError } = await admin
@@ -307,7 +302,7 @@ Deno.serve(async (req) => {
           }
         }
       }
-      return new Response('ok', { headers: corsHeaders });
+      return jsonOk();
     }
 
     if (reference.startsWith('HB-SPONSOR-')) {
@@ -315,7 +310,7 @@ Deno.serve(async (req) => {
         // plan_requests tampoco tiene un estado "rechazado" por Wompi
         // distinto de 'descartada' (que es una decisión comercial, no de
         // pago); solo se actualiza cuando Wompi aprueba.
-        return new Response('ok', { headers: corsHeaders });
+        return jsonOk();
       }
       const requestId = reference.slice('HB-SPONSOR-'.length);
       const { error } = await admin
@@ -331,7 +326,7 @@ Deno.serve(async (req) => {
         console.error('wompi-webhook: error actualizando plan_request', error);
         return new Response('Error interno', { status: 500 });
       }
-      return new Response('ok', { headers: corsHeaders });
+      return jsonOk();
     }
 
     const { error } = await admin
@@ -347,7 +342,7 @@ Deno.serve(async (req) => {
       return new Response('Error interno', { status: 500 });
     }
 
-    return new Response('ok', { headers: corsHeaders });
+    return jsonOk();
   } catch (err) {
     console.error('wompi-webhook error', err);
     return new Response('Payload inválido', { status: 400 });

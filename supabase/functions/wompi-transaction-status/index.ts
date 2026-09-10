@@ -85,6 +85,15 @@ Deno.serve(async (req) => {
     };
 
     if (reference.startsWith('NV-TKT-')) {
+      const amount = amountInCents > 0 ? amountInCents / 100 : 0;
+      if (status === 'APPROVED') {
+        await admin.rpc('novo_confirm_ticket_payment', {
+          p_reference: reference,
+          p_amount: amount,
+          p_transaction_id: String(tx.id ?? ''),
+        });
+      }
+
       const { data: registration } = await admin
         .from('event_registrations')
         .select('id, person_id, event_id, ticket_type_id, status')
@@ -92,32 +101,6 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (registration) {
-        if (status === 'APPROVED' && registration.status !== 'confirmado') {
-          const amount = amountInCents > 0 ? amountInCents / 100 : 0;
-          await admin
-            .from('event_registrations')
-            .update({ status: 'confirmado', amount_paid: amount })
-            .eq('id', registration.id);
-
-          if (registration.ticket_type_id) {
-            const { data: existing } = await admin
-              .from('ticket_entitlements')
-              .select('id')
-              .eq('registration_id', registration.id)
-              .maybeSingle();
-            if (!existing) {
-              await admin.from('ticket_entitlements').insert({
-                registration_id: registration.id,
-                ticket_type_id: registration.ticket_type_id,
-                person_id: registration.person_id,
-                event_id: registration.event_id,
-                price_paid: amount,
-                status: 'activo',
-              });
-            }
-          }
-        }
-
         const [{ data: person }, { data: ticket }, { data: event }, { data: qr }] = await Promise.all([
           admin.from('people').select('full_name').eq('id', registration.person_id).maybeSingle(),
           registration.ticket_type_id

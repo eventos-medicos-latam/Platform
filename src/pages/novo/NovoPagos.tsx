@@ -20,6 +20,7 @@ import {
   updateCompanyPayment,
   type CompanyPaymentRow,
 } from '../../lib/companyPayments';
+import { listRegistrations } from '../../lib/novo/registrations';
 import { RowActions } from '../../components/novo/ui/RowActions';
 import {
   NovoModal, ModalBtn,
@@ -46,10 +47,13 @@ interface Payment {
   notes?: string;
   status: PayStatus;
   receipt_url?: string;
+  kind: 'empresa' | 'ticket';
+  payer_name: string;
 }
 
-function paymentCompanyName(id: string, companies: NovoCompany[]) {
-  return companies.find(c => c.id === id)?.name ?? 'Empresa';
+function paymentPayerName(item: Payment, companies: NovoCompany[]) {
+  if (item.kind === 'ticket') return item.payer_name || 'Ticket web';
+  return companies.find(c => c.id === item.company_id)?.name ?? 'Empresa';
 }
 
 function asPayMethod(value: string | null): PayMethod | undefined {
@@ -72,6 +76,8 @@ function fromLedger(row: CompanyPaymentRow): Payment {
     paid_at: row.paid_at ? row.paid_at.slice(0, 10) : null,
     method: asPayMethod(row.payment_method),
     status: toNovoStatus(row.status, row.due_date),
+    kind: 'empresa',
+    payer_name: '',
   };
 }
 
@@ -122,8 +128,33 @@ export function NovoPagos() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const reloadPayments = async () => {
-    const rows = await listCompanyPayments();
-    setPayments(rows.map(fromLedger));
+    const [companyRows, regs] = await Promise.all([
+      listCompanyPayments(),
+      listRegistrations().catch(() => []),
+    ]);
+    const tickets: Payment[] = regs
+      .filter((row) => row.registration_type === 'compra')
+      .map((row) => {
+        const paid = row.status === 'confirmado' || row.status === 'asistio' || row.amount_paid > 0;
+        return {
+          id: row.id,
+          agreement_id: '',
+          company_id: '',
+          event_id: row.event_id,
+          edition_id: null,
+          event_name: row.event_name,
+          description: `Ticket web · ${row.full_name}`,
+          amount: row.amount_paid,
+          currency: 'COP',
+          due_date: row.created_at.slice(0, 10),
+          paid_at: paid ? row.created_at.slice(0, 10) : null,
+          method: 'wompi' as PayMethod,
+          status: paid ? 'pagado' as const : row.status === 'cancelado' ? 'vencido' as const : 'proximo' as const,
+          kind: 'ticket' as const,
+          payer_name: row.full_name,
+        };
+      });
+    setPayments([...tickets, ...companyRows.map(fromLedger)]);
   };
 
   useEffect(() => {
@@ -249,7 +280,7 @@ export function NovoPagos() {
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: ACCENT }}>Recaudo flexible</p>
           <h1 className="text-xl font-bold" style={{ color: TEXT_HI, fontFamily: "'Sora', sans-serif" }}>Facturación y Pagos</h1>
-          <p className="mt-0.5 text-sm" style={{ color: TEXT_LO }}>Acuerdos · calendarios de recaudo · Wompi + manual</p>
+          <p className="mt-0.5 text-sm" style={{ color: TEXT_LO }}>Tickets web · acuerdos de empresas · Wompi</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => {}} className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold"
@@ -296,7 +327,7 @@ export function NovoPagos() {
             {/* Header tabla */}
             <div className="grid text-[10px] font-bold uppercase tracking-widest px-5 py-3"
               style={{ gridTemplateColumns: '2fr 1.4fr .9fr 1fr .9fr 1fr auto', color: TEXT_DIM, borderBottom: `1px solid #1a2e45`, background: '#182d47' }}>
-              <span>Empresa</span><span>Evento</span><span>Cuota</span><span>Monto</span><span>Vencimiento</span><span>Estado</span><span />
+              <span>Pagador</span><span>Evento</span><span>Concepto</span><span>Monto</span><span>Fecha</span><span>Estado</span><span />
             </div>
 
             {filtered.length === 0 && (
@@ -323,8 +354,10 @@ export function NovoPagos() {
                   onMouseLeave={e => { e.currentTarget.style.background = isActive ? 'rgba(0,201,160,.04)' : 'transparent'; }}>
 
                   <div className="min-w-0 pr-3">
-                    <p className="truncate text-sm font-semibold" style={{ color: TEXT_HI }}>{paymentCompanyName(item.company_id, companies)}</p>
-                    {item.agreement_id ? <p className="text-[10px]" style={{ color: TEXT_DIM }}>#{item.agreement_id}</p> : null}
+                    <p className="truncate text-sm font-semibold" style={{ color: TEXT_HI }}>{paymentPayerName(item, companies)}</p>
+                    {item.kind === 'ticket'
+                      ? <p className="text-[10px]" style={{ color: TEXT_DIM }}>Ticket web</p>
+                      : item.agreement_id ? <p className="text-[10px]" style={{ color: TEXT_DIM }}>#{item.agreement_id}</p> : null}
                   </div>
                   <p className="truncate text-sm pr-2" style={{ color: TEXT_LO }}>{item.event_name}</p>
                   <p className="text-sm" style={{ color: TEXT_LO }}>{item.description}</p>
@@ -339,14 +372,16 @@ export function NovoPagos() {
                   </span>
 
                   <div onClick={e => e.stopPropagation()}>
-                    <RowActions
-                      onEdit={() => openEdit(item)}
-                      onDuplicate={() => { void handleDuplicate(item); }}
-                      extra={[
-                        ...(item.status !== 'pagado' ? [{ label: 'Marcar pagado', icon: CheckCircleIcon, onClick: () => { void markPaid(item.id); } }] : []),
-                        { label: 'Eliminar', icon: TrashIcon, onClick: () => { void handleDelete(item.id); }, variant: 'danger' as const },
-                      ]}
-                    />
+                    {item.kind === 'empresa' ? (
+                      <RowActions
+                        onEdit={() => openEdit(item)}
+                        onDuplicate={() => { void handleDuplicate(item); }}
+                        extra={[
+                          ...(item.status !== 'pagado' ? [{ label: 'Marcar pagado', icon: CheckCircleIcon, onClick: () => { void markPaid(item.id); } }] : []),
+                          { label: 'Eliminar', icon: TrashIcon, onClick: () => { void handleDelete(item.id); }, variant: 'danger' as const },
+                        ]}
+                      />
+                    ) : null}
                   </div>
                 </motion.div>
               );
@@ -376,8 +411,10 @@ export function NovoPagos() {
                   <div className="flex items-start gap-2.5">
                     <BuildingIcon size={13} style={{ color: TEXT_DIM, flexShrink: 0, marginTop: 2 }} />
                     <div>
-                      <p className="text-xs font-semibold" style={{ color: TEXT_HI }}>{paymentCompanyName(selected.company_id, companies)}</p>
-                      {selected.agreement_id ? <p className="text-[10px]" style={{ color: TEXT_DIM }}>#{selected.agreement_id}</p> : null}
+                      <p className="text-xs font-semibold" style={{ color: TEXT_HI }}>{paymentPayerName(selected, companies)}</p>
+                      {selected.kind === 'ticket'
+                        ? <p className="text-[10px]" style={{ color: TEXT_DIM }}>Ticket web</p>
+                        : selected.agreement_id ? <p className="text-[10px]" style={{ color: TEXT_DIM }}>#{selected.agreement_id}</p> : null}
                     </div>
                   </div>
                   <div className="flex items-center gap-2.5">
@@ -411,18 +448,20 @@ export function NovoPagos() {
 
                 {/* Acciones */}
                 <div className="space-y-2">
-                  {selected.status !== 'pagado' && (
+                  {selected.kind === 'empresa' && selected.status !== 'pagado' && (
                     <button onClick={() => { void markPaid(selected.id); }}
                       className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold"
-                      style={{ background: 'rgba(0,201,160,.12)', color: ACCENT, border: `1px solid rgba(0,201,160,.25)` }}>
+                      style={{ background: 'rgba(0,201,160,.12)', color: ACCENT, border: '1px solid rgba(0,201,160,.25)' }}>
                       <CheckCircleIcon size={13} /> Marcar como pagado
                     </button>
                   )}
-                  <button onClick={() => openEdit(selected)}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold"
-                    style={{ background: '#182d47', color: TEXT_LO, border: `1px solid ${BORDER}` }}>
-                    <PencilIcon size={12} /> Editar
-                  </button>
+                  {selected.kind === 'empresa' && (
+                    <button onClick={() => openEdit(selected)}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold"
+                      style={{ background: '#182d47', color: TEXT_LO, border: `1px solid ${BORDER}` }}>
+                      <PencilIcon size={12} /> Editar
+                    </button>
+                  )}
                   <button onClick={() => {}}
                     className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold"
                     style={{ background: '#182d47', color: TEXT_LO, border: `1px solid ${BORDER}` }}>
