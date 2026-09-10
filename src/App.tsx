@@ -30,6 +30,10 @@ import { NovoEventConfiguracion } from './pages/novo/event/NovoEventConfiguracio
 import { NovoEventProductos } from './pages/novo/event/NovoEventProductos';
 import { NovoEventTickets } from './pages/novo/event/NovoEventTickets';
 import { NovoPublicEvent } from './pages/public/NovoPublicEvent';
+import { NovoPublicEventLayout } from './pages/public/NovoPublicEventLayout';
+import { NovoPublicAgenda } from './pages/public/NovoPublicAgenda';
+import { NovoPublicAllies } from './pages/public/NovoPublicAllies';
+import { NovoPublicFaq } from './pages/public/NovoPublicFaq';
 import { NovoPublicRegister } from './pages/public/NovoPublicRegister';
 import { PlatformProvider } from './contexts/PlatformContext';
 import { PublicLayout } from './components/layout/PublicLayout';
@@ -96,8 +100,14 @@ function AnimatedRoutes() {
           <Route path="/habitos-al-plato" element={<HabitosAlPlato />} />
           <Route path="/contacto" element={<Contact />} />
           <Route path="/legal" element={<Legal />} />
-          <Route path="/e/:slug" element={<NovoPublicEvent />} />
-          <Route path="/e/:slug/inscripcion" element={<NovoPublicRegister />} />
+          <Route path="/e/:slug" element={<NovoPublicEventLayout />}>
+            <Route index element={<NovoPublicEvent />} />
+            <Route path="agenda" element={<NovoPublicAgenda />} />
+            <Route path="aliados" element={<NovoPublicAllies />} />
+            <Route path="registro" element={<Navigate to="../aliados" replace />} />
+            <Route path="faq" element={<NovoPublicFaq />} />
+            <Route path="inscripcion" element={<NovoPublicRegister />} />
+          </Route>
         </Route>
 
         {/* Páginas de evento */}

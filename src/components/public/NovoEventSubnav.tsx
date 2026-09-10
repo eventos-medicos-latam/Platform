@@ -1,11 +1,12 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { StatusBadge, type BadgeTone } from '../ui/StatusBadge';
 import { DURATION, EASE_EMPHASIS } from '../../utils/motion';
 
 export type NovoEventNavItem = {
-  href: string;
+  to: string;
   label: string;
+  end?: boolean;
 };
 
 export function NovoEventSubnav({
@@ -31,9 +32,6 @@ export function NovoEventSubnav({
   ctaLabel?: string;
   ctaTo?: string;
 }) {
-  const location = useLocation();
-  const active = location.hash || '#inicio';
-
   return (
     <>
       <div className="border-b border-line bg-white">
@@ -69,28 +67,32 @@ export function NovoEventSubnav({
       <nav aria-label="Secciones del evento" className="sticky top-[57px] z-20 border-b border-line bg-white/95 backdrop-blur">
         <div className="mx-auto max-w-shell px-6">
           <ul className="no-scrollbar flex gap-1 overflow-x-auto">
-            {items.map((item) => {
-              const isActive = active === item.href;
-              return (
-                <li key={item.href}>
-                  <a
-                    href={item.href}
-                    className={`relative block whitespace-nowrap px-3.5 py-3 text-sm font-medium transition-colors duration-150 ease-emphasis ${
+            {items.map((item) => (
+              <li key={item.to}>
+                <NavLink
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) =>
+                    `relative block whitespace-nowrap px-3.5 py-3 text-sm font-medium transition-colors duration-150 ease-emphasis ${
                       isActive ? 'text-brand' : 'text-ink-muted hover:text-brand'
-                    }`}
-                  >
-                    {item.label}
-                    {isActive ? (
-                      <motion.span
-                        layoutId="novo-event-nav-underline"
-                        className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-accent"
-                        transition={{ duration: DURATION.dropdown, ease: EASE_EMPHASIS }}
-                      />
-                    ) : null}
-                  </a>
-                </li>
-              );
-            })}
+                    }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      {item.label}
+                      {isActive ? (
+                        <motion.span
+                          layoutId="novo-event-nav-underline"
+                          className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-accent"
+                          transition={{ duration: DURATION.dropdown, ease: EASE_EMPHASIS }}
+                        />
+                      ) : null}
+                    </>
+                  )}
+                </NavLink>
+              </li>
+            ))}
             {ctaTo && ctaLabel ? (
               <li className="ml-auto hidden items-center py-2 md:flex">
                 <Link
