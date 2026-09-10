@@ -29,6 +29,7 @@ import { NovoEventWeb } from './pages/novo/event/NovoEventWeb';
 import { NovoEventConfiguracion } from './pages/novo/event/NovoEventConfiguracion';
 import { NovoEventProductos } from './pages/novo/event/NovoEventProductos';
 import { NovoEventTickets } from './pages/novo/event/NovoEventTickets';
+import { NovoEventParticipaciones } from './pages/novo/event/NovoEventParticipaciones';
 import { NovoPublicEvent } from './pages/public/NovoPublicEvent';
 import { NovoPublicEventLayout } from './pages/public/NovoPublicEventLayout';
 import { NovoPublicAgenda } from './pages/public/NovoPublicAgenda';
@@ -178,6 +179,7 @@ function AnimatedRoutes() {
               <Route path="agenda"           element={<NovoEventAgenda />} />
               <Route path="tickets"          element={<NovoEventTickets />} />
               <Route path="inscripciones"    element={<NovoEventInscripciones />} />
+              <Route path="participaciones"  element={<NovoEventParticipaciones />} />
               <Route path="productos"        element={<NovoEventProductos />} />
               <Route path="patrocinadores"   element={<NovoEventPatrocinadores />} />
               <Route path="stands"           element={<NovoEventStands />} />

@@ -44,6 +44,9 @@ export interface ParticipationPlan {
   totalInventory: number | null;
   sold: number;
   availabilityNote: string;
+
+  /** Si es true, la web muestra el plano de stands antes del formulario. */
+  has_map?: boolean;
 }
 
 /** Fila de la tabla comparativa. */

@@ -30,7 +30,7 @@ const subNav: {
   anySections: agendaSections
 }, {
   path: 'registro',
-  label: 'Registro',
+  label: 'Aliados',
   section: 'patrocinadores'
 }, {
   path: 'faq',

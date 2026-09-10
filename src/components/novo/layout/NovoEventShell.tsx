@@ -5,7 +5,7 @@ import {
   ArrowLeftIcon, LayoutDashboardIcon, InfoIcon, CalendarDaysIcon,
   TicketIcon, PackageIcon, BuildingIcon, LayoutPanelLeftIcon, MessageSquareIcon,
   GlobeIcon, SettingsIcon, ChevronDownIcon, UsersIcon,
-  ZapIcon, ExternalLinkIcon, ChevronRightIcon,
+  ZapIcon, ExternalLinkIcon, ChevronRightIcon, BadgeIcon,
 } from 'lucide-react';
 import { listEvents, getEvent, publicEventPath } from '../../../lib/novo/events';
 import type { NovoEvent } from '../../../types/novo';
@@ -15,9 +15,10 @@ const EVENT_NAV = [
   { path: 'informacion',    label: 'Información',    icon: InfoIcon },
   { path: 'agenda',         label: 'Agenda',         icon: CalendarDaysIcon },
   { path: 'tickets',         label: 'Tickets',        icon: TicketIcon },
-  { path: 'inscripciones',  label: 'Inscripciones',  icon: UsersIcon },
-  { path: 'productos',      label: 'Productos',      icon: PackageIcon },
-  { path: 'patrocinadores', label: 'Patrocinadores', icon: BuildingIcon },
+  { path: 'inscripciones',  label: 'Inscripciones',   icon: UsersIcon },
+  { path: 'participaciones', label: 'Participaciones', icon: BadgeIcon },
+  { path: 'productos',      label: 'Productos',       icon: PackageIcon },
+  { path: 'patrocinadores', label: 'Patrocinadores',  icon: BuildingIcon },
   { path: 'stands',         label: 'Stands',         icon: LayoutPanelLeftIcon },
   { path: 'comunicaciones', label: 'Comunicaciones', icon: MessageSquareIcon },
   { path: 'web',            label: 'Web',            icon: GlobeIcon },

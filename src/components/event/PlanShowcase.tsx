@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowRightIcon, CheckIcon, SparklesIcon } from 'lucide-react';
 import { participationPlans } from '../../data/plans';
-import type { PlanId } from '../../types/participation';
+import type { ParticipationPlan, PlanId } from '../../types/participation';
 import { EASE_EMPHASIS } from '../../utils/motion';
 interface PlanShowcaseProps {
   /** Plan abierto. Se controla desde fuera para sincronizar con el configurador. */
@@ -11,19 +11,16 @@ interface PlanShowcaseProps {
   /** Texto y acción del CTA de cada plan. */
   ctaLabel: string;
   onCta: (id: PlanId) => void;
-  /** Subconjunto de planes a exponer. Por defecto, los tres. */
+  /** Lista completa de planes a mostrar. Tiene prioridad sobre planIds. */
+  plans?: ParticipationPlan[];
+  /** Subconjunto de planes del catálogo global. Solo aplica si no se pasa `plans`. */
   planIds?: PlanId[];
 }
 
-/** Resumen corto que se ve siempre, plegado o desplegado. */
-function shortPoints(planId: PlanId): string[] {
-  if (planId === 'protagonista') {
-    return ['Stand 3 × 2 m', 'Speaker y espacio académico', 'Naming de puente exclusivo'];
-  }
-  if (planId === 'conexion') {
-    return ['Stand 3 × 2 m', 'Ruta 21 días + web + redes', '10 invitados profesionales'];
-  }
-  return ['Estación con mesa y 2 sillas', '1 pendón roll-up', '2 colaboradores'];
+/** Primeros 3 ítems del primer grupo de beneficios del plan. */
+function shortPoints(plan: ParticipationPlan): string[] {
+  const items = plan.benefitGroups.flatMap((g) => g.items);
+  return items.slice(0, 3);
 }
 
 /**
@@ -35,6 +32,7 @@ export function PlanShowcase({
   onSelect,
   ctaLabel,
   onCta,
+  plans: plansProp,
   planIds
 }: PlanShowcaseProps) {
   const reduce = useReducedMotion();
@@ -49,7 +47,8 @@ export function PlanShowcase({
     query.addEventListener('change', sync);
     return () => query.removeEventListener('change', sync);
   }, []);
-  const plans = planIds ? participationPlans.filter((plan) => planIds.includes(plan.id)) : participationPlans;
+  const plans = plansProp
+    ?? (planIds ? participationPlans.filter((p) => planIds.includes(p.id)) : participationPlans);
   return <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
       {plans.map((plan) => {
       const isActive = plan.id === activeId;
@@ -103,7 +102,7 @@ export function PlanShowcase({
               <ul className="mt-6 space-y-2 border-t pt-5 text-sm" style={{
             borderColor: isHero ? 'rgba(255,255,255,0.16)' : undefined
           }}>
-                {shortPoints(plan.id).map((item) => <li key={item} className="flex items-start gap-2.5">
+                {shortPoints(plan).map((item) => <li key={item} className="flex items-start gap-2.5">
                     <CheckIcon size={16} className={`mt-0.5 shrink-0 ${isHero ? 'text-hb-violet' : 'text-accent'}`} />
                     <span className={isHero ? 'text-white/90' : 'text-ink'}>{item}</span>
                   </li>)}
