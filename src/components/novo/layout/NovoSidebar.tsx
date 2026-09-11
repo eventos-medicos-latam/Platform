@@ -63,7 +63,7 @@ export function NovoSidebar() {
 
   return (
     <aside
-      className="hidden lg:flex sticky top-0 h-screen w-[248px] shrink-0 flex-col"
+      className="hidden lg:flex sticky top-0 h-screen min-h-0 w-[248px] shrink-0 flex-col"
       style={{ background: SIDEBAR_BG, borderRight: `1px solid ${SIDEBAR_BORDER}` }}
     >
       {/* Logo */}
@@ -85,7 +85,7 @@ export function NovoSidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+      <nav data-lenis-prevent className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 space-y-5">
         {NAV.map((group) => {
           const iconColor = GROUP_ICON_COLOR[group.group];
           return (

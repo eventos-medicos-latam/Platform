@@ -73,7 +73,13 @@ export function PublicHeader() {
 
   useEffect(() => {
     document.body.style.overflow = menuOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
+    const lenis = (window as unknown as { lenis?: { stop: () => void; start: () => void } }).lenis;
+    if (menuOpen) lenis?.stop();
+    else lenis?.start();
+    return () => {
+      document.body.style.overflow = '';
+      lenis?.start();
+    };
   }, [menuOpen]);
 
   /* Cerrar dropdown Eventos al hacer clic fuera */
@@ -205,10 +211,10 @@ export function PublicHeader() {
     {/* Menú móvil */}
     <AnimatePresence>
       {menuOpen ? (
-        <motion.div className="fixed inset-0 z-50 bg-brand-deep lg:hidden"
+        <motion.div data-lenis-prevent className="fixed inset-0 z-50 h-dvh overflow-hidden bg-brand-deep lg:hidden"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           transition={{ duration: DURATION.dropdown, ease: EASE_EMPHASIS }}>
-          <div className="grid-texture flex h-full flex-col">
+          <div className="grid-texture flex h-full min-h-0 flex-col">
             <div className="flex items-center justify-between px-5 py-4">
               <Logo compact />
               <button type="button" onClick={() => setMenuOpen(false)}
@@ -217,7 +223,7 @@ export function PublicHeader() {
               </button>
             </div>
 
-            <nav aria-label="Navegación móvil" className="flex-1 overflow-y-auto px-4 pb-6">
+            <nav aria-label="Navegación móvil" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6">
               <ul className="grid grid-cols-2 gap-3">
                 {navItems.flatMap((item, index) => {
                   const cards = [

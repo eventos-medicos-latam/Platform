@@ -56,7 +56,7 @@ export function SpeakerLayout() {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
+        <nav data-lenis-prevent className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 space-y-0.5">
           {NAV.map(item => (
             <NavLink key={item.to} to={item.to} end={item.end}
               className={({ isActive }) =>

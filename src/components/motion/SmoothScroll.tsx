@@ -1,28 +1,36 @@
 import React, { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Lenis from 'lenis';
 
+type LenisWindow = Window & { lenis?: Lenis };
+
+function usesNativeScroll(pathname: string) {
+  return (
+    pathname === '/login' ||
+    pathname.startsWith('/novo') ||
+    pathname.startsWith('/portal') ||
+    pathname.startsWith('/speaker') ||
+    pathname.startsWith('/admin')
+  );
+}
+
 /**
- * Scroll suavizado global. Es la base de todo el movimiento ligado al scroll:
- * sin esto el navegador avanza a saltos y cualquier transformación continua se
- * ve entrecortada. Se desactiva por completo con prefers-reduced-motion.
+ * Scroll suavizado en el sitio público. En paneles (Novo, portal, speaker)
+ * Lenis captura la rueda y bloquea el scroll de menús laterales y modales.
  */
-export function SmoothScroll({
-  children
+export function SmoothScroll({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
+  const native = usesNativeScroll(pathname);
 
-
-}: {children: React.ReactNode;}) {
   useEffect(() => {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) return;
+    if (reduce || native) return;
     const lenis = new Lenis({
       duration: 1.05,
       easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      touchMultiplier: 1.6
+      touchMultiplier: 1.6,
     });
-    // Expuesto para que la navegación pueda volver al inicio sin animación.
-    (window as unknown as {
-      lenis?: Lenis;
-    }).lenis = lenis;
+    (window as LenisWindow).lenis = lenis;
     let frame = 0;
     function raf(time: number) {
       lenis.raf(time);
@@ -32,10 +40,8 @@ export function SmoothScroll({
     return () => {
       cancelAnimationFrame(frame);
       lenis.destroy();
-      delete (window as unknown as {
-        lenis?: Lenis;
-      }).lenis;
+      delete (window as LenisWindow).lenis;
     };
-  }, []);
+  }, [native]);
   return <>{children}</>;
 }
