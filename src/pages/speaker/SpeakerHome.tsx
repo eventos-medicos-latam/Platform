@@ -25,7 +25,7 @@ const QUICK = [
 
 export function SpeakerHome() {
   const { session } = usePlatform();
-  const name = session?.user?.user_metadata?.full_name ?? 'Speaker';
+  const name = session?.name || 'Speaker';
   const done = CHECKLIST.filter(c => c.done).length;
   const pct  = Math.round((done / CHECKLIST.length) * 100);
 

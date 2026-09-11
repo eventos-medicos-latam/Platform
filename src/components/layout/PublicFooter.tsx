@@ -4,6 +4,7 @@ import { FacebookIcon, InstagramIcon, LinkedinIcon } from 'lucide-react';
 import { Logo } from '../ui/Logo';
 import { organization } from '../../data/organization';
 import { listPublicEvents, publicEventPath } from '../../lib/novo/events';
+import { homeForRole, usePlatform } from '../../contexts/PlatformContext';
 import { Pending } from '../ui/Pending';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -18,6 +19,7 @@ interface SiteSettings {
 const SETTINGS_KEYS = ['contact_email', 'contact_whatsapp_dial_code', 'contact_whatsapp_number', 'social_instagram', 'social_linkedin', 'social_facebook'];
 
 export function PublicFooter() {
+  const { session } = usePlatform();
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [events, setEvents] = useState<{ id: string; name: string; year: string; path: string }[]>([]);
   useEffect(() => {
@@ -133,8 +135,8 @@ export function PublicFooter() {
               </Link>
             </li>
             <li>
-              <Link className="text-ink-muted hover:text-brand" to="/login">
-                Iniciar sesión
+              <Link className="text-ink-muted hover:text-brand" to={session ? homeForRole(session.role) : '/login'}>
+                {session ? 'Mi cuenta' : 'Iniciar sesión'}
               </Link>
             </li>
           </ul>

@@ -14,6 +14,7 @@ import type { SpeakerPublic } from '../../components/speakers/speakerData';
 import { listPublicSpeakers, toPublicSpeaker } from '../../lib/novo/speakers';
 import { media } from '../../data/media';
 import { EASE_EMPHASIS } from '../../utils/motion';
+import { homeForRole, usePlatform } from '../../contexts/PlatformContext';
 
 /* ── Datos de la propuesta de valor ── */
 const OFFERINGS = [
@@ -74,6 +75,7 @@ const STEPS = [
 ];
 
 export function Speakers() {
+  const { session } = usePlatform();
   const [search, setSearch]   = useState('');
   const [filtroEsp, setFiltro] = useState('Todas');
   const [speakers, setSpeakers] = useState<SpeakerPublic[]>([]);
@@ -365,7 +367,7 @@ export function Speakers() {
                 style={{ background: '#00C9A0' }}>
                 <MicVocalIcon size={15} /> Crear mi perfil de speaker
               </Link>
-              <Link to="/login"
+              <Link to={session ? homeForRole(session.role) : '/login'}
                 className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold transition-all duration-200 ease-emphasis"
                 style={{ border: '1px solid rgba(255,255,255,0.25)', color: '#fff', background: 'rgba(255,255,255,0.08)' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.14)')}

@@ -29,7 +29,7 @@ export function SpeakerLayout() {
   if (!session || session.role !== 'speaker') {
     return <Navigate to="/login" replace />;
   }
-  const name = session?.user?.user_metadata?.full_name ?? session?.user?.email ?? 'Speaker';
+  const name = session.name || session.email || 'Speaker';
   const initials = name.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0]).join('').toUpperCase();
 
   return (

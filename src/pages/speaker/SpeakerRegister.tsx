@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MicVocalIcon, EyeIcon, EyeOffIcon, CheckIcon } from 'lucide-react';
 import { Logo } from '../../components/ui/Logo';
 import { media } from '../../data/media';
 import { supabase } from '../../lib/supabaseClient';
+import { homeForRole, usePlatform } from '../../contexts/PlatformContext';
 import { EASE_EMPHASIS } from '../../utils/motion';
 
 const ESPECIALIDADES = [
@@ -15,6 +16,7 @@ const ESPECIALIDADES = [
 
 export function SpeakerRegister() {
   const navigate = useNavigate();
+  const { session, sessionLoading } = usePlatform();
   const [step, setStep] = useState<1 | 2>(1);
   const [showPass, setShowPass] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -30,6 +32,11 @@ export function SpeakerRegister() {
     password: '',
     confirmPassword: '',
   });
+
+  useEffect(() => {
+    if (sessionLoading || !session) return;
+    navigate(homeForRole(session.role), { replace: true });
+  }, [session, sessionLoading, navigate]);
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [field]: e.target.value }));

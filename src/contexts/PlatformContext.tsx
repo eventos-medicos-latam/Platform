@@ -3,6 +3,12 @@ import type { AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
 import { featuredEditionId } from '../data/editions';
 export type SessionRole = 'admin' | 'empresa' | 'speaker';
+
+export function homeForRole(role: SessionRole): string {
+  if (role === 'admin') return '/novo';
+  if (role === 'speaker') return '/speaker';
+  return '/portal';
+}
 export interface Session {
   role: SessionRole;
   name: string;

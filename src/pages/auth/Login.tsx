@@ -1,21 +1,25 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Logo } from '../../components/ui/Logo';
 import { media } from '../../data/media';
-import { usePlatform } from '../../contexts/PlatformContext';
+import { homeForRole, usePlatform, type SessionRole } from '../../contexts/PlatformContext';
 import { supabase } from '../../lib/supabaseClient';
 import { EASE_EMPHASIS } from '../../utils/motion';
 
 export function Login() {
-  const {
-    signIn
-  } = usePlatform();
+  const { session, sessionLoading, signIn } = usePlatform();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (sessionLoading || !session) return;
+    navigate(homeForRole(session.role), { replace: true });
+  }, [session, sessionLoading, navigate]);
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -33,9 +37,17 @@ export function Login() {
       .eq('id', data.user.id)
       .single() : { data: null };
     setSubmitting(false);
-    const role = profile?.role;
-    navigate(role === 'admin' ? '/novo' : role === 'speaker' ? '/speaker' : '/portal');
+    const role = (profile?.role ?? 'empresa') as SessionRole;
+    navigate(homeForRole(role));
   };
+
+  if (sessionLoading || session) {
+    return (
+      <div className="grid min-h-screen w-full place-items-center bg-canvas">
+        <p className="text-sm text-ink-muted">Entrando a tu cuenta…</p>
+      </div>
+    );
+  }
   return <div className="grid min-h-screen w-full lg:grid-cols-2">
       <div className="relative hidden overflow-hidden bg-brand-deep lg:block">
         <img src={media.stage} alt="" className="h-full w-full object-cover" aria-hidden="true" />

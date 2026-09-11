@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Logo } from "../ui/Logo";
 import { getFeaturedPublicEvent, publicEventPath } from "../../lib/novo/events";
+import { homeForRole, usePlatform } from "../../contexts/PlatformContext";
 import { DURATION, EASE_EMPHASIS } from "../../utils/motion";
 
 interface NavChild { to: string; label: string }
@@ -37,6 +38,9 @@ const navItems: NavItem[] = [
 const salesOpen = ['proximo', 'activo'];
 
 export function PublicHeader() {
+  const { session } = usePlatform();
+  const accessTo = session ? homeForRole(session.role) : '/login';
+  const accessLabel = session ? 'Mi cuenta' : 'Acceder';
   const [compact, setCompact] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
@@ -183,8 +187,8 @@ export function PublicHeader() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <Link to="/login" className="hidden rounded-xl px-3 py-2 text-sm font-medium text-white/60 transition-colors duration-150 ease-emphasis hover:text-white sm:block">
-            Acceder
+          <Link to={accessTo} className="hidden rounded-xl px-3 py-2 text-sm font-medium text-white/60 transition-colors duration-150 ease-emphasis hover:text-white sm:block">
+            {accessLabel}
           </Link>
           <Link to={eventPath} className="rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-brand-deep shadow-elev2 transition-transform duration-200 ease-emphasis hover:-translate-y-0.5">
             {ctaLabel}
@@ -257,8 +261,8 @@ export function PublicHeader() {
                 <Link to={eventPath} className="block rounded-2xl bg-accent px-5 py-4 text-center text-base font-semibold text-white shadow-elev3">
                   {ctaLabel}
                 </Link>
-                <Link to="/login" className="block rounded-2xl border border-white/20 px-5 py-4 text-center text-base font-semibold text-white">
-                  Acceder a mi cuenta
+                <Link to={accessTo} className="block rounded-2xl border border-white/20 px-5 py-4 text-center text-base font-semibold text-white">
+                  {session ? 'Ir a mi cuenta' : 'Acceder a mi cuenta'}
                 </Link>
               </div>
             </nav>
