@@ -151,10 +151,13 @@ export function NovoEventParticipaciones() {
   useEffect(() => {
     if (!mapExpanded) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMapExpanded(false);
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      setMapExpanded(false);
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [mapExpanded]);
 
   const persistFloorPlan = async (url: string) => {
@@ -845,34 +848,26 @@ export function NovoEventParticipaciones() {
       </NovoModal>
       {mapExpanded && floorPlanUrl && createPortal(
         <div
-          className="fixed inset-0 z-[80] flex flex-col p-4 sm:p-6"
-          style={{ background: 'rgba(5,10,20,.88)' }}
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-8"
+          style={{ background: 'rgba(5,10,20,.80)' }}
           role="dialog"
           aria-modal="true"
           aria-label="Plano de stands ampliado"
           onClick={() => setMapExpanded(false)}
         >
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold" style={{ color: TEXT_HI }}>Plano de stands</p>
-            <button
-              type="button"
-              onClick={() => setMapExpanded(false)}
-              className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold"
-              style={{ background: 'rgba(255,255,255,.08)', color: TEXT_HI }}
-            >
-              Cerrar
-            </button>
-          </div>
-          <div
-            className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-transparent p-2"
-            onClick={(event) => event.stopPropagation()}
+          <button
+            type="button"
+            onClick={() => setMapExpanded(false)}
+            className="absolute right-4 top-4 z-[201] inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold shadow-lg"
+            style={{ background: '#E1EAF4', color: '#0d1829' }}
           >
-            <img
-              src={floorPlanUrl}
-              alt="Plano de stands del evento"
-              className="mx-auto h-auto w-auto max-h-[62vh] max-w-[min(800px,85vw)] object-contain drop-shadow-lg"
-            />
-          </div>
+            Cerrar
+          </button>
+          <img
+            src={floorPlanUrl}
+            alt="Plano de stands del evento"
+            className="max-h-[80vh] max-w-[min(900px,92vw)] object-contain drop-shadow-lg"
+          />
         </div>,
         document.body,
       )}

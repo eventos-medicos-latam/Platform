@@ -236,10 +236,18 @@ export function AllyPlansSection({ fixedEditionId, novoEventId }: { fixedEdition
   useEffect(() => {
     if (!mapExpanded) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMapExpanded(false);
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      setMapExpanded(false);
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      document.body.style.overflow = prev;
+    };
   }, [mapExpanded]);
 
   /* company search */
@@ -1184,35 +1192,26 @@ export function AllyPlansSection({ fixedEditionId, novoEventId }: { fixedEdition
       </AnimatePresence>
       {mapExpanded && floorPlanUrl && createPortal(
         <div
-          className="fixed inset-0 z-[80] flex flex-col bg-brand-deep/90 p-4 sm:p-6"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-8"
+          style={{ background: 'rgba(10, 33, 64, 0.88)' }}
           role="dialog"
           aria-modal="true"
           aria-label="Plano del evento ampliado"
           onClick={() => setMapExpanded(false)}
         >
-          <div className="mb-3 flex items-center justify-between gap-3 text-white">
-            <p className="text-sm font-semibold">Plano del evento</p>
-            <button
-              type="button"
-              onClick={() => setMapExpanded(false)}
-              className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold hover:bg-white/20"
-            >
-              <XIcon size={14} /> Cerrar
-            </button>
-          </div>
-          <div
-            className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-transparent p-2"
-            onClick={(event) => event.stopPropagation()}
+          <button
+            type="button"
+            onClick={() => setMapExpanded(false)}
+            className="absolute right-4 top-4 z-[10000] inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold shadow-lg"
+            style={{ background: '#fff', color: '#0a2140' }}
           >
-            <img
-              src={floorPlanUrl}
-              alt="Plano de stands del evento"
-              className="mx-auto h-auto w-auto max-h-[62vh] max-w-[min(800px,85vw)] object-contain drop-shadow-lg"
-            />
-          </div>
-          <p className="mt-2 text-center text-[11px] text-white/70">
-            Esc o toca fuera para cerrar.
-          </p>
+            <XIcon size={14} /> Cerrar
+          </button>
+          <img
+            src={floorPlanUrl}
+            alt="Plano de stands del evento"
+            className="max-h-[80vh] max-w-[min(900px,92vw)] object-contain drop-shadow-lg"
+          />
         </div>,
         document.body,
       )}
