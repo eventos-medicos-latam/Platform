@@ -1,3 +1,8 @@
 # JWT off: Wompi no envía un bearer de Supabase. La firma va en signature.checksum.
 [functions.wompi-webhook]
 verify_jwt = false
+
+# JWT off: el trigger de email_outbox llama con la anon key.
+# La función solo procesa filas pending de email_outbox; no acepta to/html arbitrarios.
+[functions.send-template-email]
+verify_jwt = false

@@ -11,6 +11,7 @@ import { NovoPagos } from './pages/novo/NovoPagos';
 import { NovoScanner } from './pages/novo/NovoScanner';
 import { NovoAnalitica } from './pages/novo/NovoAnalitica';
 import { NovoDocumentos } from './pages/novo/NovoDocumentos';
+import { NovoEmails } from './pages/novo/NovoEmails';
 import { NovoConfiguracion } from './pages/novo/NovoConfiguracion';
 import { NovoPapelera } from './pages/novo/NovoPapelera';
 import { NovoEventShell } from './components/novo/layout/NovoEventShell';
@@ -196,6 +197,7 @@ function AnimatedRoutes() {
             <Route path="digital"       element={<NovoDigital />} />
             <Route path="sitio"         element={<NovoSitio />} />
             <Route path="documentos"    element={<NovoDocumentos />} />
+            <Route path="emails"        element={<NovoEmails />} />
             <Route path="soporte"       element={<NovoSoporte />} />
             <Route path="papelera"      element={<NovoPapelera />} />
             <Route path="configuracion" element={<NovoConfiguracion />} />

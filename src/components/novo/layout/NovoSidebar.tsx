@@ -5,7 +5,7 @@ import {
   LayoutDashboardIcon, CalendarDaysIcon, UsersIcon, MicIcon,
   BuildingIcon, ShoppingBagIcon, LayoutPanelLeftIcon, WalletIcon,
   TvIcon, GlobeIcon, FolderIcon, HeadphonesIcon, QrCodeIcon,
-  SettingsIcon, LogOutIcon, ChevronRightIcon, Trash2Icon,
+  SettingsIcon, LogOutIcon, ChevronRightIcon, Trash2Icon, MailIcon,
 } from 'lucide-react';
 import { usePlatform } from '../../../contexts/PlatformContext';
 
@@ -42,6 +42,7 @@ const NAV = [
       { to: '/novo/digital',    label: 'Agenda Digital',        icon: TvIcon },
       { to: '/novo/sitio',      label: 'Sitio Web EML',         icon: GlobeIcon },
       { to: '/novo/documentos', label: 'Documentos',            icon: FolderIcon },
+      { to: '/novo/emails',     label: 'Correos',               icon: MailIcon },
       { to: '/novo/soporte',    label: 'Soporte',               icon: HeadphonesIcon },
     ],
   },

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ModuleHeader, Panel } from '../../components/admin/Panel';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { usePlatform } from '../../contexts/PlatformContext';
 import { supabase } from '../../lib/supabaseClient';
 
 const fieldClass = 'w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-150 ease-emphasis focus:border-brand';
@@ -73,6 +74,17 @@ const integrations: IntegrationDef[] = [
       { key: 'gsc_verification_content', label: 'Search Console · contenido del meta tag de verificación' }
     ],
     secretFields: []
+  },
+  {
+    name: 'Resend',
+    description: 'Envío de correos transaccionales (confirmaciones, invitaciones, pruebas). El API key se cifra en Vault y solo lo usa el servidor. El dominio del remitente debe estar verificado en Resend.',
+    publicFields: [
+      { key: 'resend_from_name', label: 'Nombre del remitente', placeholder: 'Eventos Médicos LATAM' },
+      { key: 'resend_from_email', label: 'Correo remitente (From)', placeholder: 'hola@tudominio-verificado.com' }
+    ],
+    secretFields: [
+      { key: 'resend_api_key', label: 'API Key', placeholder: 're_••••••••' }
+    ]
   }
 ];
 
@@ -81,12 +93,14 @@ interface SecretMeta {
 }
 
 export function Settings() {
+  const { session } = usePlatform();
   const [publicValues, setPublicValues] = useState<Record<string, string>>({});
   const [secretMeta, setSecretMeta] = useState<Record<string, SecretMeta>>({});
   const [secretDrafts, setSecretDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [testTo, setTestTo] = useState('');
 
   const loadSettings = async () => {
     const [{ data: publicRows }, { data: secretRows }] = await Promise.all([
@@ -101,6 +115,10 @@ export function Settings() {
   useEffect(() => {
     loadSettings();
   }, []);
+
+  useEffect(() => {
+    if (!testTo && session?.email) setTestTo(session.email);
+  }, [session?.email, testTo]);
 
   const savePublicField = async (key: string, value: string) => {
     setSaving(key);
@@ -124,6 +142,27 @@ export function Settings() {
     setMessage('Guardado');
     setSecretDrafts((current) => ({ ...current, [key]: '' }));
     await loadSettings();
+  };
+
+  const sendTestEmail = async () => {
+    const to = testTo.trim();
+    if (!to) return;
+    setSaving('resend_test');
+    setMessage(null);
+    const { data, error } = await supabase.functions.invoke('send-email', {
+      body: {
+        to,
+        subject: 'Prueba de Resend · Eventos Médicos LATAM',
+        html: '<p>Este es un correo de prueba desde Configuración. Si lo recibiste, Resend ya está listo para enviar emails.</p>',
+        text: 'Este es un correo de prueba desde Configuración. Si lo recibiste, Resend ya está listo para enviar emails.',
+      },
+    });
+    setSaving(null);
+    if (error || data?.error) {
+      setMessage(data?.error ?? error?.message ?? 'No se pudo enviar el correo de prueba');
+      return;
+    }
+    setMessage(`Correo de prueba enviado a ${to}`);
   };
 
   return <>
@@ -167,6 +206,17 @@ export function Settings() {
                         </div>
                       </label>;
               })}
+                </div> : null}
+
+              {integration.name === 'Resend' ? <div className="space-y-3 border-t border-line pt-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.1em] text-ink-muted">Correo de prueba</p>
+                  <p className="text-sm text-ink-muted">Guarda el API key y el remitente, luego envía un correo a tu bandeja para confirmar que Resend responde.</p>
+                  <div className="flex gap-2">
+                    <input type="email" className={fieldClass} placeholder="tu@correo.com" value={testTo} onChange={(event) => setTestTo(event.target.value)} disabled={loading} />
+                    <button type="button" disabled={saving === 'resend_test' || loading || !testTo.trim() || !secretMeta.resend_api_key || !publicValues.resend_from_email} onClick={() => { void sendTestEmail(); }} className="shrink-0 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors duration-150 ease-emphasis hover:bg-brand-deep disabled:opacity-60">
+                      {saving === 'resend_test' ? 'Enviando…' : 'Enviar prueba'}
+                    </button>
+                  </div>
                 </div> : null}
             </div>
           </Panel>)}

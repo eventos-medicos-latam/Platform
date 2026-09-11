@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquareIcon, MailIcon, SmartphoneIcon, CheckCircleIcon,
@@ -165,6 +165,11 @@ export function NovoEventComunicaciones() {
           <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: ACCENT }}>{event.name}</p>
           <h1 className="text-xl font-bold" style={{ color: TEXT_HI, fontFamily: "'Sora', sans-serif" }}>Comunicaciones</h1>
           <p className="text-sm mt-0.5" style={{ color: TEXT_LO }}>Triggers · envíos · WhatsApp · Email · Webhooks</p>
+          <p className="text-xs mt-2" style={{ color: TEXT_LO }}>
+            Las plantillas que sí se envían viven en{' '}
+            <Link to="/novo/emails" className="font-semibold" style={{ color: ACCENT }}>Correos</Link>
+            . Esta pantalla es el diseño de triggers por evento.
+          </p>
         </div>
         <button onClick={openCreate}
           className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold"
