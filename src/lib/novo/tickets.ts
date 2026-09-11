@@ -86,7 +86,7 @@ function withTax(price: number, taxPct: number) {
   return Math.round(price * (1 + (taxPct || 0) / 100) * 100) / 100;
 }
 
-export function currentTicketPrice(row: Pick<EventTicketRow, 'base_price' | 'tax_pct' | 'sold' | 'stages'>): number {
+export function currentTicketNetPrice(row: Pick<EventTicketRow, 'base_price' | 'sold' | 'stages'>): number {
   const today = new Date().toISOString().slice(0, 10);
   const stage = [...row.stages]
     .sort((a, b) => a.sort_order - b.sort_order)
@@ -95,7 +95,11 @@ export function currentTicketPrice(row: Pick<EventTicketRow, 'base_price' | 'tax
       if (item.quantity_limit != null) return row.sold < item.quantity_limit;
       return false;
     });
-  return withTax(stage?.price ?? row.base_price, row.tax_pct);
+  return stage?.price ?? row.base_price;
+}
+
+export function currentTicketPrice(row: Pick<EventTicketRow, 'base_price' | 'tax_pct' | 'sold' | 'stages'>): number {
+  return withTax(currentTicketNetPrice(row), row.tax_pct);
 }
 
 function mapType(row: TypeRow, sold: number, stages: TicketPriceStageRow[]): EventTicketRow {

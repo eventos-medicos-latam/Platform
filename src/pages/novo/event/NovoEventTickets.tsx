@@ -9,7 +9,7 @@ import {
 } from '../../../components/novo/ui/NovoModal';
 import { formatCurrency } from '../../../lib/novo/events';
 import {
-  createTicket, deleteTicket, listTickets, updateTicket,
+  createTicket, currentTicketNetPrice, deleteTicket, listTickets, updateTicket,
   type EventTicketRow, type TicketAccessLevel, type TicketWrite,
 } from '../../../lib/novo/tickets';
 import type { NovoEventModality, NovoEventOutlet } from '../../../types/novo';
@@ -171,7 +171,9 @@ export function NovoEventTickets() {
             Aún no hay tipos de entrada. Crea General, VIP o un taller.
           </div>
         )}
-        {tickets.map((ticket, i) => (
+        {tickets.map((ticket, i) => {
+          const net = currentTicketNetPrice(ticket);
+          return (
           <motion.div key={ticket.id}
             initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.15, delay: i * 0.03 }}
@@ -181,9 +183,14 @@ export function NovoEventTickets() {
               <p className="text-sm font-semibold" style={{ color: '#E1EAF4' }}>{ticket.name}</p>
               <p className="text-[10px]" style={{ color: '#3A5470' }}>{ACCESS_LABEL[ticket.access_level]}</p>
             </div>
-            <p className="text-sm tabular-nums" style={{ color: ticket.current_price > 0 ? '#00C9A0' : '#3A5470' }}>
-              {ticket.current_price > 0 ? formatCurrency(ticket.current_price) : 'Gratis'}
-            </p>
+            <div>
+              <p className="text-sm tabular-nums" style={{ color: net > 0 ? '#00C9A0' : '#3A5470' }}>
+                {net > 0 ? formatCurrency(net) : 'Gratis'}
+              </p>
+              {net > 0 && ticket.tax_pct > 0 ? (
+                <p className="text-[10px]" style={{ color: '#3A5470' }}>sin IVA</p>
+              ) : null}
+            </div>
             <p className="text-sm" style={{ color: '#7A9CB8' }}>{ticket.capacity ?? 'Ilimitado'}</p>
             <p className="text-sm tabular-nums" style={{ color: '#E1EAF4' }}>{ticket.sold}</p>
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold"
@@ -193,7 +200,8 @@ export function NovoEventTickets() {
             </span>
             <RowActions onEdit={() => openEdit(ticket)} onDelete={() => { void handleDelete(ticket.id); }} />
           </motion.div>
-        ))}
+          );
+        })}
       </div>
 
       <NovoModal

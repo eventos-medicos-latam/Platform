@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { PageTransition } from '../../components/motion/PageTransition';
 import { formatCurrency, getEventBySlug } from '../../lib/novo/events';
 import {
+  currentTicketNetPrice,
   fetchWompiTicketReceipt,
   listPublicTickets,
   registerPublicTicket,
@@ -280,7 +281,7 @@ export function NovoPublicRegister() {
             <select className={fieldClass} value={ticketId} onChange={(e) => setTicketId(e.target.value)}>
               {tickets.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name} · {item.current_price > 0 ? formatCurrency(item.current_price) : 'Gratis'}
+                  {item.name} · {currentTicketNetPrice(item) > 0 ? formatCurrency(currentTicketNetPrice(item)) : 'Gratis'}
                 </option>
               ))}
             </select>

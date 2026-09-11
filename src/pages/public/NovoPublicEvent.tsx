@@ -16,7 +16,7 @@ import {
   publicVenueLabel, webExtraOn, webSectionOn, type PublicEventWeb,
 } from '../../lib/novo/events';
 import { listAgenda, type AgendaItemRow } from '../../lib/novo/agenda';
-import { listPublicTickets, type EventTicketRow } from '../../lib/novo/tickets';
+import { currentTicketNetPrice, listPublicTickets, type EventTicketRow } from '../../lib/novo/tickets';
 import { listPublicEventSpeakers, type PublicEventSpeaker } from '../../lib/novo/speakers';
 import { listPublicSponsors, type EventSponsorRow } from '../../lib/novo/sponsors';
 import { axisFromContent, pickList, pickText } from '../../lib/novo/webContent';
@@ -385,6 +385,7 @@ function NovoEventHome({
                   <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                     {tickets.map((ticket) => {
                       const soldOut = ticket.capacity != null && ticket.sold >= ticket.capacity;
+                      const net = currentTicketNetPrice(ticket);
                       return (
                         <article key={ticket.id} className="rounded-3xl border border-white bg-white/90 p-6 shadow-elev3 backdrop-blur">
                           <div className="flex items-start justify-between gap-3">
@@ -395,8 +396,11 @@ function NovoEventHome({
                             <TicketIcon size={18} className="text-accent" />
                           </div>
                           <p className="mt-5 text-2xl font-bold tabular-nums text-brand">
-                            {ticket.current_price > 0 ? formatCurrency(ticket.current_price) : 'Gratis'}
+                            {net > 0 ? formatCurrency(net) : 'Gratis'}
                           </p>
+                          {net > 0 && ticket.tax_pct > 0 ? (
+                            <p className="mt-1 text-xs text-ink-muted">sin IVA</p>
+                          ) : null}
                           {ticket.benefits.length > 0 ? (
                             <ul className="mt-4 space-y-2 text-sm text-ink">
                               {ticket.benefits.map((item) => (
