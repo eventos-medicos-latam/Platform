@@ -21,7 +21,14 @@ export function NovoPublicRegister() {
   const [event, setEvent] = useState<NovoEvent | null>(null);
   const [tickets, setTickets] = useState<EventTicketRow[]>([]);
   const [ticketId, setTicketId] = useState(params.get('ticket') ?? '');
-  const [form, setForm] = useState({ full_name: '', email: '', phone: '', specialty: '', consent: false });
+  const [form, setForm] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    audience: '' as '' | 'paciente' | 'profesional',
+    specialty: '',
+    consent: false,
+  });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ qr: string; name: string; paid: boolean } | null>(null);
@@ -87,6 +94,14 @@ export function NovoPublicRegister() {
       setError('Completa nombre, correo y autoriza el tratamiento de datos.');
       return;
     }
+    if (!form.audience) {
+      setError('Indica si eres paciente o profesional de la salud.');
+      return;
+    }
+    if (form.audience === 'profesional' && !form.specialty.trim()) {
+      setError('Indica tu especialidad.');
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -96,7 +111,8 @@ export function NovoPublicRegister() {
         full_name: form.full_name,
         email: form.email,
         phone: form.phone,
-        specialty: form.specialty,
+        specialty: form.audience === 'profesional' ? form.specialty : '',
+        classification: form.audience,
       });
       if (result.needs_payment && result.wompi_reference && result.amount > 0) {
         const [{ data: signatureData }, { data: publicSettings }] = await Promise.all([
@@ -286,10 +302,35 @@ export function NovoPublicRegister() {
               <input className={fieldClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             </label>
             <label className="block">
-              <span className="mb-1.5 block text-xs font-medium text-ink-muted">Especialidad</span>
-              <input className={fieldClass} value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} />
+              <span className="mb-1.5 block text-xs font-medium text-ink-muted">Perfil</span>
+              <select
+                required
+                className={fieldClass}
+                value={form.audience}
+                onChange={(e) => setForm({
+                  ...form,
+                  audience: e.target.value as '' | 'paciente' | 'profesional',
+                  specialty: e.target.value === 'profesional' ? form.specialty : '',
+                })}
+              >
+                <option value="">Selecciona…</option>
+                <option value="paciente">Paciente</option>
+                <option value="profesional">Profesional de la salud</option>
+              </select>
             </label>
           </div>
+          {form.audience === 'profesional' ? (
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-ink-muted">Especialidad</span>
+              <input
+                required
+                className={fieldClass}
+                value={form.specialty}
+                onChange={(e) => setForm({ ...form, specialty: e.target.value })}
+                placeholder="Ej. Endocrinología"
+              />
+            </label>
+          ) : null}
           <label className="flex items-start gap-2 text-xs text-ink-muted">
             <input type="checkbox" className="mt-0.5" checked={form.consent} onChange={(e) => setForm({ ...form, consent: e.target.checked })} />
             Autorizo el tratamiento de mis datos para esta inscripción.

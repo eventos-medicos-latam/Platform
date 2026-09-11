@@ -264,6 +264,7 @@ export async function registerPublicTicket(input: {
   email: string;
   phone?: string;
   specialty?: string;
+  classification?: 'paciente' | 'profesional';
 }): Promise<NovoRegisterResult> {
   const { data, error } = await supabase.rpc('novo_register_ticket', {
     p_event_id: input.event_id,
@@ -271,7 +272,8 @@ export async function registerPublicTicket(input: {
     p_full_name: input.full_name,
     p_email: input.email,
     p_phone: input.phone || null,
-    p_specialty: input.specialty || null,
+    p_specialty: input.classification === 'profesional' ? (input.specialty || null) : null,
+    p_classification: input.classification ?? 'profesional',
   });
   if (error) throw new Error(error.message);
   return data as NovoRegisterResult;
