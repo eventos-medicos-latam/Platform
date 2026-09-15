@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Logo } from "../ui/Logo";
 import { getFeaturedPublicEvent, publicEventPath } from "../../lib/novo/events";
+import { useSiteSettings } from "../../contexts/SiteSettingsContext";
 import { homeForRole, usePlatform } from "../../contexts/PlatformContext";
 import { DURATION, EASE_EMPHASIS } from "../../utils/motion";
 
@@ -39,6 +40,7 @@ const salesOpen = ['proximo', 'activo'];
 
 export function PublicHeader() {
   const { session } = usePlatform();
+  const { pageVisible } = useSiteSettings();
   const accessTo = session ? homeForRole(session.role) : '/login';
   const accessLabel = session ? 'Mi cuenta' : 'Acceder';
   const [compact, setCompact] = useState(false);
@@ -93,6 +95,12 @@ export function PublicHeader() {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
+  const visibleNav = navItems.filter((item) => {
+    if (item.to === '/aliados') return pageVisible('aliados');
+    if (item.to === '/contacto') return pageVisible('contacto');
+    return true;
+  });
+
   return <>
     <header className={`sticky top-0 z-40 border-b border-white/10 glass-dark transition-[padding,box-shadow] duration-200 ease-emphasis ${compact ? 'py-2 shadow-elev3' : 'py-3.5'}`}>
       <div className="mx-auto flex max-w-shell items-center gap-6 px-5 sm:px-6">
@@ -103,7 +111,7 @@ export function PublicHeader() {
         {/* Navegación iconográfica de escritorio */}
         <nav aria-label="Navegación principal" className="hidden flex-1 lg:block">
           <ul className="flex items-center justify-center gap-1">
-            {navItems.map((item) => {
+            {visibleNav.map((item) => {
               const hasChildren = !!item.children?.length;
 
               if (hasChildren) {
@@ -225,7 +233,7 @@ export function PublicHeader() {
 
             <nav aria-label="Navegación móvil" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6">
               <ul className="grid grid-cols-2 gap-3">
-                {navItems.flatMap((item, index) => {
+                {visibleNav.flatMap((item, index) => {
                   const cards = [
                     <motion.li key={item.to}
                       initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}

@@ -4,6 +4,7 @@ import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion
 import { ArrowRightIcon, CalendarDaysIcon, MapPinIcon } from 'lucide-react';
 import { media } from '../../data/media';
 import { organization } from '../../data/organization';
+import { useSiteSettings } from '../../contexts/SiteSettingsContext';
 import {
   eventAccentRgb, getFeaturedPublicEvent, publicDateLabel, publicEventPath, publicVenueLabel,
 } from '../../lib/novo/events';
@@ -23,7 +24,11 @@ const claimVerbs = ['conecta', 'transforma', 'trasciende'];
 export function HomeHero() {
   const ref = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
+  const { settings } = useSiteSettings();
   const [edition, setEdition] = useState<NovoEvent | null>(null);
+  const heroTitle = (settings.home_hero_title ?? '').trim();
+  const heroSubtitle = (settings.home_hero_subtitle ?? '').trim() || organization.valueProposition;
+  const ctaText = (settings.home_cta_text ?? '').trim() || 'Ver próximos eventos';
   const {
     scrollYProgress
   } = useScroll({
@@ -104,7 +109,11 @@ export function HomeHero() {
             {organization.city} · Educación médica continua
           </motion.p>
 
-          {/* Titular con palabra viva */}
+          {heroTitle ? (
+            <h1 className="mt-6 max-w-4xl text-[clamp(2.3rem,6.4vw,5rem)] font-bold leading-[1] tracking-tight text-white">
+              {heroTitle}
+            </h1>
+          ) : (
           <h1 className="mt-6 max-w-4xl text-[clamp(2.3rem,6.4vw,5rem)] font-bold leading-[1] tracking-tight text-white">
             <motion.span className="block" initial={{
             opacity: 0,
@@ -146,6 +155,7 @@ export function HomeHero() {
               especialidades
             </motion.span>
           </h1>
+          )}
 
           <motion.p initial={{
           opacity: 0,
@@ -158,7 +168,7 @@ export function HomeHero() {
           ease: EASE_EMPHASIS,
           delay: 0.4
         }} className="mt-8 max-w-xl text-lg leading-relaxed text-white/70">
-            {organization.valueProposition}
+            {heroSubtitle}
           </motion.p>
 
           <motion.div initial={{
@@ -173,7 +183,7 @@ export function HomeHero() {
           delay: 0.46
         }} className="mt-9 flex flex-wrap items-center gap-3">
             <Link to="/eventos" className="group inline-flex items-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-brand-deep shadow-elev3 transition-transform duration-200 ease-emphasis hover:-translate-y-0.5">
-              Ver próximos eventos
+              {ctaText}
               <ArrowRightIcon size={16} className="transition-transform duration-200 ease-emphasis group-hover:translate-x-1" />
             </Link>
             <Link to="/digital" className="inline-flex items-center rounded-full border border-white/25 px-6 py-3.5 text-sm font-semibold text-white transition-colors duration-200 ease-emphasis hover:border-white">

@@ -1,34 +1,27 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   HeadphonesIcon, MessageCircleIcon, CheckCircleIcon, ClockIcon,
-  AlertCircleIcon, SearchIcon, PlusIcon, UserIcon, CalendarIcon,
-  SendIcon, XIcon, ChevronDownIcon,
+  AlertCircleIcon, SearchIcon, PlusIcon, SendIcon, XIcon,
 } from 'lucide-react';
 import { KPICard } from '../../components/novo/ui/KPICard';
 import { RowActions } from '../../components/novo/ui/RowActions';
 import {
   NovoModal, ModalBtn, FormField, FormInput, FormSelect, FormTextarea, FormSection,
 } from '../../components/novo/ui/NovoModal';
+import { usePlatform } from '../../contexts/PlatformContext';
+import { listSiteEvents, type SiteEventRow } from '../../lib/novo/site';
+import {
+  createSupportTicket, deleteSupportTicket, listSupportTickets,
+  replySupportTicket, updateSupportTicketStatus,
+  type SupportTicket, type TicketCategory, type TicketPriority, type TicketStatus,
+} from '../../lib/novo/support';
 
-/* ── Tipos ─────────────────────────────────────────────────── */
-type TicketStatus   = 'abierto' | 'en_progreso' | 'resuelto' | 'cerrado';
-type TicketPriority = 'alta' | 'media' | 'baja';
-type TicketCategory = 'registro' | 'pago' | 'acceso' | 'contenido' | 'tecnico' | 'otro';
-
-interface TicketMessage { author: string; text: string; time: string; isAdmin: boolean; }
-interface Ticket {
-  id: string; subject: string; requester: string; email: string;
-  event?: string; status: TicketStatus; priority: TicketPriority;
-  category: TicketCategory; created: string; messages: TicketMessage[];
-}
-
-/* ── Config ────────────────────────────────────────────────── */
 const STATUS_CONFIG: Record<TicketStatus, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  abierto:     { label: 'Abierto',     color: '#F59E0B', bg: 'rgba(245,158,11,.12)',  icon: AlertCircleIcon  },
-  en_progreso: { label: 'En progreso', color: '#5B8AF0', bg: 'rgba(91,138,240,.12)',  icon: ClockIcon        },
-  resuelto:    { label: 'Resuelto',    color: '#00C9A0', bg: 'rgba(0,201,160,.12)',   icon: CheckCircleIcon  },
-  cerrado:     { label: 'Cerrado',     color: '#3A5470', bg: 'rgba(58,84,112,.12)',   icon: CheckCircleIcon  },
+  abierto:       { label: 'Abierto',     color: '#F59E0B', bg: 'rgba(245,158,11,.12)',  icon: AlertCircleIcon  },
+  'en-proceso':  { label: 'En progreso', color: '#5B8AF0', bg: 'rgba(91,138,240,.12)',  icon: ClockIcon        },
+  resuelto:      { label: 'Resuelto',    color: '#00C9A0', bg: 'rgba(0,201,160,.12)',   icon: CheckCircleIcon  },
+  cerrado:       { label: 'Cerrado',     color: '#3A5470', bg: 'rgba(58,84,112,.12)',   icon: CheckCircleIcon  },
 };
 const PRIORITY_COLOR: Record<TicketPriority, string> = { alta: '#F24463', media: '#F59E0B', baja: '#3A5470' };
 const CAT_LABELS: Record<TicketCategory, string> = {
@@ -38,22 +31,7 @@ const CAT_LABELS: Record<TicketCategory, string> = {
 const BG = '#112035'; const BORDER = '#1e3450';
 const TEXT_HI = '#E1EAF4'; const TEXT_LO = '#7A9CB8'; const TEXT_DIM = '#3A5470';
 const GRADS = ['linear-gradient(135deg,#1a4a7a,#2d6fae)', 'linear-gradient(135deg,#1a6b5a,#00C9A0)', 'linear-gradient(135deg,#5b2d8a,#A78BFA)', 'linear-gradient(135deg,#7a3a1a,#FF7043)'];
-const ALL_STATUSES: TicketStatus[] = ['abierto', 'en_progreso', 'resuelto', 'cerrado'];
-const EVENTS = ['La Eterna Primavera', 'Hormobiota VI', 'Webinar Vitamina D'];
-
-/* ── Datos mock ────────────────────────────────────────────── */
-const INIT_TICKETS: Ticket[] = [
-  { id:'tkt001', subject:'No me llega el QR de acceso',        requester:'Dra. Laura Gómez',   email:'lgomez@uni.edu.co',     event:'La Eterna Primavera', status:'abierto',     priority:'alta',  category:'acceso',   created:'2026-09-02',
-    messages:[{ author:'Dra. Laura Gómez', text:'Hola, compré mi entrada hace 3 días y aún no recibo el QR de acceso. ¿Pueden ayudarme?', time:'02 sep 10:23', isAdmin:false }, { author:'Soporte EML', text:'Buenos días, ya revisamos su registro. El QR fue enviado al correo lgomez@uni.edu.co. Por favor verifique la bandeja de spam.', time:'02 sep 11:45', isAdmin:true }] },
-  { id:'tkt002', subject:'Quiero cambiar tipo de entrada',     requester:'Felipe Restrepo',     email:'frestrepo@roche.com',   event:'La Eterna Primavera', status:'en_progreso', priority:'media', category:'registro', created:'2026-09-01',
-    messages:[{ author:'Felipe Restrepo', text:'Quisiera cambiar mi entrada General a VIP. ¿Es posible?', time:'01 sep 09:00', isAdmin:false }] },
-  { id:'tkt003', subject:'Pago duplicado en tarjeta',          requester:'Alejandra Morales',   email:'amorales@gmail.com',    event:'La Eterna Primavera', status:'abierto',     priority:'alta',  category:'pago',     created:'2026-09-01',
-    messages:[{ author:'Alejandra Morales', text:'Realizé el pago y me cobró dos veces. Adjunto el extracto bancario.', time:'01 sep 14:10', isAdmin:false }] },
-  { id:'tkt004', subject:'No puedo descargar certificado',     requester:'Dr. Juan E. Vargas',  email:'jevargas@hospital.com',                               status:'resuelto',    priority:'baja',  category:'contenido',created:'2026-08-28',
-    messages:[{ author:'Dr. Juan E. Vargas', text:'El link de descarga del certificado no funciona.', time:'28 ago 16:00', isAdmin:false }, { author:'Soporte EML', text:'Hemos regenerado su certificado. Puede descargarlo aquí: [link]. Disculpe las molestias.', time:'30 ago 09:00', isAdmin:true }] },
-  { id:'tkt005', subject:'Error al completar registro online', requester:'Ricardo Patiño',      email:'rpati@uni.edu.co',      event:'Webinar Vitamina D',  status:'en_progreso', priority:'media', category:'tecnico',  created:'2026-08-27',
-    messages:[{ author:'Ricardo Patiño', text:'Al hacer clic en "Confirmar inscripción" aparece un error 500.', time:'27 ago 18:30', isAdmin:false }] },
-];
+const ALL_STATUSES: TicketStatus[] = ['abierto', 'en-proceso', 'resuelto', 'cerrado'];
 
 const EMPTY_FORM = {
   subject: '', requester: '', email: '', event: '',
@@ -61,81 +39,116 @@ const EMPTY_FORM = {
   message: '',
 };
 
-const initials = (name: string) => name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+const initials = (name: string) => name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'EM';
 
-/* ══════════════════════════════════════════════════════════ */
 export function NovoSoporte() {
-  const [tickets, setTickets]     = useState<Ticket[]>(INIT_TICKETS);
+  const { session } = usePlatform();
+  const [tickets, setTickets]     = useState<SupportTicket[]>([]);
+  const [events, setEvents]       = useState<SiteEventRow[]>([]);
   const [statusFilter, setStatusFilter] = useState<TicketStatus | 'todos'>('todos');
   const [query, setQuery]         = useState('');
-  const [selected, setSelected]   = useState<Ticket | null>(null);
+  const [selected, setSelected]   = useState<SupportTicket | null>(null);
   const [replyText, setReplyText] = useState('');
   const [replying, setReplying]   = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm]           = useState(EMPTY_FORM);
   const [saving, setSaving]       = useState(false);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
 
-  /* ── Stats ─────────────────────────────────────────────── */
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [rows, eventRows] = await Promise.all([listSupportTickets(), listSiteEvents()]);
+      setTickets(rows);
+      setEvents(eventRows);
+      setSelected((current) => current ? rows.find((row) => row.id === current.id) ?? null : null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron cargar los tickets.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void load(); }, []);
+
   const counts = {
     abierto:     tickets.filter(t => t.status === 'abierto').length,
-    en_progreso: tickets.filter(t => t.status === 'en_progreso').length,
+    en_progreso: tickets.filter(t => t.status === 'en-proceso').length,
     resuelto:    tickets.filter(t => t.status === 'resuelto').length,
   };
 
   const filtered = tickets.filter(t => {
     const matchS = statusFilter === 'todos' || t.status === statusFilter;
     const q = query.toLowerCase();
-    const matchQ = !q || t.subject.toLowerCase().includes(q) || t.requester.toLowerCase().includes(q);
+    const matchQ = !q || t.subject.toLowerCase().includes(q) || t.requester.toLowerCase().includes(q) || t.email.toLowerCase().includes(q);
     return matchS && matchQ;
   });
 
-  /* ── CRUD ───────────────────────────────────────────────── */
-  const openCreate = () => { setForm(EMPTY_FORM); setModalOpen(true); };
-  const handleSave = () => {
+  const openCreate = () => { setForm(EMPTY_FORM); setError(null); setModalOpen(true); };
+  const handleSave = async () => {
+    if (!form.subject.trim() || !form.requester.trim()) return;
     setSaving(true);
-    setTimeout(() => {
-      const newT: Ticket = {
-        id: `tkt${Date.now()}`,
-        subject: form.subject, requester: form.requester, email: form.email,
-        event: form.event || undefined, status: 'abierto',
-        priority: form.priority, category: form.category, created: new Date().toISOString().split('T')[0],
-        messages: form.message ? [{ author: form.requester, text: form.message, time: 'Ahora', isAdmin: false }] : [],
-      };
-      setTickets(prev => [newT, ...prev]);
-      setSaving(false); setModalOpen(false);
-    }, 650);
+    setError(null);
+    try {
+      await createSupportTicket({
+        subject: form.subject,
+        requester: form.requester,
+        email: form.email,
+        eventId: form.event || null,
+        priority: form.priority,
+        category: form.category,
+        message: form.message,
+      });
+      setModalOpen(false);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo crear el ticket.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteTicket = (id: string) => {
-    setTickets(prev => prev.filter(t => t.id !== id));
-    if (selected?.id === id) setSelected(null);
+  const handleDeleteTicket = async (id: string) => {
+    if (!window.confirm('¿Eliminar este ticket?')) return;
+    try {
+      await deleteSupportTicket(id);
+      if (selected?.id === id) setSelected(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar.');
+    }
   };
 
-  const handleReply = () => {
+  const handleReply = async () => {
     if (!replyText.trim() || !selected) return;
     setReplying(true);
-    setTimeout(() => {
-      const msg: TicketMessage = { author: 'Soporte EML', text: replyText, time: 'Ahora', isAdmin: true };
-      const updated = { ...selected, messages: [...selected.messages, msg], status: 'en_progreso' as TicketStatus };
-      setTickets(prev => prev.map(t => t.id === selected.id ? updated : t));
-      setSelected(updated);
+    setError(null);
+    try {
+      await replySupportTicket(selected.id, session?.name || 'Soporte EML', replyText);
       setReplyText('');
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo enviar la respuesta.');
+    } finally {
       setReplying(false);
-    }, 500);
+    }
   };
 
-  const handleClose = (id: string) => {
-    const updated = tickets.map(t => t.id === id ? { ...t, status: 'resuelto' as TicketStatus } : t);
-    setTickets(updated);
-    if (selected?.id === id) setSelected({ ...selected, status: 'resuelto' });
+  const handleClose = async (id: string) => {
+    try {
+      await updateSupportTicketStatus(id, 'resuelto');
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo resolver el ticket.');
+    }
   };
 
   const f = (k: keyof typeof EMPTY_FORM) => (v: string) => setForm(p => ({ ...p, [k]: v }));
 
-  /* ─────────────────────────────────────────────────────── */
   return (
     <div>
-      {/* Header */}
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#00C9A0' }}>Ecosistema</p>
@@ -149,15 +162,15 @@ export function NovoSoporte() {
         </button>
       </div>
 
-      {/* KPIs */}
+      {error ? <p className="mb-4 text-sm" style={{ color: '#F24463' }}>{error}</p> : null}
+
       <div className="mb-6 grid grid-cols-4 gap-4">
-        <KPICard label="Abiertos"    value={counts.abierto.toString()}     icon={AlertCircleIcon} accent="#F59E0B" delay={0}    />
-        <KPICard label="En progreso" value={counts.en_progreso.toString()} icon={ClockIcon}       accent="#5B8AF0" delay={0.05} />
-        <KPICard label="Resueltos"   value={counts.resuelto.toString()}    icon={CheckCircleIcon} accent="#00C9A0" delay={0.1}  />
-        <KPICard label="Total"       value={tickets.length.toString()}     icon={HeadphonesIcon}  accent="#7A9CB8" delay={0.15} />
+        <KPICard label="Abiertos"    value={loading ? '…' : counts.abierto.toString()}     icon={AlertCircleIcon} accent="#F59E0B" delay={0}    />
+        <KPICard label="En progreso" value={loading ? '…' : counts.en_progreso.toString()} icon={ClockIcon}       accent="#5B8AF0" delay={0.05} />
+        <KPICard label="Resueltos"   value={loading ? '…' : counts.resuelto.toString()}    icon={CheckCircleIcon} accent="#00C9A0" delay={0.1}  />
+        <KPICard label="Total"       value={loading ? '…' : tickets.length.toString()}     icon={HeadphonesIcon}  accent="#7A9CB8" delay={0.15} />
       </div>
 
-      {/* Toolbar */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 flex-1 min-w-[200px] rounded-xl px-3.5 py-2.5"
           style={{ background: BG, border: `1px solid ${BORDER}` }}>
@@ -177,7 +190,6 @@ export function NovoSoporte() {
       </div>
 
       <div className="flex gap-5">
-        {/* Lista */}
         <div className="flex-1 overflow-hidden rounded-2xl" style={{ background: BG, border: `1px solid ${BORDER}` }}>
           {filtered.map((ticket, i) => {
             const st = STATUS_CONFIG[ticket.status];
@@ -212,14 +224,14 @@ export function NovoSoporte() {
                     <span className="text-[10px] tabular-nums">{ticket.messages.length}</span>
                   </div>
                   <span className="text-[10px]" style={{ color: TEXT_DIM }}>
-                    {new Date(ticket.created).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })}
+                    {new Date(ticket.createdAt).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })}
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold"
                     style={{ color: st.color, background: st.bg }}>
                     <st.icon size={9} /> {st.label}
                   </span>
                   <div onClick={e => e.stopPropagation()}>
-                    <RowActions onDelete={() => handleDeleteTicket(ticket.id)} />
+                    <RowActions onDelete={() => { void handleDeleteTicket(ticket.id); }} />
                   </div>
                 </div>
               </motion.div>
@@ -227,12 +239,11 @@ export function NovoSoporte() {
           })}
           {filtered.length === 0 && (
             <div className="flex items-center justify-center py-16">
-              <p className="text-sm" style={{ color: TEXT_DIM }}>Sin tickets</p>
+              <p className="text-sm" style={{ color: TEXT_DIM }}>{loading ? 'Cargando…' : 'Sin tickets'}</p>
             </div>
           )}
         </div>
 
-        {/* Panel conversación */}
         <AnimatePresence>
           {selected && (
             <motion.div
@@ -243,7 +254,6 @@ export function NovoSoporte() {
               className="overflow-hidden shrink-0 rounded-2xl flex flex-col"
               style={{ background: BG, border: `1px solid ${BORDER}`, maxHeight: 600 }}
             >
-              {/* Header */}
               <div className="flex items-start justify-between gap-2 px-5 py-4"
                 style={{ borderBottom: `1px solid ${BORDER}`, background: '#182d47' }}>
                 <div className="min-w-0">
@@ -264,20 +274,18 @@ export function NovoSoporte() {
                 </button>
               </div>
 
-              {/* Info */}
               <div className="px-5 py-3 flex items-center gap-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
                   style={{ background: GRADS[0] }}>{initials(selected.requester)}</div>
                 <div className="min-w-0">
                   <p className="text-xs font-semibold truncate" style={{ color: TEXT_HI }}>{selected.requester}</p>
-                  <p className="text-[10px] truncate" style={{ color: TEXT_DIM }}>{selected.email}</p>
+                  <p className="text-[10px] truncate" style={{ color: TEXT_DIM }}>{selected.email || 'Sin correo'}</p>
                 </div>
               </div>
 
-              {/* Mensajes */}
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-                {selected.messages.map((msg, i) => (
-                  <div key={i} className={`flex flex-col gap-1 ${msg.isAdmin ? 'items-end' : 'items-start'}`}>
+                {selected.messages.map((msg) => (
+                  <div key={msg.id} className={`flex flex-col gap-1 ${msg.isAdmin ? 'items-end' : 'items-start'}`}>
                     <p className="text-[10px]" style={{ color: TEXT_DIM }}>{msg.author} · {msg.time}</p>
                     <div className="max-w-[90%] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed"
                       style={{
@@ -294,7 +302,6 @@ export function NovoSoporte() {
                 )}
               </div>
 
-              {/* Reply box */}
               {selected.status !== 'resuelto' && selected.status !== 'cerrado' ? (
                 <div className="px-5 py-4 space-y-2" style={{ borderTop: `1px solid ${BORDER}` }}>
                   <textarea
@@ -305,12 +312,12 @@ export function NovoSoporte() {
                     onChange={e => setReplyText(e.target.value)}
                   />
                   <div className="flex gap-2">
-                    <button type="button" onClick={handleReply} disabled={!replyText.trim() || replying}
+                    <button type="button" onClick={() => { void handleReply(); }} disabled={!replyText.trim() || replying}
                       className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold transition-all active:scale-95 disabled:opacity-50"
                       style={{ background: '#00C9A0', color: '#0d1829' }}>
                       <SendIcon size={11} /> {replying ? 'Enviando…' : 'Responder'}
                     </button>
-                    <button type="button" onClick={() => handleClose(selected.id)}
+                    <button type="button" onClick={() => { void handleClose(selected.id); }}
                       className="rounded-xl px-3 py-2 text-xs font-semibold"
                       style={{ background: '#182d47', color: TEXT_LO, border: `1px solid ${BORDER}` }}>
                       Resolver
@@ -328,14 +335,13 @@ export function NovoSoporte() {
         </AnimatePresence>
       </div>
 
-      {/* Modal nuevo ticket */}
       <NovoModal open={modalOpen} onClose={() => setModalOpen(false)}
         title="Nuevo ticket de soporte"
         subtitle="Registra una consulta o problema de un participante"
         width={560}
         footer={<>
           <ModalBtn variant="secondary" onClick={() => setModalOpen(false)} disabled={saving}>Cancelar</ModalBtn>
-          <ModalBtn variant="primary" onClick={handleSave} disabled={saving || !form.subject || !form.requester}>
+          <ModalBtn variant="primary" onClick={() => { void handleSave(); }} disabled={saving || !form.subject || !form.requester}>
             {saving ? 'Creando…' : 'Crear ticket'}
           </ModalBtn>
         </>}
@@ -363,9 +369,9 @@ export function NovoSoporte() {
               <FormSelect value={form.priority} onChange={f('priority')}
                 options={[{ value:'alta', label:'Alta' }, { value:'media', label:'Media' }, { value:'baja', label:'Baja' }]} />
             </FormField>
-            <FormField label="Evento relacionado" className="col-span-2">
+            <FormField label="Evento relacionado">
               <FormSelect value={form.event} onChange={f('event')}
-                options={[{ value:'', label:'Sin evento específico' }, ...EVENTS.map(e => ({ value: e, label: e }))]} />
+                options={[{ value:'', label:'Sin evento específico' }, ...events.map(e => ({ value: e.id, label: e.name }))]} />
             </FormField>
           </div>
           <FormField label="Mensaje inicial">

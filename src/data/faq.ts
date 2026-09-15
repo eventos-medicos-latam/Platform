@@ -2,6 +2,60 @@ import type { FaqItem } from '../types/event';
 
 export const faqs: FaqItem[] = [
 {
+  id: 'faq-eterna-1',
+  editionId: 'ed-eterna-primavera-2026',
+  question: '¿Cuándo y dónde es La Eterna Primavera?',
+  answer:
+  'El 7 de noviembre de 2026 en Medellín. El evento es híbrido: hay cupo presencial y acceso digital. La sede exacta se confirma con la inscripción; también hay transmisión en línea.',
+  order: 1,
+  visible: true
+},
+{
+  id: 'faq-eterna-2',
+  editionId: 'ed-eterna-primavera-2026',
+  question: '¿Para quién es este evento?',
+  answer:
+  'Para personas con preguntas sobre sus hormonas, metabolismo o intestino, y para profesionales de la salud que acompañan a esos pacientes. En la inscripción eliges si entras como paciente o como profesional.',
+  order: 2,
+  visible: true
+},
+{
+  id: 'faq-eterna-3',
+  editionId: 'ed-eterna-primavera-2026',
+  question: '¿Cuánto cuesta y cómo me inscribo?',
+  answer:
+  'Las tarifas vigentes están en la página de inscripción del evento. Eliges la entrada (presencial o digital) y pagas en línea. El precio publicado es antes de IVA; el cobro incluye el impuesto cuando aplica.',
+  order: 3,
+  visible: true
+},
+{
+  id: 'faq-eterna-4',
+  editionId: 'ed-eterna-primavera-2026',
+  question: '¿El evento otorga certificado?',
+  answer:
+  'Sí. Quienes asisten reciben certificado de asistencia y memorias digitales del congreso.',
+  order: 4,
+  visible: true
+},
+{
+  id: 'faq-eterna-5',
+  editionId: 'ed-eterna-primavera-2026',
+  question: '¿Hay modalidad virtual?',
+  answer:
+  'Sí. Puedes seguir el programa en línea con la entrada de acceso digital, o asistir en Medellín si tomas la entrada presencial.',
+  order: 5,
+  visible: true
+},
+{
+  id: 'faq-eterna-6',
+  editionId: 'ed-eterna-primavera-2026',
+  question: '¿Cómo participa una empresa o marca?',
+  answer:
+  'Desde Aliados eliges un plan (por ejemplo Pop Up), un stand si aplica, y envías la postulación. El equipo comercial confirma disponibilidad y condiciones antes de cualquier cobro.',
+  order: 6,
+  visible: true
+},
+{
   id: 'faq-2027-1',
   editionId: 'ed-hormobiota-2027',
   question: '¿Cuándo y dónde es Hormobiota 2?',

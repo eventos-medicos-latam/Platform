@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient';
+import type { NovoEvent } from '../../types/novo';
 
 export type ScanInteractionKey = 'entrada' | 'coffee' | 'lunch' | 'kit' | 'vip' | 'certificado';
 
@@ -20,6 +21,9 @@ export type ScanOutcome = {
 
 const ONCE: ScanInteractionKey[] = ['entrada', 'kit', 'certificado'];
 const ONCE_PER_DAY: ScanInteractionKey[] = ['coffee', 'lunch'];
+const KNOWN: ScanInteractionKey[] = ['entrada', 'coffee', 'lunch', 'kit', 'vip', 'certificado'];
+const ADMIT: string[] = ['confirmado', 'asistio'];
+const EVENT_STORAGE_KEY = 'novo-scanner-event-id';
 
 function bogotaDay(iso: string) {
   return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
@@ -29,22 +33,88 @@ function throwIf(error: { message: string } | null) {
   if (error) throw error;
 }
 
+export function normalizeQrToken(raw: string): string {
+  const trimmed = raw.trim().replace(/^qr:/i, '');
+  if (!trimmed) return '';
+  try {
+    const url = new URL(trimmed);
+    const fromQuery = url.searchParams.get('qr')
+      || url.searchParams.get('token')
+      || url.searchParams.get('code');
+    if (fromQuery?.trim()) return fromQuery.trim();
+    const last = url.pathname.split('/').filter(Boolean).pop();
+    if (last) return decodeURIComponent(last);
+  } catch {
+    /* not a URL */
+  }
+  return trimmed;
+}
+
+export function pickScannerEventId(events: NovoEvent[]): string {
+  if (events.length === 0) return '';
+  try {
+    const stored = sessionStorage.getItem(EVENT_STORAGE_KEY);
+    if (stored && events.some((event) => event.id === stored)) return stored;
+  } catch {
+    /* ignore */
+  }
+  const featured = events.find((event) => event.is_featured);
+  const live = events.find((event) => event.operational_status === 'activo');
+  const next = events.find((event) => event.operational_status === 'proximo');
+  return (featured ?? live ?? next ?? events[0]).id;
+}
+
+export function rememberScannerEventId(eventId: string) {
+  try {
+    if (eventId) sessionStorage.setItem(EVENT_STORAGE_KEY, eventId);
+  } catch {
+    /* ignore */
+  }
+}
+
+function safeDecode(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+async function findPersonQr(token: string) {
+  const candidates = [...new Set([token, safeDecode(token)].filter(Boolean))];
+  for (const value of candidates) {
+    const { data, error } = await supabase
+      .from('person_qr')
+      .select('id, person_id')
+      .eq('qr_token', value)
+      .maybeSingle();
+    throwIf(error);
+    if (data) return data;
+  }
+  return null;
+}
+
+async function logDenied(personQrId: string, eventId: string, interaction: ScanInteractionKey) {
+  const { error } = await supabase.from('qr_interactions').insert({
+    person_qr_id: personQrId,
+    event_id: eventId,
+    note: interaction,
+    result: 'denied',
+  });
+  throwIf(error);
+}
+
 export async function scanPersonQr(input: {
   eventId: string;
   token: string;
   interaction: ScanInteractionKey;
 }): Promise<ScanOutcome> {
-  const token = input.token.trim();
+  const token = normalizeQrToken(input.token);
   if (!token) {
-    return { ok: false, result: 'denied', name: '', message: 'Pega el código QR del asistente.' };
+    return { ok: false, result: 'denied', name: '', message: 'Pega o escanea el código QR del asistente.' };
   }
 
-  const { data: qr, error: qrError } = await supabase
-    .from('person_qr')
-    .select('id, person_id')
-    .eq('qr_token', token)
-    .maybeSingle();
-  throwIf(qrError);
+  const qr = await findPersonQr(token);
   if (!qr) {
     return { ok: false, result: 'denied', name: 'QR no encontrado', message: 'Este código no está registrado.' };
   }
@@ -65,14 +135,17 @@ export async function scanPersonQr(input: {
     .neq('status', 'cancelado')
     .order('created_at', { ascending: false });
   throwIf(regError);
-  const registration = (regs ?? [])[0];
-  if (!registration) {
-    await supabase.from('qr_interactions').insert({
-      person_qr_id: qr.id,
-      event_id: input.eventId,
-      note: input.interaction,
-      result: 'denied',
-    });
+
+  const rows = regs ?? [];
+  const admitted = rows.filter((row) => ADMIT.includes(row.status));
+  const waiting = rows.filter((row) => row.status === 'espera');
+
+  if (admitted.length === 0 && waiting.length > 0) {
+    await logDenied(qr.id, input.eventId, input.interaction);
+    return { ok: false, result: 'denied', name, message: 'Pago pendiente. No puede ingresar.' };
+  }
+  if (admitted.length === 0) {
+    await logDenied(qr.id, input.eventId, input.interaction);
     return { ok: false, result: 'denied', name, message: 'No tiene inscripción vigente en este evento.' };
   }
 
@@ -102,10 +175,11 @@ export async function scanPersonQr(input: {
   throwIf(insertError);
 
   if (result === 'ok' && input.interaction === 'entrada') {
+    const ids = admitted.map((row) => row.id);
     const { error: attendError } = await supabase.from('event_registrations').update({
       status: 'asistio',
       attended: true,
-    }).eq('id', registration.id);
+    }).in('id', ids);
     throwIf(attendError);
   }
 
@@ -115,23 +189,27 @@ export async function scanPersonQr(input: {
   return { ok: true, result: 'ok', name, message: 'Acceso permitido' };
 }
 
+type ScanPersonQrEmbed = {
+  people?: { full_name?: string } | { full_name?: string }[] | null;
+};
+
 export async function listRecentScans(eventId: string, limit = 12): Promise<ScanLogEntry[]> {
   const { data, error } = await supabase
     .from('qr_interactions')
-    .select('id, result, note, occurred_at, person_qr:person_qr_id(person_id, people:person_id(full_name))')
+    .select('id, result, note, occurred_at, person_qr:person_qr_id(people:person_id(full_name))')
     .eq('event_id', eventId)
     .order('occurred_at', { ascending: false })
     .limit(limit);
   throwIf(error);
 
   return (data ?? []).map((row) => {
-    const qr = Array.isArray(row.person_qr) ? row.person_qr[0] : row.person_qr;
+    const qr = (Array.isArray(row.person_qr) ? row.person_qr[0] : row.person_qr) as ScanPersonQrEmbed | null;
     const person = qr ? (Array.isArray(qr.people) ? qr.people[0] : qr.people) : null;
     const note = (row.note ?? 'entrada') as ScanInteractionKey;
     return {
       id: row.id,
       person: person?.full_name ?? 'Asistente',
-      interaction: ['entrada', 'coffee', 'lunch', 'kit', 'vip', 'certificado'].includes(note) ? note : 'entrada',
+      interaction: KNOWN.includes(note) ? note : 'entrada',
       ok: row.result === 'ok',
       result: row.result === 'duplicate' || row.result === 'denied' ? row.result : 'ok',
       occurred_at: row.occurred_at,

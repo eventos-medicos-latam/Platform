@@ -68,6 +68,7 @@ import { Login } from './pages/auth/Login';
 import { InvitationResponse } from './pages/InvitationResponse';
 import { RequireRole } from './components/auth/RequireRole';
 import { TrackingScripts } from './components/TrackingScripts';
+import { SitePageGuard } from './contexts/SiteSettingsContext';
 import { PortalHome } from './pages/portal/PortalHome';
 import { PortalParticipation } from './pages/portal/PortalParticipation';
 import { PortalTeam } from './pages/portal/PortalTeam';
@@ -89,18 +90,18 @@ function AnimatedRoutes() {
         {/* Web pública */}
         <Route element={<PublicLayout />}>
           <Route path="/" element={<Home />} />
-          <Route path="/nosotros" element={<About />} />
+          <Route path="/nosotros" element={<SitePageGuard page="nosotros"><About /></SitePageGuard>} />
           <Route path="/hormobiota" element={<Hormobiota />} />
           <Route path="/eventos" element={<Events />} />
-          <Route path="/comunidad" element={<Community />} />
-          <Route path="/aliados" element={<Allies />} />
+          <Route path="/comunidad" element={<SitePageGuard page="comunidad"><Community /></SitePageGuard>} />
+          <Route path="/aliados" element={<SitePageGuard page="aliados"><Allies /></SitePageGuard>} />
           <Route path="/contenido" element={<Content />} />
           <Route path="/digital" element={<Digital />} />
-          <Route path="/tienda" element={<Store />} />
+          <Route path="/tienda" element={<SitePageGuard page="tienda"><Store /></SitePageGuard>} />
           <Route path="/speakers" element={<Speakers />} />
           <Route path="/speakers/:slug" element={<SpeakerPage />} />
           <Route path="/habitos-al-plato" element={<HabitosAlPlato />} />
-          <Route path="/contacto" element={<Contact />} />
+          <Route path="/contacto" element={<SitePageGuard page="contacto"><Contact /></SitePageGuard>} />
           <Route path="/legal" element={<Legal />} />
           <Route path="/e/:slug" element={<NovoPublicEventLayout />}>
             <Route index element={<NovoPublicEvent />} />

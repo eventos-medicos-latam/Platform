@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient';
+import { getPublicEventWeb } from './events';
 
 export type PlanTier = 'platino' | 'oro' | 'plata' | 'bronce' | 'aliado';
 export type SponsorStatus = 'activo' | 'pendiente_pago' | 'negociacion' | 'declinado';
@@ -138,6 +139,59 @@ export async function listPublicSponsors(eventId: string): Promise<EventSponsorR
     .order('created_at', { ascending: true });
   throwIf(error);
   return (data as QueryRow[] | null)?.map(mapRow) ?? [];
+}
+
+export type EventAllyLogo = {
+  id: string;
+  name: string;
+  logoUrl: string | null;
+};
+
+/** Logos públicos del evento: patrocinadores Novo, aliados del CMS y participaciones publicadas de esa edición. */
+export async function listPublicEventAllyLogos(
+  eventId: string,
+  editionId?: string,
+): Promise<{ heading: string; items: EventAllyLogo[] }> {
+  const [sponsors, web, participationRows] = await Promise.all([
+    listPublicSponsors(eventId).catch(() => [] as EventSponsorRow[]),
+    getPublicEventWeb(eventId),
+    editionId
+      ? supabase
+          .from('participations')
+          .select('company_id')
+          .eq('edition_id', editionId)
+          .eq('status', 'publicado')
+          .then(({ data }) => data ?? [])
+          .catch(() => [] as { company_id: string }[])
+      : Promise.resolve([] as { company_id: string }[]),
+  ]);
+  const companyIds = [...new Set(participationRows.map((row) => row.company_id).filter(Boolean))];
+  const companies = companyIds.length
+    ? await supabase
+        .from('companies')
+        .select('id, trade_name, logo_url')
+        .in('id', companyIds)
+        .then(({ data }) => data ?? [])
+        .catch(() => [] as { id: string; trade_name: string; logo_url: string | null }[])
+    : [];
+
+  const seen = new Set<string>();
+  const items: EventAllyLogo[] = [];
+  const add = (id: string, name: string, logoUrl: string | null | undefined) => {
+    const label = name.trim();
+    const logo = (logoUrl ?? '').trim() || null;
+    const key = (logo || label).toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    items.push({ id, name: label || 'Aliado', logoUrl: logo });
+  };
+  for (const sponsor of sponsors) add(sponsor.id, sponsor.company_name, sponsor.logo);
+  for (const company of companies) add(company.id, company.trade_name, company.logo_url);
+  for (const ally of web?.content.aliados_items ?? []) {
+    add(`web-${ally.name}-${ally.logo_url ?? ''}`, ally.name, ally.logo_url);
+  }
+  const heading = (web?.content.aliados_title ?? web?.content.patrocinadores_title ?? 'Aliados').trim() || 'Aliados';
+  return { heading, items };
 }
 
 export async function createEventSponsor(eventId: string, input: EventSponsorWrite): Promise<EventSponsorRow> {

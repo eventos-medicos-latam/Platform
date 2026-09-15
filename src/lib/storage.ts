@@ -19,12 +19,26 @@ export async function getCompanyFileUrl(path: string): Promise<string | null> {
   return data.signedUrl;
 }
 
+function safeFileName(file: File): string {
+  return file.name.replace(/[^\w.\-]+/g, '_');
+}
+
 /** Recursos administrados por el equipo organizador, visibles para cualquier empresa. */
 export async function uploadSharedResource(
   editionId: string,
   file: File
 ): Promise<{ path: string | null; error: string | null }> {
-  const path = `_shared/${editionId}/${Date.now()}-${file.name}`;
+  const path = `_shared/${editionId}/${Date.now()}-${safeFileName(file)}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file);
+  if (error) return { path: null, error: error.message };
+  return { path, error: null };
+}
+
+/** Catálogo Novo (Documentos): archivos privados en company-files. */
+export async function uploadNovoResource(
+  file: File
+): Promise<{ path: string | null; error: string | null }> {
+  const path = `_shared/novo/${Date.now()}-${safeFileName(file)}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, file);
   if (error) return { path: null, error: error.message };
   return { path, error: null };

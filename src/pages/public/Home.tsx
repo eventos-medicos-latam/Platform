@@ -18,9 +18,11 @@ import { StoreSection } from '../../components/public/StoreSection';
 import { UpcomingProductSection } from '../../components/public/UpcomingProductSection';
 import { ContentPreview } from '../../components/public/ContentPreview';
 import { SponsorBanner } from '../../components/public/SponsorBanner';
+import { useSiteSettings } from '../../contexts/SiteSettingsContext';
 import { media } from '../../data/media';
 import { EASE_EMPHASIS } from '../../utils/motion';
 export function Home() {
+  const { pageVisible } = useSiteSettings();
   return <PageTransition>
       <BrandIntro />
       <HomeHero />
@@ -46,7 +48,7 @@ export function Home() {
 
       <PlansSection />
 
-      <AlliesCarousel />
+      {pageVisible('aliados') ? <AlliesCarousel /> : null}
 
       {/* Comunidad médica */}
       <section className="surface-deep relative isolate overflow-hidden py-20 text-white lg:py-28">
@@ -174,7 +176,7 @@ export function Home() {
         <ContentPreview />
       </ScrollScene>
 
-      <StoreSection />
+      {pageVisible('tienda') ? <StoreSection /> : null}
 
       <UpcomingProductSection />
     </PageTransition>;

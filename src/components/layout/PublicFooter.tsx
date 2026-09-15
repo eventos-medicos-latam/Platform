@@ -7,6 +7,7 @@ import { listPublicEvents, publicEventPath } from '../../lib/novo/events';
 import { homeForRole, usePlatform } from '../../contexts/PlatformContext';
 import { Pending } from '../ui/Pending';
 import { supabase } from '../../lib/supabaseClient';
+import { useSiteSettings } from '../../contexts/SiteSettingsContext';
 
 interface SiteSettings {
   email: string;
@@ -20,6 +21,7 @@ const SETTINGS_KEYS = ['contact_email', 'contact_whatsapp_dial_code', 'contact_w
 
 export function PublicFooter() {
   const { session } = usePlatform();
+  const { pageVisible } = useSiteSettings();
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [events, setEvents] = useState<{ id: string; name: string; year: string; path: string }[]>([]);
   useEffect(() => {
@@ -109,21 +111,21 @@ export function PublicFooter() {
             Organización
           </h2>
           <ul className="mt-4 space-y-2 text-sm">
-            <li>
+            {pageVisible('nosotros') ? <li>
               <Link className="text-ink-muted hover:text-brand" to="/nosotros">
                 Nosotros
               </Link>
-            </li>
-            <li>
+            </li> : null}
+            {pageVisible('comunidad') ? <li>
               <Link className="text-ink-muted hover:text-brand" to="/comunidad">
                 Comunidad médica
               </Link>
-            </li>
-            <li>
+            </li> : null}
+            {pageVisible('aliados') ? <li>
               <Link className="text-ink-muted hover:text-brand" to="/aliados">
                 Aliados
               </Link>
-            </li>
+            </li> : null}
             <li>
               <Link className="text-ink-muted hover:text-brand" to="/contenido">
                 Contenido

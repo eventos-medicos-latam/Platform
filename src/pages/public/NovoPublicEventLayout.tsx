@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useParams } from 'react-router-dom';
 import { NovoEventSubnav, type NovoEventNavItem } from '../../components/public/NovoEventSubnav';
+import { NovoEventSponsorBanner } from '../../components/public/NovoEventSponsorBanner';
 import { editionStatusMeta, type BadgeTone } from '../../components/ui/StatusBadge';
 import { getEditionByNovoSlug, getFamily } from '../../data/editions';
 import { eventAccentRgb, getEventBySlug } from '../../lib/novo/events';
@@ -107,14 +108,19 @@ export function NovoPublicEventLayout() {
         ctaTo={showNavCta ? registerTo : undefined}
       />
       <Outlet context={{ event, edition } satisfies NovoPublicOutlet} />
-      {showNavCta && !isInscription ? (
+      {!isInscription ? (
         <>
-          <div className="h-14 md:hidden" aria-hidden="true" />
-          <div className="fixed inset-x-0 bottom-[52px] z-30 border-t border-line bg-brand px-4 py-2.5 md:hidden">
-            <Link to={registerTo} className="block rounded-lg bg-white py-2.5 text-center text-sm font-semibold text-brand">
-              {canRegister ? 'Inscribirme a ' : 'Recibir información de '}
-              {event.name}
-            </Link>
+          <div className={`md:hidden ${showNavCta ? 'h-36' : 'h-24'}`} aria-hidden="true" />
+          <div className="pb-safe fixed inset-x-0 bottom-0 z-30 md:hidden">
+            {showNavCta ? (
+              <div className="border-t border-line bg-brand px-4 py-2.5">
+                <Link to={registerTo} className="block rounded-lg bg-white py-2.5 text-center text-sm font-semibold text-brand">
+                  {canRegister ? 'Inscribirme a ' : 'Recibir información de '}
+                  {event.name}
+                </Link>
+              </div>
+            ) : null}
+            <NovoEventSponsorBanner eventId={event.id} editionId={edition?.id} slug={event.slug} />
           </div>
         </>
       ) : null}

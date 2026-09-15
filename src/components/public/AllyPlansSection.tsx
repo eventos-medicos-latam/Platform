@@ -9,7 +9,6 @@ import {
 import { PlanShowcase } from '../event/PlanShowcase';
 import { DisplayTitle } from '../ui/DisplayTitle';
 import { editions } from '../../data/editions';
-import { getEditionPlans } from '../../data/editionPlans';
 import { getEventBySlug } from '../../lib/novo/events';
 import { getFloorPlanUrl, listEventParticipations, participationToPublicPlan, enumPlanId } from '../../lib/novo/participations';
 import { listStandUnits } from '../../lib/novo/stands';
@@ -64,20 +63,6 @@ function inPlanZone(stand: Pick<StandOption, 'zone'>, zone: string) {
   if (!zone.trim()) return true;
   return sameZone(stand.zone, zone);
 }
-
-/* Stands mock por edición — se usa si el evento aún no tiene inventario en Stands */
-const MOCK_STANDS: StandOption[] = [
-  { id: 'st04', code: 'A-04', size: '3×3 m', zone: 'Zona A' },
-  { id: 'st05', code: 'A-05', size: '3×3 m', zone: 'Zona A' },
-  { id: 'st08', code: 'B-03', size: '3×3 m', zone: 'Zona B' },
-  { id: 'st09', code: 'B-04', size: '3×3 m', zone: 'Zona B' },
-  { id: 'st11', code: 'C-01', size: '3×3 m', zone: 'Zona C' },
-  { id: 'st12', code: 'C-02', size: '3×3 m', zone: 'Zona C' },
-  { id: 'pu-01', code: 'PU-01', size: '1×2 m', zone: 'Estaciones Pop Up' },
-  { id: 'pu-02', code: 'PU-02', size: '1×2 m', zone: 'Estaciones Pop Up' },
-  { id: 'pu-03', code: 'PU-03', size: '1×2 m', zone: 'Estaciones Pop Up' },
-  { id: 'pu-04', code: 'PU-04', size: '1×2 m', zone: 'Estaciones Pop Up' },
-];
 
 const STEP_TITLE: Record<FormStep, string> = {
   idle: '', stand: 'Elige tu stand', search: 'Busca tu empresa', email: 'Correo de contacto',
@@ -141,12 +126,14 @@ export function AllyPlansSection({ fixedEditionId, novoEventId }: { fixedEdition
   /* event selector */
   const [activeEditionId, setActiveEditionId] = useState(fixedEditionId ?? upcomingEditions[0]?.id ?? '');
   const activeEdition = upcomingEditions.find((e) => e.id === activeEditionId) ?? upcomingEditions[0];
-  const catalogPlans = getEditionPlans(activeEdition?.id ?? '');
   const [novoPlans, setNovoPlans] = useState<ParticipationPlan[] | null>(null);
   const [floorPlanUrl, setFloorPlanUrl] = useState('');
   const [eventStands, setEventStands] = useState<StandOption[]>([]);
   const [mapExpanded, setMapExpanded] = useState(false);
-  const editionPlans = (novoPlans && novoPlans.length > 0) ? novoPlans : catalogPlans;
+  const editionPlans = (novoPlans ?? []).filter((plan) => {
+    if (!plan.has_map) return true;
+    return eventStands.some((stand) => inPlanZone(stand, plan.stand_zone ?? ''));
+  });
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
 
   /* form */
@@ -189,18 +176,21 @@ export function AllyPlansSection({ fixedEditionId, novoEventId }: { fixedEdition
   useEffect(() => {
     const slug = activeEdition?.slug;
     if (!novoEventId && !slug) {
-      setNovoPlans(null);
+      setNovoPlans([]);
       setFloorPlanUrl('');
       setEventStands([]);
       return;
     }
     let cancelled = false;
+    setNovoPlans(null);
+    setFloorPlanUrl('');
+    setEventStands([]);
     (async () => {
       try {
         const eventId = novoEventId ?? (slug ? (await getEventBySlug(slug))?.id : undefined);
         if (!eventId || cancelled) {
           if (!cancelled) {
-            setNovoPlans(null);
+            setNovoPlans([]);
             setFloorPlanUrl('');
             setEventStands([]);
           }
@@ -365,10 +355,7 @@ export function AllyPlansSection({ fixedEditionId, novoEventId }: { fixedEdition
   const selectedPlanData = editionPlans.find((p) => p.id === selectedPlan);
   const planHasMap = selectedPlanData?.has_map ?? false;
   const planZone = selectedPlanData?.stand_zone?.trim() ?? '';
-  const standSource = eventStands.length ? eventStands : MOCK_STANDS;
-  const planStands = standSource.filter((stand) => inPlanZone(stand, planZone));
-  const showStandChips = Boolean(floorPlanUrl || eventStands.length || planZone);
-  const svgInteractive = !floorPlanUrl && eventStands.length === 0;
+  const planStands = eventStands.filter((stand) => inPlanZone(stand, planZone));
   const stepDots: FormStep[] = planHasMap
     ? ['stand', 'search', 'email', 'empresa', 'contacto']
     : ['search', 'email', 'empresa', 'contacto'];
@@ -392,7 +379,7 @@ export function AllyPlansSection({ fixedEditionId, novoEventId }: { fixedEdition
             { text: 'conoce cómo participar', tone: 'light' },
           ]} />
           <p className="mt-5 max-w-2xl text-base leading-relaxed text-ink">
-            Cada evento tiene sus propios planes y cupos. Selecciona el que te interesa y ve directamente a los planes disponibles.
+            Cada evento publica sus planes cuando el inventario de stands y la participación ya están cargados en Novo.
           </p>
         </motion.div>
 
@@ -448,7 +435,9 @@ export function AllyPlansSection({ fixedEditionId, novoEventId }: { fixedEdition
           <motion.div key={activeEditionId}
             initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.28, ease: EASE_EMPHASIS }} className="mt-10">
-            {editionPlans.length > 0 ? (
+            {novoPlans === null ? (
+              <p className="py-12 text-center text-sm text-ink-muted">Cargando planes de participación…</p>
+            ) : editionPlans.length > 0 ? (
               <PlanShowcase
                 plans={editionPlans}
                 activeId={activePlanId}
@@ -458,7 +447,7 @@ export function AllyPlansSection({ fixedEditionId, novoEventId }: { fixedEdition
               />
             ) : (
               <p className="py-12 text-center text-sm text-ink-muted">
-                Los planes de participación para este evento se publicarán pronto.
+                Aún no hay planes publicados. En Novo se cargan primero los stands y después la participación.
               </p>
             )}
           </motion.div>
@@ -549,14 +538,12 @@ export function AllyPlansSection({ fixedEditionId, novoEventId }: { fixedEdition
                       <p className="text-sm leading-relaxed text-ink">
                         {planZone
                           ? `Este plan solo habilita stands de ${planZone}. Elige uno disponible; el equipo comercial confirmará el espacio.`
-                          : floorPlanUrl
-                            ? 'Revisa el plano y elige un stand disponible. El equipo comercial confirmará disponibilidad.'
-                            : 'Haz clic en el stand de tu preferencia en el plano. El equipo comercial confirmará disponibilidad.'}
+                          : 'Elige un stand disponible del inventario. El equipo comercial confirmará el espacio.'}
                       </p>
 
                       {/* Floor plan */}
                       <div className="overflow-hidden rounded-2xl border border-line bg-[#f0f4f8]">
-                        <div className="border-b border-line bg-white px-4 py-2 flex items-center gap-2">
+                        <div className="flex items-center gap-2 border-b border-line bg-white px-4 py-2">
                           <LayoutPanelLeftIcon size={14} className="text-brand" />
                           <span className="text-xs font-semibold text-brand">Plano del evento</span>
                           {floorPlanUrl ? (
@@ -568,11 +555,11 @@ export function AllyPlansSection({ fixedEditionId, novoEventId }: { fixedEdition
                               <Maximize2Icon size={11} /> Ampliar
                             </button>
                           ) : null}
-                          {selectedStand && (
+                          {selectedStand ? (
                             <span className={`inline-flex items-center gap-1 rounded-full bg-brand/10 px-2.5 py-1 text-[10px] font-bold text-brand ${floorPlanUrl ? '' : 'ml-auto'}`}>
                               <CheckCircle2Icon size={11} /> Stand {selectedStand.code} seleccionado
                             </span>
-                          )}
+                          ) : null}
                         </div>
                         {floorPlanUrl ? (
                           <button
@@ -588,181 +575,47 @@ export function AllyPlansSection({ fixedEditionId, novoEventId }: { fixedEdition
                             />
                           </button>
                         ) : (
-                        <div className="p-3 overflow-x-auto">
-                          <svg viewBox="0 0 340 260" xmlns="http://www.w3.org/2000/svg"
-                            className="w-full min-w-[280px]" style={{ fontFamily: 'inherit' }}>
-
-                            {/* Stage / escenario */}
-                            <rect x="110" y="10" width="120" height="30" rx="6" fill="#112035" />
-                            <text x="170" y="30" textAnchor="middle" fill="white" fontSize="9" fontWeight="bold">ESCENARIO</text>
-
-                            {/* Aisles labels */}
-                            <text x="55" y="60" textAnchor="middle" fill="#64748b" fontSize="8" fontWeight="600">ZONA A</text>
-                            <text x="170" y="60" textAnchor="middle" fill="#64748b" fontSize="8" fontWeight="600">ZONA B</text>
-                            <text x="285" y="60" textAnchor="middle" fill="#64748b" fontSize="8" fontWeight="600">ZONA C</text>
-
-                            {/* Aisle lines */}
-                            <line x1="108" y1="55" x2="108" y2="245" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
-                            <line x1="232" y1="55" x2="232" y2="245" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 3" />
-
-                            {/* ZONA A stands (A-01..A-06) */}
-                            {[
-                              { id: 'st-a01', code: 'A-01', x: 10, y: 65, taken: true },
-                              { id: 'st-a02', code: 'A-02', x: 10, y: 110, taken: true },
-                              { id: 'st-a03', code: 'A-03', x: 10, y: 155, taken: true },
-                              { id: 'st04', code: 'A-04', x: 55, y: 65, taken: false },
-                              { id: 'st05', code: 'A-05', x: 55, y: 110, taken: false },
-                              { id: 'st-a06', code: 'A-06', x: 55, y: 155, taken: true },
-                            ].map((s) => {
-                              const zone = 'Zona A';
-                              const offPlan = !inPlanZone({ zone }, planZone);
-                              const locked = s.taken || offPlan || !svgInteractive;
-                              const isSelected = selectedStand?.id === s.id;
-                              const fill = s.taken || offPlan ? '#e2e8f0' : isSelected ? '#112035' : '#ffffff';
-                              const stroke = s.taken || offPlan ? '#cbd5e1' : isSelected ? '#112035' : '#94a3b8';
-                              const textFill = s.taken || offPlan ? '#94a3b8' : isSelected ? '#ffffff' : '#112035';
-                              return (
-                                <g key={s.id} style={{ cursor: locked ? 'default' : 'pointer' }}
-                                  onClick={() => !locked && setSelectedStand(isSelected ? null : { id: s.id, code: s.code, size: '3×3 m', zone })}>
-                                  <rect x={s.x} y={s.y} width="40" height="38" rx="5"
-                                    fill={fill} stroke={stroke} strokeWidth={isSelected ? 2 : 1.2}
-                                    style={{ transition: 'fill 0.18s, stroke 0.18s' }} />
-                                  <text x={s.x + 20} y={s.y + 16} textAnchor="middle" fill={textFill} fontSize="8" fontWeight="700">{s.code}</text>
-                                  <text x={s.x + 20} y={s.y + 28} textAnchor="middle" fill={s.taken ? '#cbd5e1' : offPlan ? '#94a3b8' : isSelected ? '#00C9A0' : '#64748b'} fontSize="7">
-                                    {s.taken ? 'Ocupado' : offPlan ? 'Otro plan' : '3×3 m'}
-                                  </text>
-                                </g>
-                              );
-                            })}
-
-                            {/* ZONA B stands (B-01..B-06) */}
-                            {[
-                              { id: 'st-b01', code: 'B-01', x: 116, y: 65, taken: true },
-                              { id: 'st-b02', code: 'B-02', x: 116, y: 110, taken: true },
-                              { id: 'st08', code: 'B-03', x: 116, y: 155, taken: false },
-                              { id: 'st09', code: 'B-04', x: 170, y: 65, taken: false },
-                              { id: 'st-b05', code: 'B-05', x: 170, y: 110, taken: true },
-                              { id: 'st-b06', code: 'B-06', x: 170, y: 155, taken: true },
-                            ].map((s) => {
-                              const zone = 'Zona B';
-                              const offPlan = !inPlanZone({ zone }, planZone);
-                              const locked = s.taken || offPlan || !svgInteractive;
-                              const isSelected = selectedStand?.id === s.id;
-                              const fill = s.taken || offPlan ? '#e2e8f0' : isSelected ? '#112035' : '#ffffff';
-                              const stroke = s.taken || offPlan ? '#cbd5e1' : isSelected ? '#112035' : '#94a3b8';
-                              const textFill = s.taken || offPlan ? '#94a3b8' : isSelected ? '#ffffff' : '#112035';
-                              return (
-                                <g key={s.id} style={{ cursor: locked ? 'default' : 'pointer' }}
-                                  onClick={() => !locked && setSelectedStand(isSelected ? null : { id: s.id, code: s.code, size: '3×3 m', zone })}>
-                                  <rect x={s.x} y={s.y} width="40" height="38" rx="5"
-                                    fill={fill} stroke={stroke} strokeWidth={isSelected ? 2 : 1.2}
-                                    style={{ transition: 'fill 0.18s, stroke 0.18s' }} />
-                                  <text x={s.x + 20} y={s.y + 16} textAnchor="middle" fill={textFill} fontSize="8" fontWeight="700">{s.code}</text>
-                                  <text x={s.x + 20} y={s.y + 28} textAnchor="middle" fill={s.taken ? '#cbd5e1' : offPlan ? '#94a3b8' : isSelected ? '#00C9A0' : '#64748b'} fontSize="7">
-                                    {s.taken ? 'Ocupado' : offPlan ? 'Otro plan' : '3×3 m'}
-                                  </text>
-                                </g>
-                              );
-                            })}
-
-                            {/* ZONA C stands (C-01..C-04) */}
-                            {[
-                              { id: 'st11', code: 'C-01', x: 240, y: 65, taken: false },
-                              { id: 'st12', code: 'C-02', x: 240, y: 110, taken: false },
-                              { id: 'st-c03', code: 'C-03', x: 290, y: 65, taken: true },
-                              { id: 'st-c04', code: 'C-04', x: 290, y: 110, taken: true },
-                            ].map((s) => {
-                              const zone = 'Zona C';
-                              const offPlan = !inPlanZone({ zone }, planZone);
-                              const locked = s.taken || offPlan || !svgInteractive;
-                              const isSelected = selectedStand?.id === s.id;
-                              const fill = s.taken || offPlan ? '#e2e8f0' : isSelected ? '#112035' : '#ffffff';
-                              const stroke = s.taken || offPlan ? '#cbd5e1' : isSelected ? '#112035' : '#94a3b8';
-                              const textFill = s.taken || offPlan ? '#94a3b8' : isSelected ? '#ffffff' : '#112035';
-                              return (
-                                <g key={s.id} style={{ cursor: locked ? 'default' : 'pointer' }}
-                                  onClick={() => !locked && setSelectedStand(isSelected ? null : { id: s.id, code: s.code, size: '3×3 m', zone })}>
-                                  <rect x={s.x} y={s.y} width="40" height="38" rx="5"
-                                    fill={fill} stroke={stroke} strokeWidth={isSelected ? 2 : 1.2}
-                                    style={{ transition: 'fill 0.18s, stroke 0.18s' }} />
-                                  <text x={s.x + 20} y={s.y + 16} textAnchor="middle" fill={textFill} fontSize="8" fontWeight="700">{s.code}</text>
-                                  <text x={s.x + 20} y={s.y + 28} textAnchor="middle" fill={s.taken ? '#cbd5e1' : offPlan ? '#94a3b8' : isSelected ? '#00C9A0' : '#64748b'} fontSize="7">
-                                    {s.taken ? 'Ocupado' : offPlan ? 'Otro plan' : '3×3 m'}
-                                  </text>
-                                </g>
-                              );
-                            })}
-
-                            {/* Pop-up estaciones (fila inferior) */}
-                            <text x="170" y="215" textAnchor="middle" fill="#64748b" fontSize="8" fontWeight="600">ESTACIONES POP UP</text>
-                            {[
-                              { id: 'pu-01', code: 'PU-01', x: 50 },
-                              { id: 'pu-02', code: 'PU-02', x: 115 },
-                              { id: 'pu-03', code: 'PU-03', x: 180 },
-                              { id: 'pu-04', code: 'PU-04', x: 245 },
-                            ].map((s) => {
-                              const zone = 'Estaciones Pop Up';
-                              const offPlan = !inPlanZone({ zone }, planZone);
-                              const locked = offPlan || !svgInteractive;
-                              const isSelected = selectedStand?.id === s.id;
-                              const fill = offPlan ? '#e2e8f0' : isSelected ? '#112035' : '#ffffff';
-                              const stroke = offPlan ? '#cbd5e1' : isSelected ? '#112035' : '#94a3b8';
-                              const textFill = offPlan ? '#94a3b8' : isSelected ? '#ffffff' : '#112035';
-                              return (
-                                <g key={s.id} style={{ cursor: locked ? 'default' : 'pointer' }}
-                                  onClick={() => !locked && setSelectedStand(isSelected ? null : { id: s.id, code: s.code, size: '1×2 m', zone })}>
-                                  <rect x={s.x} y={220} width="42" height="28" rx="4"
-                                    fill={fill} stroke={stroke} strokeWidth={isSelected ? 2 : 1} />
-                                  <text x={s.x + 21} y={232} textAnchor="middle" fill={textFill} fontSize="7" fontWeight="600">{s.code}</text>
-                                  <text x={s.x + 21} y={242} textAnchor="middle" fill={offPlan ? '#cbd5e1' : isSelected ? '#00C9A0' : '#64748b'} fontSize="6">
-                                    {offPlan ? 'Otro plan' : '1×2 m'}
-                                  </text>
-                                </g>
-                              );
-                            })}
-
-                            {/* Legend */}
-                            <rect x="10" y="205" width="10" height="10" rx="2" fill="#ffffff" stroke="#94a3b8" strokeWidth="1.2" />
-                            <text x="24" y="214" fill="#64748b" fontSize="7">Disponible</text>
-                            <rect x="75" y="205" width="10" height="10" rx="2" fill="#112035" stroke="#112035" strokeWidth="1" />
-                            <text x="89" y="214" fill="#64748b" fontSize="7">Seleccionado</text>
-                            <rect x="160" y="205" width="10" height="10" rx="2" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1" />
-                            <text x="174" y="214" fill="#94a3b8" fontSize="7">Ocupado</text>
-                          </svg>
-                        </div>
+                          <div className="px-4 py-8 text-center">
+                            <p className="text-sm font-medium text-brand">
+                              {planStands.length ? 'Elige un stand disponible' : 'Sin plano cargado'}
+                            </p>
+                            <p className="mt-1 text-xs text-ink-muted">
+                              {planStands.length
+                                ? 'Los espacios salen del inventario de Novo.'
+                                : 'Cuando haya stands en inventario aparecerán abajo.'}
+                            </p>
+                          </div>
                         )}
                       </div>
 
-                      {showStandChips ? (
-                        <div className="flex flex-col gap-2">
-                          {planStands.length === 0 ? (
-                            <p className="text-xs text-ink-muted">
-                              Aún no hay stands cargados{planZone ? ` en ${planZone}` : ''}. Puedes continuar y el equipo comercial te asignará uno.
-                            </p>
-                          ) : (
-                            <div className="flex flex-wrap gap-2">
-                              {planStands.map((s) => {
-                                const on = selectedStand?.id === s.id;
-                                return (
-                                  <button
-                                    key={s.id}
-                                    type="button"
-                                    disabled={s.taken}
-                                    onClick={() => setSelectedStand(on ? null : s)}
-                                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                                      on
-                                        ? 'border-brand bg-brand text-white'
-                                        : 'border-line bg-white text-ink hover:border-brand/50'
-                                    }`}
-                                  >
-                                    {s.code}{s.size ? ` · ${s.size}` : ''}{s.taken ? ' · Ocupado' : ''}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      ) : null}
+                      <div className="flex flex-col gap-2">
+                        {planStands.length === 0 ? (
+                          <p className="text-xs text-ink-muted">
+                            Aún no hay stands cargados{planZone ? ` en ${planZone}` : ''}. Puedes continuar y el equipo comercial te asignará uno.
+                          </p>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {planStands.map((s) => {
+                              const on = selectedStand?.id === s.id;
+                              return (
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  disabled={s.taken}
+                                  onClick={() => setSelectedStand(on ? null : s)}
+                                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                                    on
+                                      ? 'border-brand bg-brand text-white'
+                                      : 'border-line bg-white text-ink hover:border-brand/50'
+                                  }`}
+                                >
+                                  {s.code}{s.size ? ` · ${s.size}` : ''}{s.taken ? ' · Ocupado' : ''}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
 
                       <p className="text-xs text-ink-muted">
                         ¿No ves el que quieres? El equipo comercial te mostrará todas las opciones disponibles durante la reunión de cierre.

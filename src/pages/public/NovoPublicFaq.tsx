@@ -7,28 +7,30 @@ import { PageTransition } from '../../components/motion/PageTransition';
 import { DisplayTitle } from '../../components/ui/DisplayTitle';
 import { media } from '../../data/media';
 import { getPublicEventWeb } from '../../lib/novo/events';
+import { catalogWebDefaults, mergeWebContent } from '../../lib/novo/webContent';
 import { DURATION, EASE_EMPHASIS } from '../../utils/motion';
-import { EventFaq } from '../event/EventFaq';
 import type { NovoPublicOutlet } from './NovoPublicEventLayout';
 
 export function NovoPublicFaq() {
-  const { edition } = useOutletContext<NovoPublicOutlet>();
-  if (edition) return <EventFaq />;
-  return <NovoFaqFallback />;
-}
-
-function NovoFaqFallback() {
   const { event } = useOutletContext<NovoPublicOutlet>();
   const [items, setItems] = useState<{ q: string; a: string }[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
-    getPublicEventWeb(event.id).then((web) => {
-      const next = (web?.content.faq_items ?? []).filter((item) => item.q.trim());
-      setItems(next);
-      setOpenId(next[0] ? '0' : null);
-    });
-  }, [event.id]);
+    const catalog = catalogWebDefaults(event.slug);
+    getPublicEventWeb(event.id)
+      .then((web) => {
+        const content = mergeWebContent(web?.content, catalog);
+        const next = (content.faq_items ?? []).filter((item) => item.q.trim() && item.a.trim());
+        setItems(next);
+        setOpenId(next[0] ? '0' : null);
+      })
+      .catch(() => {
+        const next = (catalog.faq_items ?? []).filter((item) => item.q.trim() && item.a.trim());
+        setItems(next);
+        setOpenId(next[0] ? '0' : null);
+      });
+  }, [event.id, event.slug]);
 
   return (
     <PageTransition>
@@ -43,7 +45,7 @@ function NovoFaqFallback() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent">FAQ</p>
           <DisplayTitle as="h2" size="md" className="mt-3" parts={[{ text: 'Preguntas frecuentes', tone: 'bold' }]} />
           <p className="mt-3 max-w-2xl text-base leading-relaxed text-ink">
-            Todo lo que suelen preguntar sobre inscripción, certificación, sede y facturación. Si falta algo, escríbenos.
+            Respuestas de este evento. El equipo puede actualizarlas desde Novo cuando cambie sede, tarifas o certificación.
           </p>
           {items.length > 0 ? (
             <ul className="mt-9 space-y-3">
@@ -52,7 +54,7 @@ function NovoFaqFallback() {
                 const isOpen = openId === id;
                 return (
                   <motion.li
-                    key={id}
+                    key={`${id}-${item.q}`}
                     className={`overflow-hidden rounded-2xl border border-white bg-white/90 backdrop-blur transition-shadow duration-200 ease-emphasis ${
                       isOpen ? 'shadow-elev3' : 'shadow-elev1 hover:shadow-elev2'
                     }`}
@@ -84,7 +86,14 @@ function NovoFaqFallback() {
                 );
               })}
             </ul>
-          ) : null}
+          ) : (
+            <div className="mt-9 rounded-3xl border border-dashed border-line bg-white/70 px-6 py-14 text-center backdrop-blur">
+              <p className="text-base font-medium text-brand">Aún no hay preguntas publicadas</p>
+              <p className="mt-1.5 text-sm text-ink-muted">
+                El equipo las carga en Novo → Web del evento → Preguntas frecuentes.
+              </p>
+            </div>
+          )}
         </div>
       </section>
     </PageTransition>

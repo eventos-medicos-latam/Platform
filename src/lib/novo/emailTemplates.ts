@@ -98,3 +98,55 @@ export async function listEmailOutbox(limit = 25): Promise<EmailOutboxRow[]> {
   if (error) throw error;
   return (data ?? []) as EmailOutboxRow[];
 }
+
+export const EVENT_ATTENDEE_EMAILS: {
+  key: string;
+  trigger: string;
+  when: string;
+}[] = [
+  { key: 'attendee_pending_payment', trigger: 'Inscripción en espera de pago', when: 'Se envía al crear un ticket de pago.' },
+  { key: 'attendee_confirmed', trigger: 'Inscripción confirmada', when: 'Se envía al confirmar el cupo. Adjunta PDF con QR.' },
+  { key: 'attendee_cancelled', trigger: 'Inscripción cancelada', when: 'Se envía si el equipo cancela el registro.' },
+  { key: 'attendee_reminder_7d', trigger: '7 días antes del evento', when: 'Se encola el día en que faltan 7 días (desde Correos).' },
+  { key: 'attendee_reminder_1d', trigger: '1 día antes del evento', when: 'Se encola el día anterior (desde Correos).' },
+];
+
+export type EventEmailVarsInput = {
+  name: string;
+  start_date: string;
+  venue_name?: string | null;
+  venue_city?: string | null;
+  venue_address?: string | null;
+};
+
+export function eventEmailVars(event: EventEmailVarsInput, extra: Record<string, string> = {}): Record<string, string> {
+  const fecha = event.start_date
+    ? new Date(`${event.start_date}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
+  const lugar = [event.venue_name, event.venue_city].filter(Boolean).join(' · ') || event.venue_address || '';
+  return {
+    ...EMAIL_SAMPLE_VARS,
+    evento: event.name,
+    fecha,
+    lugar,
+    ...extra,
+  };
+}
+
+export async function listEventEmailOutbox(eventId: string, limit = 40): Promise<EmailOutboxRow[]> {
+  const { data: regs, error: regError } = await supabase
+    .from('event_registrations')
+    .select('id')
+    .eq('event_id', eventId);
+  if (regError) throw regError;
+  const ids = (regs ?? []).map((row) => row.id).filter(Boolean);
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from('email_outbox')
+    .select('id, template_key, to_email, status, error, created_at, sent_at')
+    .in('registration_id', ids)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as EmailOutboxRow[];
+}

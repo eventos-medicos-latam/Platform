@@ -45,6 +45,7 @@ export function Store() {
     supabase
       .from('info_products')
       .select('id, name, kind, format, claim, description, price, vat_rate, volume_label, includes, hotmart_checkout_url')
+      .in('status', ['aprobado', 'publicado'])
       .then(({ data }) => {
         setProducts((data ?? []).map((row) => ({
           id: row.id,

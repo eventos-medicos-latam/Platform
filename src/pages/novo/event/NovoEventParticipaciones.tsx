@@ -133,13 +133,11 @@ export function NovoEventParticipaciones() {
           setParticipations(saved);
           return;
         }
-        const seeded = defaultParticipationsForSlug(event.slug);
-        setParticipations(seeded);
-        if (seeded.length) await saveEventParticipations(event.id, seeded);
+        setParticipations([]);
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : 'No se pudieron cargar las participaciones.');
-        setParticipations(defaultParticipationsForSlug(event.slug));
+        setParticipations([]);
         setStandZones([]);
       } finally {
         if (!cancelled) setLoading(false);
@@ -461,7 +459,9 @@ export function NovoEventParticipaciones() {
           style={{ background: CARD, border: `1px solid ${BORDER}` }}>
           <LayoutPanelLeftIcon size={32} style={{ color: TEXT_MID }} />
           <p className="text-sm font-semibold" style={{ color: TEXT_HI }}>Sin participaciones</p>
-          <p className="text-xs" style={{ color: TEXT_MID }}>Crea el primer plan de participación para este evento</p>
+          <p className="text-xs max-w-sm text-center" style={{ color: TEXT_MID }}>
+            Primero carga el inventario de stands. Luego crea el plan; Aliados lo muestra cuando esté activo.
+          </p>
           <button type="button" onClick={openCreate}
             className="mt-2 flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold"
             style={{ background: ACCENT, color: '#0d1829' }}>
@@ -677,7 +677,9 @@ export function NovoEventParticipaciones() {
           </FormField>
           <FormField
             label="Sección de stands"
-            hint="El aliado solo podrá elegir stands de esta zona del plano. Déjalo vacío para mostrar todas."
+            hint={standZones.length
+              ? 'El aliado solo podrá elegir stands de esta zona del plano. Déjalo vacío para mostrar todas.'
+              : 'Carga stands en Inventario para elegir la zona. Sin inventario este plan no se publica en Aliados si usa plano.'}
           >
             <FormInput
               value={form.stand_zone ?? ''}

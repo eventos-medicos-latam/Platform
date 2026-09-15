@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   PlusIcon, SearchIcon, FileTextIcon, FolderIcon, DownloadIcon,
@@ -11,28 +11,16 @@ import {
   NovoModal, ModalBtn,
   FormSection, FormField, FormInput, FormSelect, FormTextarea,
 } from '../../components/novo/ui/NovoModal';
+import { listCompanies, type NovoCompany } from '../../lib/novo/companies';
+import {
+  createCatalogResource, deleteCatalogDocument, duplicateCatalogResource,
+  fileTypeFromName, listCatalogDocuments, openCatalogDocument, updateCatalogResource, uploadCatalogFile,
+  type CatalogDoc, type DocCategory, type DocScope, type DocType,
+} from '../../lib/novo/resources';
+import { listSiteEvents, type SiteEventRow } from '../../lib/novo/site';
 
-/* ── Tipos ───────────────────────────────────────────────── */
-type DocCategory = 'global' | 'empresa' | 'evento';
-type DocScope    = 'Público' | 'Empresa' | 'Interno' | 'Privado';
-type DocType     = 'PDF' | 'XLSX' | 'PNG' | 'JPG' | 'ZIP' | 'DOCX' | 'MP4';
-type ViewMode    = 'list' | 'grid';
+type ViewMode = 'list' | 'grid';
 
-interface Doc {
-  id: string;
-  name: string;
-  category: DocCategory;
-  type: DocType;
-  size: string;
-  scope: DocScope;
-  updated: string;
-  event: string | null;
-  company: string | null;
-  description?: string;
-  url?: string;
-}
-
-/* ── Configuraciones ─────────────────────────────────────── */
 const SCOPE_CFG: Record<DocScope, { color: string; bg: string }> = {
   Público:  { color: '#00C9A0', bg: 'rgba(0,201,160,.12)'   },
   Empresa:  { color: '#F59E0B', bg: 'rgba(245,158,11,.12)'  },
@@ -55,7 +43,6 @@ const TYPE_COLOR: Record<DocType, string> = {
   ZIP:  '#F59E0B', DOCX: '#5B8AF0', MP4: '#FF7043',
 };
 
-/* ── Colores ──────────────────────────────────────────────── */
 const BG      = '#112035';
 const BG_DEEP = '#0d1829';
 const BORDER  = '#1e3450';
@@ -64,42 +51,53 @@ const TEXT_HI = '#E1EAF4';
 const TEXT_LO = '#7A9CB8';
 const TEXT_DIM = '#3A5470';
 
-/* ── Datos iniciales ─────────────────────────────────────── */
-const INIT_DOCS: Doc[] = [
-  { id: 'd-001', name: 'Manual del Expositor v3',     category: 'global',  type: 'PDF',  size: '2,4 MB', scope: 'Público', updated: 'ago 2025', event: null, company: null, description: 'Manual general para expositores en eventos EML.' },
-  { id: 'd-002', name: 'Guía de Stands y Planos',     category: 'global',  type: 'PDF',  size: '5,1 MB', scope: 'Empresa', updated: 'jul 2025', event: null, company: null, description: 'Planos de distribución y guía de montaje para stands.' },
-  { id: 'd-003', name: 'Reglamento General EML',      category: 'global',  type: 'PDF',  size: '890 KB', scope: 'Público', updated: 'jun 2025', event: null, company: null },
-  { id: 'd-004', name: 'Kit de Marca EML 2025',       category: 'global',  type: 'ZIP',  size: '18 MB',  scope: 'Interno', updated: 'ene 2025', event: null, company: null, description: 'Logos, colores, tipografías e isotipos EML.' },
-  { id: 'd-005', name: 'Contrato EP2025 — Roche',     category: 'empresa', type: 'PDF',  size: '340 KB', scope: 'Privado', updated: 'jul 2025', event: 'La Eterna Primavera', company: 'Roche' },
-  { id: 'd-006', name: 'Recibo Anticipo $9M',         category: 'empresa', type: 'PDF',  size: '120 KB', scope: 'Privado', updated: 'jul 2025', event: 'La Eterna Primavera', company: 'Roche' },
-  { id: 'd-007', name: 'Logo Roche PNG alta res.',    category: 'empresa', type: 'PNG',  size: '1,2 MB', scope: 'Privado', updated: 'jun 2025', event: null, company: 'Roche' },
-  { id: 'd-008', name: 'Programa EP2025 definitivo',  category: 'evento',  type: 'PDF',  size: '780 KB', scope: 'Público', updated: 'sep 2025', event: 'La Eterna Primavera', company: null },
-  { id: 'd-009', name: 'Lista asistentes HB VI',      category: 'evento',  type: 'XLSX', size: '210 KB', scope: 'Interno', updated: 'oct 2025', event: 'Hormobiota VI', company: null },
-  { id: 'd-010', name: 'Protocolo sanitario 2025',    category: 'global',  type: 'DOCX', size: '95 KB',  scope: 'Público', updated: 'mar 2025', event: null, company: null },
-];
-
 type CatFilter = 'Todos' | 'Globales' | 'Por empresa' | 'Por evento';
 const CAT_FILTERS: CatFilter[] = ['Todos', 'Globales', 'Por empresa', 'Por evento'];
 
 const EMPTY_FORM = {
   name: '', category: 'global' as DocCategory, type: 'PDF' as DocType,
-  scope: 'Público' as DocScope, size: '', event: '', company: '', description: '', url: '',
+  scope: 'Público' as DocScope, event: '', company: '', description: '', url: '',
 };
 
-/* ════════════════════════════════════════════════════════════ */
 export function NovoDocumentos() {
-  const [docs, setDocs]          = useState<Doc[]>(INIT_DOCS);
+  const [docs, setDocs]          = useState<CatalogDoc[]>([]);
+  const [events, setEvents]      = useState<SiteEventRow[]>([]);
+  const [companies, setCompanies] = useState<NovoCompany[]>([]);
   const [catFilter, setCatFilter] = useState<CatFilter>('Todos');
   const [search, setSearch]      = useState('');
   const [viewMode, setViewMode]  = useState<ViewMode>('list');
-  const [selected, setSelected]  = useState<Doc | null>(null);
+  const [selected, setSelected]  = useState<CatalogDoc | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing]    = useState<Doc | null>(null);
+  const [editing, setEditing]    = useState<CatalogDoc | null>(null);
   const [form, setForm]          = useState(EMPTY_FORM);
+  const [file, setFile]          = useState<File | null>(null);
   const [saving, setSaving]      = useState(false);
+  const [loading, setLoading]    = useState(true);
+  const [error, setError]        = useState<string | null>(null);
   const [dragOver, setDragOver]  = useState(false);
 
-  /* ── Filtro ─────────────────────────────────────────────── */
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [rows, eventRows, companyRows] = await Promise.all([
+        listCatalogDocuments(),
+        listSiteEvents(),
+        listCompanies(),
+      ]);
+      setDocs(rows);
+      setEvents(eventRows);
+      setCompanies(companyRows);
+      setSelected((current) => current ? rows.find((row) => row.id === current.id) ?? null : null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron cargar los documentos.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void load(); }, []);
+
   const filtered = docs.filter(d => {
     const matchCat =
       catFilter === 'Todos'       ||
@@ -113,56 +111,108 @@ export function NovoDocumentos() {
     return matchCat && matchSearch;
   });
 
-  /* ── CRUD ───────────────────────────────────────────────── */
-  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setModalOpen(true); };
-  const openEdit   = (d: Doc) => {
+  const openCreate = () => {
+    setEditing(null);
+    setForm(EMPTY_FORM);
+    setFile(null);
+    setError(null);
+    setModalOpen(true);
+  };
+  const openEdit = (d: CatalogDoc) => {
+    if (d.source !== 'resource') return;
     setEditing(d);
-    setForm({ name: d.name, category: d.category, type: d.type, scope: d.scope,
-      size: d.size, event: d.event ?? '', company: d.company ?? '', description: d.description ?? '', url: d.url ?? '' });
+    setForm({
+      name: d.name, category: d.category, type: d.type, scope: d.scope,
+      event: d.eventId ?? '', company: d.companyId ?? '', description: d.description, url: d.url,
+    });
+    setFile(null);
+    setError(null);
     setModalOpen(true);
   };
 
-  const handleSave = () => {
+  const takeFile = (next: File | null) => {
+    if (!next) return;
+    setFile(next);
+    setForm((prev) => ({
+      ...prev,
+      name: prev.name || next.name.replace(/\.[^.]+$/, ''),
+      type: fileTypeFromName(next.name, next.type),
+    }));
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) { setError('El nombre es obligatorio.'); return; }
+    if (form.category === 'evento' && !form.event) { setError('Elige el evento.'); return; }
+    if (form.category === 'empresa' && !form.company) { setError('Elige la empresa.'); return; }
     setSaving(true);
-    setTimeout(() => {
-      const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-      const now = new Date();
-      const updated = `${months[now.getMonth()]} ${now.getFullYear()}`;
-      const newDoc: Doc = {
-        id:       editing?.id ?? `d-${Date.now()}`,
-        name:     form.name,
-        category: form.category,
-        type:     form.type,
-        scope:    form.scope,
-        size:     form.size || '—',
-        updated,
-        event:    form.event || null,
-        company:  form.company || null,
+    setError(null);
+    try {
+      let url = form.url;
+      let storagePath = editing?.storagePath ?? null;
+      let type = form.type;
+      let sizeBytes = editing?.sizeBytes ?? null;
+      if (file) {
+        const uploaded = await uploadCatalogFile(file, form.scope);
+        url = uploaded.url || url;
+        storagePath = uploaded.storagePath ?? storagePath;
+        type = uploaded.type;
+        sizeBytes = uploaded.sizeBytes;
+      }
+      const payload = {
+        name: form.name,
         description: form.description,
-        url:      form.url,
+        category: form.category,
+        type,
+        scope: form.scope,
+        eventId: form.event || null,
+        companyId: form.company || null,
+        url,
+        storagePath,
+        sizeBytes,
       };
-      setDocs(prev => editing ? prev.map(d => d.id === editing.id ? newDoc : d) : [...prev, newDoc]);
-      if (selected?.id === editing?.id) setSelected(newDoc);
-      setSaving(false);
+      if (editing) await updateCatalogResource(editing.id, payload);
+      else await createCatalogResource(payload);
       setModalOpen(false);
-    }, 700);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el recurso.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setDocs(prev => prev.filter(d => d.id !== id));
-    if (selected?.id === id) setSelected(null);
+  const handleDelete = async (doc: CatalogDoc) => {
+    if (!window.confirm(`¿Eliminar «${doc.name}»?`)) return;
+    try {
+      await deleteCatalogDocument(doc);
+      if (selected?.id === doc.id) setSelected(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar.');
+    }
   };
 
-  const handleDuplicate = (d: Doc) => {
-    setDocs(prev => [...prev, { ...d, id: `d-${Date.now()}`, name: `${d.name} (copia)` }]);
+  const handleDuplicate = async (doc: CatalogDoc) => {
+    try {
+      await duplicateCatalogResource(doc);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo duplicar.');
+    }
+  };
+
+  const handleOpen = async (doc: CatalogDoc) => {
+    try {
+      await openCatalogDocument(doc);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo abrir el archivo.');
+    }
   };
 
   const f = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }));
 
-  /* ── Render ─────────────────────────────────────────────── */
   return (
     <div>
-      {/* Header */}
       <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: ACCENT }}>Catálogo global</p>
@@ -176,14 +226,14 @@ export function NovoDocumentos() {
         </button>
       </div>
 
-      {/* KPIs */}
+      {error ? <p className="mb-4 text-sm" style={{ color: '#F24463' }}>{error}</p> : null}
+
       <div className="mb-6 grid grid-cols-3 gap-4">
-        <KPICard label="Total archivos"         value={String(docs.length)}                                    sub="en la plataforma"               icon={FileTextIcon} delay={0}    />
-        <KPICard label="Globales reutilizables" value={String(docs.filter(d => d.category === 'global').length)} sub="disponibles en todos los eventos" icon={FolderIcon}   accent="#5B8AF0" delay={0.05} />
-        <KPICard label="Privados / empresa"     value={String(docs.filter(d => d.scope === 'Privado').length)} sub="de acceso restringido"            icon={DownloadIcon} accent="#A78BFA" delay={0.1} />
+        <KPICard label="Total archivos"         value={loading ? '…' : String(docs.length)}                                    sub="en la plataforma"               icon={FileTextIcon} delay={0}    />
+        <KPICard label="Globales reutilizables" value={loading ? '…' : String(docs.filter(d => d.category === 'global').length)} sub="disponibles en todos los eventos" icon={FolderIcon}   accent="#5B8AF0" delay={0.05} />
+        <KPICard label="Privados / empresa"     value={loading ? '…' : String(docs.filter(d => d.scope === 'Privado' || d.category === 'empresa').length)} sub="de acceso restringido"            icon={DownloadIcon} accent="#A78BFA" delay={0.1} />
       </div>
 
-      {/* Toolbar */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative flex items-center rounded-xl" style={{ background: BG, border: `1px solid ${BORDER}` }}>
           <SearchIcon size={14} className="absolute left-3" style={{ color: TEXT_DIM }} />
@@ -213,7 +263,6 @@ export function NovoDocumentos() {
       </div>
 
       <div className="flex gap-5">
-        {/* Vista lista */}
         {viewMode === 'list' && (
           <div className="flex-1 min-w-0 overflow-hidden rounded-2xl" style={{ border: `1px solid ${BORDER}`, background: BG }}>
             <div className="grid text-[10px] font-bold uppercase tracking-widest px-5 py-3"
@@ -223,7 +272,7 @@ export function NovoDocumentos() {
 
             {filtered.length === 0 && (
               <div className="py-14 text-center" style={{ color: TEXT_DIM }}>
-                <p className="text-sm">Sin resultados.</p>
+                <p className="text-sm">{loading ? 'Cargando…' : 'Sin resultados.'}</p>
               </div>
             )}
 
@@ -233,7 +282,7 @@ export function NovoDocumentos() {
               const typeColor = TYPE_COLOR[doc.type] ?? TEXT_DIM;
               const isActive = selected?.id === doc.id;
               return (
-                <motion.div key={doc.id}
+                <motion.div key={`${doc.source}-${doc.id}`}
                   initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.18, delay: i * 0.03 }}
                   onClick={() => setSelected(isActive ? null : doc)}
@@ -253,7 +302,7 @@ export function NovoDocumentos() {
                     </div>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold" style={{ color: TEXT_HI }}>{doc.name}</p>
-                      <p className="text-[10px]" style={{ color: TEXT_DIM }}>{doc.size}</p>
+                      <p className="text-[10px]" style={{ color: TEXT_DIM }}>{doc.size}{doc.source === 'company' ? ' · Portal' : ''}</p>
                     </div>
                   </div>
 
@@ -275,12 +324,12 @@ export function NovoDocumentos() {
 
                   <div onClick={e => e.stopPropagation()}>
                     <RowActions
-                      onEdit={() => openEdit(doc)}
-                      onDuplicate={() => handleDuplicate(doc)}
-                      extraActions={[
-                        { label: 'Descargar', icon: DownloadIcon, onClick: () => {} },
+                      onEdit={doc.source === 'resource' ? () => openEdit(doc) : undefined}
+                      onDuplicate={doc.source === 'resource' ? () => { void handleDuplicate(doc); } : undefined}
+                      extra={[
+                        { label: 'Descargar', icon: DownloadIcon, onClick: () => { void handleOpen(doc); } },
                         { label: 'Vista previa', icon: EyeIcon, onClick: () => setSelected(doc) },
-                        { label: 'Eliminar', icon: TrashIcon, onClick: () => handleDelete(doc.id), danger: true },
+                        { label: 'Eliminar', icon: TrashIcon, onClick: () => { void handleDelete(doc); }, variant: 'danger' },
                       ]}
                     />
                   </div>
@@ -290,9 +339,11 @@ export function NovoDocumentos() {
           </div>
         )}
 
-        {/* Vista grilla */}
         {viewMode === 'grid' && (
           <div className="flex-1 min-w-0">
+            {filtered.length === 0 ? (
+              <p className="py-14 text-center text-sm" style={{ color: TEXT_DIM }}>{loading ? 'Cargando…' : 'Sin resultados.'}</p>
+            ) : (
             <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
               {filtered.map((doc, i) => {
                 const scope    = SCOPE_CFG[doc.scope];
@@ -300,7 +351,7 @@ export function NovoDocumentos() {
                 const typeColor = TYPE_COLOR[doc.type] ?? TEXT_DIM;
                 const isActive = selected?.id === doc.id;
                 return (
-                  <motion.div key={doc.id}
+                  <motion.div key={`${doc.source}-${doc.id}`}
                     initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.15, delay: i * 0.03 }}
                     onClick={() => setSelected(isActive ? null : doc)}
@@ -326,10 +377,10 @@ export function NovoDocumentos() {
                 );
               })}
             </div>
+            )}
           </div>
         )}
 
-        {/* Panel detalle */}
         <AnimatePresence>
           {selected && (
             <motion.div
@@ -338,7 +389,6 @@ export function NovoDocumentos() {
               exit={{ opacity: 0, x: 20, width: 0 }} transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
               className="shrink-0 overflow-hidden rounded-2xl" style={{ background: BG, border: `1px solid ${BORDER}` }}>
               <div className="p-5">
-                {/* Icono grande */}
                 <div className="flex items-center justify-center rounded-2xl mb-4 py-7"
                   style={{ background: BG_DEEP }}>
                   {(() => {
@@ -368,23 +418,24 @@ export function NovoDocumentos() {
                 </div>
 
                 <div className="space-y-2">
-                  <button className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold"
+                  <button type="button" onClick={() => { void handleOpen(selected); }}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold"
                     style={{ background: 'rgba(0,201,160,.1)', color: ACCENT, border: `1px solid rgba(0,201,160,.2)` }}>
                     <DownloadIcon size={12} /> Descargar
                   </button>
                   <div className="grid grid-cols-2 gap-2">
-                    <button onClick={() => openEdit(selected)}
-                      className="flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold"
+                    <button type="button" disabled={selected.source !== 'resource'} onClick={() => openEdit(selected)}
+                      className="flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold disabled:opacity-40"
                       style={{ background: '#182d47', color: TEXT_LO, border: `1px solid ${BORDER}` }}>
                       <PencilIcon size={11} /> Editar
                     </button>
-                    <button onClick={() => handleDuplicate(selected)}
-                      className="flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold"
+                    <button type="button" disabled={selected.source !== 'resource'} onClick={() => { void handleDuplicate(selected); }}
+                      className="flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold disabled:opacity-40"
                       style={{ background: '#182d47', color: TEXT_LO, border: `1px solid ${BORDER}` }}>
                       <CopyIcon size={11} /> Duplicar
                     </button>
                   </div>
-                  <button onClick={() => handleDelete(selected.id)}
+                  <button type="button" onClick={() => { void handleDelete(selected); }}
                     className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold"
                     style={{ background: 'rgba(242,68,99,.06)', color: '#F24463', border: '1px solid rgba(242,68,99,.2)' }}>
                     <TrashIcon size={11} /> Eliminar
@@ -396,20 +447,18 @@ export function NovoDocumentos() {
         </AnimatePresence>
       </div>
 
-      {/* ── Modal subir / editar recurso ──────────────────── */}
       <NovoModal
         open={modalOpen} onClose={() => setModalOpen(false)}
         title={editing ? 'Editar recurso' : 'Subir recurso'}
         footer={
           <>
             <ModalBtn variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</ModalBtn>
-            <ModalBtn variant="primary" onClick={handleSave} >
-              {editing ? 'Guardar cambios' : 'Guardar recurso'}
+            <ModalBtn variant="primary" onClick={() => { void handleSave(); }} disabled={saving || !form.name.trim()}>
+              {saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Guardar recurso'}
             </ModalBtn>
           </>
         }>
 
-        {/* Zona drag-drop */}
         {!editing && (
           <div
             className="mb-2 flex flex-col items-center justify-center gap-3 rounded-2xl py-10 transition-all"
@@ -419,12 +468,15 @@ export function NovoDocumentos() {
             }}
             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
-            onDrop={e => { e.preventDefault(); setDragOver(false); }}>
+            onDrop={e => { e.preventDefault(); setDragOver(false); takeFile(e.dataTransfer.files[0] ?? null); }}>
             <UploadIcon size={24} style={{ color: dragOver ? ACCENT : TEXT_DIM }} />
             <p className="text-sm font-semibold" style={{ color: dragOver ? ACCENT : TEXT_LO }}>
-              Arrastra un archivo aquí
+              {file ? file.name : 'Arrastra un archivo aquí'}
             </p>
-            <p className="text-xs" style={{ color: TEXT_DIM }}>o completa los campos manualmente abajo</p>
+            <label className="cursor-pointer text-xs font-semibold" style={{ color: ACCENT }}>
+              Elegir archivo
+              <input type="file" className="hidden" onChange={e => takeFile(e.target.files?.[0] ?? null)} />
+            </label>
           </div>
         )}
 
@@ -443,11 +495,13 @@ export function NovoDocumentos() {
               { value: 'MP4',  label: 'Video MP4' },
             ]} />
           </FormField>
-          <FormField label="URL del archivo" hint="Enlace de Drive, S3, Supabase Storage, etc.">
-            <FormInput value={form.url} onChange={f('url')} placeholder="https://drive.google.com/…" />
-          </FormField>
-          <FormField label="Tamaño (referencial)">
-            <FormInput value={form.size} onChange={f('size')} placeholder="2,4 MB" />
+          {editing ? (
+            <FormField label="Reemplazar archivo">
+              <input type="file" className="w-full text-xs" style={{ color: TEXT_LO }} onChange={e => takeFile(e.target.files?.[0] ?? null)} />
+            </FormField>
+          ) : null}
+          <FormField label="URL del archivo" hint="Opcional si subes el archivo. Drive, S3 o enlace público.">
+            <FormInput value={form.url} onChange={f('url')} placeholder="https://…" />
           </FormField>
           <FormField label="Descripción">
             <FormTextarea value={form.description} onChange={f('description')} rows={2} placeholder="Breve descripción del contenido…" />
@@ -472,12 +526,18 @@ export function NovoDocumentos() {
           </FormField>
           {(form.category === 'evento' || form.category === 'empresa') && (
             <FormField label="Evento relacionado">
-              <FormInput value={form.event} onChange={f('event')} placeholder="La Eterna Primavera 2025" />
+              <FormSelect value={form.event} onChange={f('event')} options={[
+                { value: '', label: 'Sin evento específico' },
+                ...events.map(ev => ({ value: ev.id, label: ev.name })),
+              ]} />
             </FormField>
           )}
-          {(form.category === 'empresa') && (
+          {form.category === 'empresa' && (
             <FormField label="Empresa relacionada">
-              <FormInput value={form.company} onChange={f('company')} placeholder="Laboratorios Roche Colombia" />
+              <FormSelect value={form.company} onChange={f('company')} options={[
+                { value: '', label: 'Selecciona una empresa' },
+                ...companies.map(c => ({ value: c.id, label: c.name })),
+              ]} />
             </FormField>
           )}
         </FormSection>
