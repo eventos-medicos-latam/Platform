@@ -9,6 +9,9 @@ import {
   countTodayScans, listRecentScans, pickScannerEventId, rememberScannerEventId, scanPersonQr,
   type ScanInteractionKey, type ScanLogEntry,
 } from '../../lib/novo/scanner';
+import {
+  attachCameraStream, cameraErrorMessage, createNativeQrDetector, decodeQrFromVideo, openRearCamera,
+} from '../../lib/novo/qrCamera';
 import type { NovoEvent } from '../../types/novo';
 
 const INTERACTION_TYPES: { id: ScanInteractionKey; label: string; emoji: string; rule: string; icon: typeof LogInIcon; color: string }[] = [
@@ -39,22 +42,6 @@ function formatAgo(iso: string) {
   const hours = Math.round(mins / 60);
   if (Math.abs(hours) < 24) return rtf.format(-hours, 'hour');
   return rtf.format(-Math.round(hours / 24), 'day');
-}
-
-type BarcodeDetectorLike = {
-  detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue: string }>>;
-};
-
-function createQrDetector(): BarcodeDetectorLike | null {
-  const Ctor = (window as unknown as {
-    BarcodeDetector?: new (opts?: { formats: string[] }) => BarcodeDetectorLike;
-  }).BarcodeDetector;
-  if (!Ctor) return null;
-  try {
-    return new Ctor({ formats: ['qr_code'] });
-  } catch {
-    return null;
-  }
 }
 
 export function NovoScanner() {
@@ -127,53 +114,63 @@ export function NovoScanner() {
 
     let cancelled = false;
     let timer: number | null = null;
-    const detector = createQrDetector();
+    const detector = createNativeQrDetector();
 
     const stop = () => {
-      if (timer) window.clearInterval(timer);
+      if (timer) window.clearTimeout(timer);
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     };
 
-    (async () => {
-      if (!detector) {
-        setCameraHint('Este navegador no lee QR por cámara. Usa el lector USB o pega el código.');
-        setCameraOn(false);
-        return;
+    const tick = async () => {
+      if (cancelled) return;
+      const videoEl = videoRef.current;
+      if (videoEl && videoEl.readyState >= 2 && !scanningRef.current) {
+        try {
+          const raw = await decodeQrFromVideo(videoEl, detector);
+          if (raw) {
+            const now = Date.now();
+            if (!(lastCameraTokenRef.current.value === raw && now - lastCameraTokenRef.current.at < 2500)) {
+              lastCameraTokenRef.current = { value: raw, at: now };
+              await handleScan(raw);
+            }
+          }
+        } catch {
+          /* frame skipped */
+        }
       }
+      if (!cancelled) timer = window.setTimeout(() => { void tick(); }, 180);
+    };
+
+    (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
-          audio: false,
-        });
+        const stream = await openRearCamera();
         if (cancelled) {
           stream.getTracks().forEach((track) => track.stop());
           return;
         }
         streamRef.current = stream;
-        const video = videoRef.current;
-        if (video) {
-          video.srcObject = stream;
+        let video = videoRef.current;
+        for (let i = 0; i < 12 && !video; i += 1) {
+          await new Promise<void>((resolve) => { requestAnimationFrame(() => resolve()); });
+          video = videoRef.current;
+        }
+        if (!video) {
+          stream.getTracks().forEach((track) => track.stop());
+          setCameraHint('No se pudo mostrar la cámara. Intenta de nuevo.');
+          setCameraOn(false);
+          return;
+        }
+        attachCameraStream(video, stream);
+        try {
           await video.play();
+        } catch {
+          /* muted + playsInline usually allows autoplay after getUserMedia */
         }
         setCameraHint(null);
-        timer = window.setInterval(async () => {
-          const videoEl = videoRef.current;
-          if (!videoEl || videoEl.readyState < 2 || scanningRef.current) return;
-          try {
-            const codes = await detector.detect(videoEl);
-            const raw = codes[0]?.rawValue;
-            if (!raw) return;
-            const now = Date.now();
-            if (lastCameraTokenRef.current.value === raw && now - lastCameraTokenRef.current.at < 2500) return;
-            lastCameraTokenRef.current = { value: raw, at: now };
-            await handleScan(raw);
-          } catch {
-            /* frame skipped */
-          }
-        }, 280);
-      } catch {
-        setCameraHint('No se pudo abrir la cámara. Revisa el permiso del navegador.');
+        void tick();
+      } catch (err) {
+        setCameraHint(cameraErrorMessage(err));
         setCameraOn(false);
       }
     })();
@@ -202,7 +199,7 @@ export function NovoScanner() {
       setLastResult({ ok: outcome.ok, name: outcome.name, message: outcome.message });
       setToken('');
       await reloadLog(eventIdRef.current);
-      inputRef.current?.focus();
+      if (!cameraOn) inputRef.current?.focus();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo registrar el escaneo.');
     } finally {
@@ -251,9 +248,9 @@ export function NovoScanner() {
           <div className="flex flex-col items-center gap-5 rounded-2xl p-4 sm:p-6"
             style={{ background: '#112035', border: '1px solid #1e3450' }}>
             <div
-              className="relative flex items-center justify-center overflow-hidden"
+              className="relative flex w-full max-w-[280px] aspect-square items-center justify-center overflow-hidden"
               style={{
-                width: 200, height: 200, borderRadius: 20,
+                borderRadius: 20,
                 border: `2px solid ${scanning || cameraOn ? '#00C9A0' : '#1e3450'}`,
                 background: scanning || cameraOn ? 'rgba(0,201,160,.04)' : '#0d1829',
                 transition: 'border-color .3s, background .3s',
@@ -278,6 +275,7 @@ export function NovoScanner() {
                   muted
                   playsInline
                   autoPlay
+                  disablePictureInPicture
                   style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 18 }}
                 />
               ) : null}

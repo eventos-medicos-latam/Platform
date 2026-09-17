@@ -51,34 +51,28 @@ export function SpeakerRegister() {
     setSubmitting(true);
     try {
       const { data, error: signUpError } = await supabase.auth.signUp({
-        email: form.email,
+        email: form.email.trim(),
         password: form.password,
         options: {
           data: {
-            full_name: form.nombre,
+            full_name: form.nombre.trim(),
             role: 'speaker',
             especialidad: form.especialidad,
-            institucion: form.institucion,
-            pais: form.pais,
+            institucion: form.institucion.trim(),
+            pais: form.pais.trim(),
           },
         },
       });
       if (signUpError) throw signUpError;
-
-      // Si Supabase está en modo MOCK (no hay sesión real), igual mostramos confirmación
-      if (data.user) {
-        // Insertar perfil con role=speaker
-        await supabase.from('profiles').upsert({
-          id: data.user.id,
-          full_name: form.nombre,
-          role: 'speaker',
-        });
-      }
+      if (!data.user) throw new Error('No se pudo crear la cuenta. Intenta de nuevo.');
       setDone(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al crear cuenta';
-      // En modo mock Supabase puede devolver errores de configuración — los ignoramos
-      if (msg.includes('not enabled') || msg.includes('disabled') || msg.includes('Mock')) {
+      if (/already registered|already been registered|user already exists/i.test(msg)) {
+        setError('Este correo ya tiene una cuenta. Inicia sesión.');
+      } else if (/database error saving new user/i.test(msg)) {
+        setError('No se pudo crear la cuenta. Intenta de nuevo o escríbenos si el problema continúa.');
+      } else if (msg.includes('not enabled') || msg.includes('disabled') || msg.includes('Mock')) {
         setDone(true);
       } else {
         setError(msg);
