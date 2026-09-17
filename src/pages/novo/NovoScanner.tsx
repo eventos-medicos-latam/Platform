@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   QrCodeIcon, CheckCircleIcon, XCircleIcon, LogInIcon, CoffeeIcon,
   UtensilsIcon, GiftIcon, StarIcon, AwardIcon, CameraIcon, KeyboardIcon,
+  ChevronDownIcon,
 } from 'lucide-react';
 import { listEvents } from '../../lib/novo/events';
 import {
@@ -56,15 +57,18 @@ export function NovoScanner() {
   const [log, setLog] = useState<ScanLogEntry[]>([]);
   const [today, setToday] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
+  const [eventsOpen, setEventsOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const eventsMenuRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanningRef = useRef(false);
-  const lastCameraTokenRef = useRef({ value: '', at: 0 });
+  const lastCameraTokenRef = useRef({ value: '', interaction: '' as ScanInteractionKey | '', at: 0 });
   const activeTypeRef = useRef(activeType);
   const eventIdRef = useRef(eventId);
 
   const selectedEvent = events.find((event) => event.id === eventId);
+  const activeMeta = INTERACTION_TYPES.find((item) => item.id === activeType) ?? INTERACTION_TYPES[0];
   activeTypeRef.current = activeType;
   eventIdRef.current = eventId;
 
@@ -92,6 +96,22 @@ export function NovoScanner() {
       setToday({});
     });
   }, [eventId]);
+
+  useEffect(() => {
+    if (!eventsOpen) return;
+    const onPointer = (event: MouseEvent) => {
+      if (!eventsMenuRef.current?.contains(event.target as Node)) setEventsOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setEventsOpen(false);
+    };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [eventsOpen]);
 
   useEffect(() => {
     if (!lastResult || !cameraOn) return;
@@ -130,8 +150,11 @@ export function NovoScanner() {
           const raw = await decodeQrFromVideo(videoEl, detector);
           if (raw) {
             const now = Date.now();
-            if (!(lastCameraTokenRef.current.value === raw && now - lastCameraTokenRef.current.at < 2500)) {
-              lastCameraTokenRef.current = { value: raw, at: now };
+            const sameShot = lastCameraTokenRef.current.value === raw
+              && lastCameraTokenRef.current.interaction === activeTypeRef.current
+              && now - lastCameraTokenRef.current.at < 2500;
+            if (!sameShot) {
+              lastCameraTokenRef.current = { value: raw, interaction: activeTypeRef.current, at: now };
               await handleScan(raw);
             }
           }
@@ -222,20 +245,65 @@ export function NovoScanner() {
             Una persona = un QR permanente · reglas de uso por evento
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-xl px-3 py-2 min-w-0"
-          style={{ background: '#112035', border: '1px solid #1e3450' }}>
-          <div className="h-2 w-2 shrink-0 rounded-full" style={{ background: '#00C9A0', boxShadow: '0 0 6px #00C9A0' }} />
-          <select
-            value={eventId}
-            onChange={(e) => setEventId(e.target.value)}
-            className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none"
-            style={{ color: '#E1EAF4' }}
+        <div className="relative min-w-0 sm:max-w-xs sm:shrink-0" ref={eventsMenuRef}>
+          <button
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded={eventsOpen}
+            onClick={() => setEventsOpen((open) => !open)}
+            className="flex w-full min-w-0 items-center gap-2 rounded-xl px-3 py-2 text-left"
+            style={{ background: '#112035', border: '1px solid #1e3450' }}
           >
-            {events.length === 0 ? <option value="">Sin eventos</option> : null}
-            {events.map((event) => (
-              <option key={event.id} value={event.id}>{event.name}</option>
-            ))}
-          </select>
+            <div className="h-2 w-2 shrink-0 rounded-full" style={{ background: '#00C9A0', boxShadow: '0 0 6px #00C9A0' }} />
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold" style={{ color: '#E1EAF4' }}>
+              {selectedEvent?.name ?? (events.length === 0 ? 'Sin eventos' : 'Elige un evento')}
+            </span>
+            <ChevronDownIcon
+              size={14}
+              className="shrink-0"
+              style={{ color: '#7A9CB8', transform: eventsOpen ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }}
+            />
+          </button>
+          <AnimatePresence>
+            {eventsOpen ? (
+              <motion.ul
+                role="listbox"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.15 }}
+                className="absolute right-0 z-30 mt-1.5 max-h-64 w-72 overflow-y-auto rounded-xl py-1"
+                style={{ background: '#112035', border: '1px solid #1e3450', boxShadow: '0 12px 32px rgba(0,0,0,.55)' }}
+              >
+                {events.length === 0 ? (
+                  <li className="px-3 py-2.5 text-sm" style={{ color: '#7A9CB8' }}>Sin eventos</li>
+                ) : events.map((event) => {
+                  const active = event.id === eventId;
+                  return (
+                    <li key={event.id}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={active}
+                        onClick={() => {
+                          setEventId(event.id);
+                          setEventsOpen(false);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold"
+                        style={{
+                          color: active ? '#00C9A0' : '#E1EAF4',
+                          background: active ? 'rgba(0,201,160,.12)' : 'transparent',
+                        }}
+                      >
+                        <span className="min-w-0 flex-1 truncate">{event.name}</span>
+                        {active ? <CheckCircleIcon size={14} className="shrink-0" style={{ color: '#00C9A0' }} /> : null}
+                      </button>
+                    </li>
+                  );
+                })}
+              </motion.ul>
+            ) : null}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -324,10 +392,10 @@ export function NovoScanner() {
 
             <p className="text-sm text-center" style={{ color: '#7A9CB8' }}>
               {scanning
-                ? 'Validando inscripción…'
+                ? `Validando ${activeMeta.label.toLowerCase()}…`
                 : cameraOn
-                  ? `Cámara lista · ${selectedEvent?.name ?? 'evento'}`
-                  : selectedEvent ? `Escaneo para ${selectedEvent.name}` : 'Elige un evento'}
+                  ? `Cámara lista · ${activeMeta.label} · ${selectedEvent?.name ?? 'evento'}`
+                  : selectedEvent ? `Próximo QR = ${activeMeta.label} · ${selectedEvent.name}` : 'Elige un evento'}
             </p>
 
             {cameraHint ? (
@@ -410,7 +478,11 @@ export function NovoScanner() {
                 <button
                   key={t.id}
                   type="button"
-                  onClick={() => setActiveType(t.id)}
+                  onClick={() => {
+                    setActiveType(t.id);
+                    lastCameraTokenRef.current = { value: '', interaction: '', at: 0 };
+                    setLastResult(null);
+                  }}
                   className="rounded-xl p-3 text-center transition-all"
                   style={{
                     background: activeType === t.id ? `${t.color}15` : '#112035',
