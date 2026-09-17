@@ -213,7 +213,7 @@ export function NovoScanner() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#00C9A0' }}>
             QR universal
@@ -225,22 +225,20 @@ export function NovoScanner() {
             Una persona = un QR permanente · reglas de uso por evento
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-xl px-3 py-2"
-            style={{ background: '#112035', border: '1px solid #1e3450' }}>
-            <div className="h-2 w-2 rounded-full" style={{ background: '#00C9A0', boxShadow: '0 0 6px #00C9A0' }} />
-            <select
-              value={eventId}
-              onChange={(e) => setEventId(e.target.value)}
-              className="bg-transparent text-sm font-semibold outline-none"
-              style={{ color: '#E1EAF4' }}
-            >
-              {events.length === 0 ? <option value="">Sin eventos</option> : null}
-              {events.map((event) => (
-                <option key={event.id} value={event.id}>{event.name}</option>
-              ))}
-            </select>
-          </div>
+        <div className="flex items-center gap-2 rounded-xl px-3 py-2 min-w-0"
+          style={{ background: '#112035', border: '1px solid #1e3450' }}>
+          <div className="h-2 w-2 shrink-0 rounded-full" style={{ background: '#00C9A0', boxShadow: '0 0 6px #00C9A0' }} />
+          <select
+            value={eventId}
+            onChange={(e) => setEventId(e.target.value)}
+            className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none"
+            style={{ color: '#E1EAF4' }}
+          >
+            {events.length === 0 ? <option value="">Sin eventos</option> : null}
+            {events.map((event) => (
+              <option key={event.id} value={event.id}>{event.name}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -248,9 +246,9 @@ export function NovoScanner() {
         <p className="mb-4 rounded-xl px-4 py-2.5 text-xs" style={{ background: 'rgba(242,68,99,.12)', color: '#F24463' }}>{error}</p>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="space-y-4">
-          <div className="rounded-2xl p-6 flex flex-col items-center gap-5"
+          <div className="flex flex-col items-center gap-5 rounded-2xl p-4 sm:p-6"
             style={{ background: '#112035', border: '1px solid #1e3450' }}>
             <div
               className="relative flex items-center justify-center overflow-hidden"
@@ -366,7 +364,7 @@ export function NovoScanner() {
             <input
               ref={inputRef}
               value={token}
-              autoFocus
+              autoFocus={false}
               onChange={(e) => setToken(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') void handleScan(); }}
               placeholder="Pega el código QR o usa un lector USB"
@@ -409,7 +407,7 @@ export function NovoScanner() {
             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#3A5470' }}>
               Tipo de interacción activo
             </p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {INTERACTION_TYPES.map((t) => (
                 <button
                   key={t.id}

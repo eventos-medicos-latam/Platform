@@ -79,14 +79,14 @@ export function NovoEventShell() {
     : 0;
 
   return (
-    <div className="flex min-h-screen w-full flex-col" style={{ background: '#0d1829', fontFamily: "'Inter', ui-sans-serif, system-ui, sans-serif" }}>
+    <div className="flex min-h-0 w-full flex-col" style={{ background: '#0d1829', fontFamily: "'Inter', ui-sans-serif, system-ui, sans-serif" }}>
 
       {/* ── Top bar 1: contexto del evento ────────────────────────────────── */}
-      <div className="sticky top-0 z-30"
+      <div className="sticky top-[57px] z-30 lg:top-0"
         style={{ background: 'rgba(10,33,64,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
 
         {/* Fila superior: breadcrumb + acciones */}
-        <div className="flex items-center gap-3 px-6 py-3">
+        <div className="flex items-center gap-3 px-4 py-3 lg:px-6">
           {/* Volver */}
           <Link to="/novo/eventos"
             className="flex items-center gap-1.5 text-xs font-semibold rounded-lg px-2 py-1.5 transition-all shrink-0"
@@ -101,7 +101,7 @@ export function NovoEventShell() {
           {/* Selector de evento */}
           <div className="relative flex-1 min-w-0">
             <button type="button" onClick={() => setEventsOpen(o => !o)}
-              className="flex items-center gap-2 rounded-xl px-3 py-1.5 text-left transition-all max-w-xs"
+              className="flex min-w-0 max-w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left transition-all sm:max-w-xs sm:px-3"
               style={{ background: eventsOpen ? 'rgba(0,201,160,.08)' : 'transparent' }}
               onMouseEnter={e => { if (!eventsOpen) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
               onMouseLeave={e => { if (!eventsOpen) e.currentTarget.style.background = 'transparent'; }}>
@@ -167,7 +167,7 @@ export function NovoEventShell() {
         </div>
 
         {/* Fila inferior: nav horizontal */}
-        <nav className="flex items-end gap-0.5 px-4 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        <nav className="flex items-end gap-0.5 overflow-x-auto px-4 lg:px-6" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
           {EVENT_NAV.map((item) => {
             const to = item.path ? `${base}/${item.path}` : base;
             return (
@@ -215,7 +215,7 @@ export function NovoEventShell() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-          className="flex-1 px-6 py-7 lg:px-8 lg:py-8"
+          className="flex-1 px-4 py-5 pb-8 lg:px-8 lg:py-8"
         >
           <Outlet context={{ event, onEventChange: (next: NovoEvent) => {
             setEvent(next);

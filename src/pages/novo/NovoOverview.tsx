@@ -62,7 +62,7 @@ export function NovoOverview() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-        className="flex items-end justify-between"
+        className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
       >
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#00C9A0' }}>
@@ -80,7 +80,7 @@ export function NovoOverview() {
         </div>
         <Link
           to="/novo/eventos"
-          className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-150 hover:opacity-90 active:scale-95"
+          className="inline-flex w-fit items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-150 hover:opacity-90 active:scale-95"
           style={{ background: '#182d47', color: '#7A9CB8', border: '1px solid #1e3450' }}
         >
           Ver todos los eventos
@@ -166,7 +166,7 @@ export function NovoOverview() {
               </div>
 
               {/* KPIs del evento protagonista */}
-              <div className="mt-4 grid grid-cols-3 gap-3">
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {[
                   {
                     label: 'Registros',

@@ -16,7 +16,7 @@ const GROUP_ICON_COLOR: Record<string, string> = {
   'Sistema':    'rgba(255,255,255,0.35)',
 };
 
-const NAV = [
+export const NOVO_NAV = [
   {
     group: 'Operación',
     items: [
@@ -58,36 +58,33 @@ const NAV = [
 const SIDEBAR_BG    = '#0a2140';
 const SIDEBAR_BORDER = 'rgba(255,255,255,0.08)';
 
-export function NovoSidebar() {
+export function NovoSidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNavigate?: () => void }) {
   const { session, signOut } = usePlatform();
   const navigate = useNavigate();
 
-  return (
-    <aside
-      className="hidden lg:flex sticky top-0 h-screen min-h-0 w-[248px] shrink-0 flex-col"
-      style={{ background: SIDEBAR_BG, borderRight: `1px solid ${SIDEBAR_BORDER}` }}
-    >
-      {/* Logo */}
-      <div className="px-5 py-5" style={{ borderBottom: `1px solid ${SIDEBAR_BORDER}` }}>
-        <Link to="/novo" className="flex items-center gap-2.5 group">
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold transition-transform duration-200 group-hover:scale-110"
-            style={{ background: 'linear-gradient(135deg, #00C9A0, #007AFF)', color: '#fff' }}
-          >
-            EML
-          </div>
-          <div>
-            <p className="text-sm font-bold leading-none text-white">EML Platform</p>
-            <p className="text-[10px] font-semibold uppercase tracking-widest mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
-              Panel administrativo
-            </p>
-          </div>
-        </Link>
-      </div>
+  const inner = (
+    <>
+      {!mobile ? (
+        <div className="px-5 py-5" style={{ borderBottom: `1px solid ${SIDEBAR_BORDER}` }}>
+          <Link to="/novo" className="flex items-center gap-2.5 group">
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold transition-transform duration-200 group-hover:scale-110"
+              style={{ background: 'linear-gradient(135deg, #00C9A0, #007AFF)', color: '#fff' }}
+            >
+              EML
+            </div>
+            <div>
+              <p className="text-sm font-bold leading-none text-white">EML Platform</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                Panel administrativo
+              </p>
+            </div>
+          </Link>
+        </div>
+      ) : null}
 
-      {/* Nav */}
-      <nav data-lenis-prevent className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 space-y-5">
-        {NAV.map((group) => {
+      <nav data-lenis-prevent className={mobile ? 'min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-3 py-2' : 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 space-y-5'}>
+        {NOVO_NAV.map((group) => {
           const iconColor = GROUP_ICON_COLOR[group.group];
           return (
             <div key={group.group}>
@@ -100,33 +97,18 @@ export function NovoSidebar() {
                   <li key={item.to}>
                     <NavLink
                       to={item.to}
-                      end={item.end}
+                      end={'end' in item ? item.end : undefined}
+                      onClick={onNavigate}
                       className="group relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200"
                       style={({ isActive }) => ({
                         color: isActive ? '#fff' : 'rgba(255,255,255,0.55)',
                         background: isActive ? 'rgba(0,201,160,0.12)' : 'transparent',
                         boxShadow: isActive ? '0 0 0 1px rgba(0,201,160,0.2) inset' : 'none',
                       })}
-                      onMouseEnter={e => {
-                        const el = e.currentTarget as HTMLElement;
-                        if (!el.getAttribute('aria-current')) {
-                          el.style.background = 'rgba(255,255,255,0.06)';
-                          el.style.boxShadow = '0 0 0 1px rgba(255,255,255,0.06) inset, 0 2px 8px rgba(0,0,0,.2)';
-                          el.style.color = 'rgba(255,255,255,0.9)';
-                        }
-                      }}
-                      onMouseLeave={e => {
-                        const el = e.currentTarget as HTMLElement;
-                        if (!el.getAttribute('aria-current')) {
-                          el.style.background = 'transparent';
-                          el.style.boxShadow = 'none';
-                          el.style.color = 'rgba(255,255,255,0.55)';
-                        }
-                      }}
                     >
                       {({ isActive }) => (
                         <>
-                          {isActive && (
+                          {isActive && !mobile && (
                             <motion.span
                               layoutId="novo-nav-marker"
                               className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full"
@@ -154,8 +136,7 @@ export function NovoSidebar() {
         })}
       </nav>
 
-      {/* User */}
-      <div className="px-4 py-4" style={{ borderTop: `1px solid ${SIDEBAR_BORDER}` }}>
+      <div className="shrink-0 px-4 py-4" style={{ borderTop: `1px solid ${SIDEBAR_BORDER}` }}>
         <div className="flex items-center gap-3 mb-3">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold"
             style={{ background: 'rgba(0,201,160,.15)', color: '#00C9A0', border: '1px solid rgba(0,201,160,.2)' }}>
@@ -171,6 +152,7 @@ export function NovoSidebar() {
         <button
           type="button"
           onClick={() => {
+            onNavigate?.();
             signOut();
             navigate('/login');
           }}
@@ -180,6 +162,23 @@ export function NovoSidebar() {
           Cerrar sesión
         </button>
       </div>
+    </>
+  );
+
+  if (mobile) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        {inner}
+      </div>
+    );
+  }
+
+  return (
+    <aside
+      className="hidden lg:flex sticky top-0 h-screen min-h-0 w-[248px] shrink-0 flex-col"
+      style={{ background: SIDEBAR_BG, borderRight: `1px solid ${SIDEBAR_BORDER}` }}
+    >
+      {inner}
     </aside>
   );
 }

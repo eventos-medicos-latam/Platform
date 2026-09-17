@@ -22,7 +22,7 @@ export function KPICard({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1], delay }}
-      className="relative overflow-hidden rounded-2xl p-5"
+      className="relative overflow-hidden rounded-2xl p-4 sm:p-5"
       style={{
         background: '#112035',
         border: '1px solid #1e3450',
@@ -41,7 +41,7 @@ export function KPICard({
             {label}
           </p>
           <p
-            className="text-2xl font-bold tabular-nums leading-none"
+            className="text-xl font-bold tabular-nums leading-none sm:text-2xl"
             style={{ color: '#E1EAF4', fontFamily: "'Sora', 'Inter', sans-serif" }}
           >
             {value}

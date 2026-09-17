@@ -96,7 +96,7 @@ export function NovoEventResumen() {
       </div>
 
       {/* KPIs */}
-      <div className="mb-6 grid grid-cols-4 gap-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
         <KPICard
           label="Registros"
           value={(event.registrations_count ?? 0).toLocaleString('es-CO')}
@@ -134,9 +134,9 @@ export function NovoEventResumen() {
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Alertas */}
-        <div className="col-span-1">
+        <div className="lg:col-span-1">
           <p className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#3A5470' }}>
             Alertas
           </p>
@@ -174,7 +174,7 @@ export function NovoEventResumen() {
         </div>
 
         {/* Agenda preview */}
-        <div className="col-span-2">
+        <div className="lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#3A5470' }}>
               Agenda del día — vista rápida
