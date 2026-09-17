@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FileTextIcon, FolderIcon, HelpCircleIcon, LayoutDashboardIcon, LogOutIcon, MicVocalIcon, PackageIcon, UserRoundIcon, UsersIcon, WalletIcon } from 'lucide-react';
+import { ContactIcon, FileTextIcon, FolderIcon, HelpCircleIcon, LayoutDashboardIcon, LogOutIcon, MicVocalIcon, PackageIcon, QrCodeIcon, UserRoundIcon, UsersIcon, WalletIcon } from 'lucide-react';
 import { Logo } from '../ui/Logo';
 import { getEdition } from '../../data/editions';
 import { usePlatform } from '../../contexts/PlatformContext';
@@ -12,6 +12,14 @@ const items = [{
   label: 'Inicio',
   icon: LayoutDashboardIcon,
   end: true
+}, {
+  to: '/portal/escanear',
+  label: 'Escanear QR',
+  icon: QrCodeIcon
+}, {
+  to: '/portal/contactos',
+  label: 'QR / Contactos',
+  icon: ContactIcon
 }, {
   to: '/portal/participacion',
   label: 'Mi participación',

@@ -77,6 +77,8 @@ import { PortalPayments } from './pages/portal/PortalPayments';
 import { PortalProfile } from './pages/portal/PortalProfile';
 import { PortalHelp } from './pages/portal/PortalHelp';
 import { PortalResources } from './pages/portal/PortalResources';
+import { PortalScan } from './pages/portal/PortalScan';
+import { PortalContacts } from './pages/portal/PortalContacts';
 import { SpeakerLayout } from './components/layout/SpeakerLayout';
 import { SpeakerHome } from './pages/speaker/SpeakerHome';
 import { SpeakerRegister } from './pages/speaker/SpeakerRegister';
@@ -158,6 +160,8 @@ function AnimatedRoutes() {
         <Route element={<RequireRole role="empresa" />}>
           <Route path="/portal" element={<PortalLayout />}>
             <Route index element={<PortalHome />} />
+            <Route path="escanear" element={<PortalScan />} />
+            <Route path="contactos" element={<PortalContacts />} />
             <Route path="participacion" element={<PortalParticipation />} />
             <Route path="equipo" element={<PortalTeam />} />
             <Route path="requerimientos" element={<Navigate to="/portal/perfil#requerimientos" replace />} />

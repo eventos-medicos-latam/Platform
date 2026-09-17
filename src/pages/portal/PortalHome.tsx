@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRightIcon, ClipboardListIcon, CreditCardIcon, EyeIcon, LayoutPanelLeftIcon, MousePointerClickIcon, TicketIcon, UploadCloudIcon } from 'lucide-react';
+import { ArrowRightIcon, ClipboardListIcon, CreditCardIcon, EyeIcon, LayoutPanelLeftIcon, MousePointerClickIcon, QrCodeIcon, TicketIcon, UploadCloudIcon } from 'lucide-react';
 import { ModuleHeader, Panel } from '../../components/admin/Panel';
 import { usePlatform } from '../../contexts/PlatformContext';
 import { getEdition } from '../../data/editions';
@@ -83,7 +83,12 @@ export function PortalHome() {
         emphasis
         title="Pendientes por evento"
         description={payments.length === 0 ? 'Sin cuotas abiertas' : `${payments.length} cuota${payments.length === 1 ? '' : 's'} por pagar`}
-        actions={pendingTotal > 0 ? <Link to="/portal/pagos" className="rounded-lg bg-brand px-3.5 py-2 text-xs font-semibold text-white">Pagar ahora</Link> : null}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Link to="/portal/escanear" className="rounded-lg bg-[#ffd166] px-3.5 py-2 text-xs font-extrabold text-brand-deep">Escanear QR</Link>
+            {pendingTotal > 0 ? <Link to="/portal/pagos" className="rounded-lg bg-brand px-3.5 py-2 text-xs font-semibold text-white">Pagar ahora</Link> : null}
+          </div>
+        }
       >
         <ul className="divide-y divide-line">
           {payments.length === 0 ? (
@@ -167,6 +172,12 @@ export function PortalHome() {
         </div>
 
         <div className="relative mt-6 flex flex-wrap gap-2.5">
+          <Link to="/portal/escanear" className="inline-flex items-center gap-2 rounded-full bg-[#ffd166] px-5 py-3 text-sm font-extrabold text-brand-deep shadow-elev2 transition-transform duration-200 ease-emphasis hover:-translate-y-0.5">
+            <QrCodeIcon size={16} /> Escanear QR
+          </Link>
+          <Link to="/portal/contactos" className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white transition-transform duration-200 ease-emphasis hover:-translate-y-0.5 hover:bg-white/15">
+            QR / Contactos
+          </Link>
           {visibleBalance > 0 ? <Link to="/portal/pagos" className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-brand-deep shadow-elev2 transition-transform duration-200 ease-emphasis hover:-translate-y-0.5">
               <CreditCardIcon size={15} /> Pagar ahora
             </Link> : null}
